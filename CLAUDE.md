@@ -28,7 +28,7 @@ Hard rules live in `GUARDRAILS.md` (imported above) and in `.claude/hooks/` (enf
 
 ## Setup
 
-1. Copy `.claude/`, `CLAUDE.md`, `GUARDRAILS.md`, and `.mcp.json` into your repo root.
+1. Copy `.claude/`, `CLAUDE.md`, `GUARDRAILS.md`, `.mcp.json`, and `scripts/` into your repo root.
 2. Copy `.env.example` → `.env` and fill in credentials.
 3. Export env vars before launching Claude Code:
    ```bash
@@ -46,6 +46,14 @@ Hard rules live in `GUARDRAILS.md` (imported above) and in `.claude/hooks/` (enf
 ## Slash Commands
 
 Invoke with `/domain/command [args]`.
+
+### Build `/build/*`
+Multi-agent parallel development. Claude decides agent count based on task complexity — you just describe what to build.
+Run `bash scripts/setup-agent-teams.sh` once per machine. Requires Claude Code v2.1.32+.
+
+| Command | What it does |
+|---------|-------------|
+| `/build/start <task>` | Read SPEC.md, autonomously decide agent count, show plan, confirm once, then spawn and coordinate |
 
 ### GitHub `/github/*`
 | Command | What it does |

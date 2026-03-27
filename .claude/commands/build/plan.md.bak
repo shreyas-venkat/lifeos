@@ -1,0 +1,98 @@
+---
+description: Analyse a build task and produce a multi-agent team plan before spawning anything. Use when the user says "plan a build", "how many agents do I need for", "break this into agents", "plan out the work for", or wants to review agent composition before committing to token cost. Run this before /build/spawn.
+allowed-tools: Read, Glob, Grep, Bash
+---
+
+You are a build planner. Your job is to analyse the task and the current codebase, then produce a concrete agent team plan — without spawning anything yet. The user reviews the plan, then runs `/build/spawn` to execute it.
+
+Task: $ARGUMENTS
+
+---
+
+## Step 1: Understand the codebase
+
+Read the project structure to understand what already exists:
+
+```bash
+find . -maxdepth 3 -not -path '*/.git/*' -not -path '*/node_modules/*' -not -path '*/__pycache__/*' | sort
+```
+
+Also read:
+- `SPEC.md` if it exists (required before any build — if missing, stop and tell the user to create it first)
+- `CLAUDE.md` and `GUARDRAILS.md` for project conventions
+- `.claude/project.env` for the test command
+
+## Step 2: Analyse the task
+
+Break the task into independent workstreams. A workstream is a unit of work that:
+- Has a clear, testable output
+- Can be done in parallel with other workstreams (no shared file conflicts mid-task)
+- Maps to a single concern (API, DB, tests, UI, infra, etc.)
+
+Apply this heuristic to decide agent count:
+
+| Situation | Agents |
+|-----------|--------|
+| Single-file change or small bug fix | 1 (no team needed — just do it) |
+| 2–3 related files, one concern | 1 |
+| Clear split across 2 concerns (e.g. API + tests) | 2 |
+| 3+ independent concerns, all non-trivial | 3 |
+| Large feature spanning multiple layers | 3–4 |
+| Full-stack feature (backend + frontend + DB + tests) | 4–5 |
+| Never exceed 5 agents — coordination cost exceeds benefit above this |
+
+**Important:** Default to fewer agents. An agent that does 2 related things is better than 2 agents that have to coordinate on the same files. Over-spawning is the most common mistake.
+
+## Step 3: Write the team plan
+
+Output a structured plan in this exact format:
+
+---
+
+### Build Plan: [task name]
+
+**Task summary:** [one sentence]
+
+**Agent count:** [N]  
+**Rationale:** [why this many — specifically what parallelism you're exploiting]
+
+#### Agent 1: [role name]
+- **Owns:** [files/directories/concerns]
+- **Deliverable:** [concrete output — what exists when this agent is done]
+- **Blocks:** [Agent N, or "nothing"]
+- **Depends on:** [Agent N completing first, or "nothing"]
+
+#### Agent 2: [role name]
+...
+
+#### Shared task list
+Claude will maintain a shared `.agent-tasks.md` file that all agents read and update. Tasks:
+- [ ] [task] — owned by Agent N
+- [ ] [task] — owned by Agent N
+- [ ] [task] — blocked until [other task] complete
+
+#### Coordination rules
+- Agents communicate via `.agent-tasks.md` and `.agent-mailbox/` (one file per agent)
+- No two agents touch the same file — list any shared files and which agent owns writes
+- Integration agent (if present) waits for all workers to mark their tasks done before starting
+
+---
+
+## Step 4: Cost estimate
+
+Estimate token cost so the user can decide whether to proceed:
+
+- Each agent = roughly 1 full Claude session
+- A 3-agent team on a medium feature ≈ 3–4x a single session
+- At Pro ($20/month): 2–3 Agent Teams tasks per day
+- At Max ($100–$200/month): 8–10 complex tasks per 5-hour window
+
+State the estimate: **"Spawning N agents. Estimated cost: [low/medium/high] — roughly Nx a single-agent session."**
+
+## Step 5: Ask for confirmation
+
+End with:
+
+> Plan ready. Run `/build/spawn [same task description]` to execute, or tell me what to adjust.
+
+Do not spawn any agents. Do not write any code. This command is planning only.
