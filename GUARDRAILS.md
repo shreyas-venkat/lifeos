@@ -46,7 +46,7 @@ Wanting to move on, feeling like it's "basically done", or having the obvious ca
 
 ## Testing
 - Write tests before writing implementation (TDD) for every new function or module
-- Run `pytest tests/ -v` (or the project's equivalent test command) before declaring any task complete
+- Run the project's test command (see `.claude/project.env`) before declaring any task complete
 - Never move to the next task until all tests pass (exit code 0)
 - Never commit code changes without passing tests
 - Every new function, handler, hook, and helper gets both unit tests (mocked) and at minimum one integration test
@@ -76,6 +76,18 @@ Wanting to move on, feeling like it's "basically done", or having the obvious ca
 - TypeScript: `npm run build` (tsc + vite/webpack) must pass — no ts-ignore, no `any` except at boundaries
 - Frontend formatting: prettier — run `npx prettier --write src/` before committing TS/TSX files
 - Pre-commit hooks configured in `.pre-commit-config.yaml` — install with `pre-commit install`
+
+## Template sync — every repo must stay current
+- Every repo must have `claude-templates` as a git remote named `claude-templates`
+- Before every `git push`, the `sync-template` hook fetches and merges the latest from `claude-templates/main`
+- When creating a new repo, initialise it from `claude-templates` before writing any code:
+  ```bash
+  git remote add claude-templates git@github.com:shreyas-venkat/claude-templates.git
+  git fetch claude-templates main
+  git merge claude-templates/main --allow-unrelated-histories
+  ```
+- Never create a repo from scratch without this step — the hook will remind you
+- Configure per-repo overrides in `.claude/project.env` (copy from `.claude/project.env.example`)
 
 ## Git
 - Always commit and push after making file edits — do not wait to be asked
