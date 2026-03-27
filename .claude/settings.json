@@ -1,5 +1,18 @@
 {
   "enableAllProjectMcpServers": true,
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -d tests ]; then python -m pytest tests/ -v 2>&1 | tail -30; fi"
+          }
+        ]
+      }
+    ]
+  },
   "permissions": {
     "allow": [
       "Bash(git *)",

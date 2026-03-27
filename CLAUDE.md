@@ -1,3 +1,5 @@
+@GUARDRAILS.md
+
 # Claude Templates
 
 A drop-in `.claude/` configuration for Claude Code providing MCP server setup and a full library of slash commands for daily development work.
@@ -20,12 +22,7 @@ A drop-in `.claude/` configuration for Claude Code providing MCP server setup an
    export $(grep -v '^#' .env | xargs)
    # or use direnv: add `dotenv` to your .envrc
    ```
-4. Authenticate Gmail (one-time):
-   ```bash
-   npx @gongrzhe/server-gmail-autoauth-mcp auth
-   ```
-   A browser window opens — sign in with Google. Credentials are saved to `~/.gmail-mcp/` and reused automatically.
-5. Open the project in Claude Code — MCP servers start automatically.
+4. Open the project in Claude Code — MCP servers start automatically.
 
 ## Slash Commands
 
