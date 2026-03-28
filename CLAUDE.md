@@ -54,6 +54,7 @@ Run `bash scripts/setup-agent-teams.sh` once per machine. Requires Claude Code v
 | Command | What it does |
 |---------|-------------|
 | `/build/start <task>` | Read SPEC.md, autonomously decide agent count, show plan, confirm once, then spawn and coordinate |
+| `/build/coordinate <build root path>` | Cross-repo coordinator — reads all specs, writes BUILD.md, tracks progress, surfaces blockers, generates per-session context cards |
 
 ### GitHub `/github/*`
 | Command | What it does |
@@ -105,8 +106,22 @@ Run `bash scripts/setup-agent-teams.sh` once per machine. Requires Claude Code v
 ### Meta `/meta/*`
 | Command | What it does |
 |---------|-------------|
+| `/meta/spec <feature>` | Interview-driven SPEC.md writer — ask questions, write complete spec, confirm before handing to build |
 | `/meta/create-skill` | Design, write, test, and iterate on a new skill or slash command |
 | `/meta/cleanup-skills` | Audit all slash commands against a quality rubric and improve them |
+
+---
+
+## Multi-repo build workflow
+
+For building across multiple repos in parallel:
+
+1. Write a SPEC.md in each repo (`/meta/spec` in each)
+2. Open a tmux session with one pane per repo + one coordinator pane
+3. In the coordinator pane: `cd C:\repos\any-repo && claude`, then `/build/coordinate C:\repos`
+4. In each repo pane: `cd C:\repos\<repo> && claude`, then `/build/start`
+5. The coordinator maintains `C:\repos\BUILD.md` — check it to see blockers and progress
+6. If any session hits context limit, paste the context card from `.claude/build-context.md` into the new session
 
 ---
 
