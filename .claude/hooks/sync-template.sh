@@ -1,27 +1,22 @@
 #!/usr/bin/env bash
 # sync-template.sh
-# Fires: PreToolUse on Bash
-# Before git push: syncs from claude-templates/main.
-# On git init / gh repo create: injects new-repo setup reminder.
+# Fires: PreToolUse on Bash — only acts on git push / repo creation commands
 
 set -euo pipefail
+source "$(dirname "$0")/_python.sh"
 
 INPUT=$(cat)
 
 if command -v jq &>/dev/null; then
   COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // ""')
 else
-  COMMAND=$(echo "$INPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('tool_input',{}).get('command',''))" 2>/dev/null || echo "")
+  COMMAND=$(echo "$INPUT" | $PY -c "import sys,json; d=json.load(sys.stdin); print(d.get('tool_input',{}).get('command',''))" 2>/dev/null || echo "")
 fi
 
-# Fast exit — only care about git push and repo creation commands
-# Avoids running on every single Bash call
+# Fast exit — only care about push and repo creation
 case "$COMMAND" in
-  git\ push*|gh\ repo\ create*|git\ init*)
-    ;;  # fall through to handle below
-  *)
-    exit 0
-    ;;
+  git\ push*|gh\ repo\ create*|git\ init*) ;;
+  *) exit 0 ;;
 esac
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
@@ -42,14 +37,12 @@ if [[ "$SKIP_SYNC" == "true" ]]; then exit 0; fi
 LOG_DIR="$PROJECT_DIR/.claude/logs"
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/sync-template.log"
-TIMESTAMP=$(python3 -c "import datetime; print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))" 2>/dev/null || echo "unknown-time")
+TIMESTAMP=$($PY -c "import datetime; print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))" 2>/dev/null || echo "unknown-time")
 
-# ── git push: sync before allowing ───────────────────────────────────────────
 case "$COMMAND" in
   git\ push*)
     echo "[$TIMESTAMP] Pre-push: syncing from claude-templates..." >> "$LOG_FILE"
 
-    # Check if claude-templates remote already exists — portable check
     if ! git -C "$PROJECT_DIR" remote get-url claude-templates &>/dev/null; then
       git -C "$PROJECT_DIR" remote add claude-templates "$TEMPLATE_REPO" >> "$LOG_FILE" 2>&1 || true
     fi
@@ -59,13 +52,7 @@ case "$COMMAND" in
     echo "$FETCH_OUTPUT" >> "$LOG_FILE"
 
     if [[ $FETCH_EXIT -ne 0 ]]; then
-      # Fail open — warn but don't block if we can't reach the template repo
-      printf '%s\n' '{
-  "continue": true,
-  "hookSpecificOutput": {
-    "additionalContext": "WARNING: Could not fetch from claude-templates. Proceeding without sync — check your remote config."
-  }
-}'
+      printf '%s\n' '{"continue": true, "hookSpecificOutput": {"additionalContext": "WARNING: Could not fetch from claude-templates. Proceeding without sync."}}'
       exit 0
     fi
 
@@ -76,32 +63,26 @@ case "$COMMAND" in
       echo "$MERGE_OUTPUT" >> "$LOG_FILE"
 
       if echo "$MERGE_OUTPUT" | grep -qE 'MERGE_FAILED|CONFLICT'; then
-        python3 -c "
+        $PY -c "
 import json, sys
-reason = 'TEMPLATE SYNC: This repo is ' + sys.argv[1] + ' commit(s) behind claude-templates/main and has a merge conflict.\n\nResolve manually:\n  git fetch claude-templates main\n  git merge claude-templates/main\n  # fix conflicts\n  git add . && git commit\n\nThen retry the push.'
+reason = 'TEMPLATE SYNC: ' + sys.argv[1] + ' commit(s) behind claude-templates/main with a merge conflict.\n\nResolve:\n  git fetch claude-templates main\n  git merge claude-templates/main\n  git add . && git commit\nThen retry push.'
 print(json.dumps({'decision': 'block', 'reason': reason}))
 " "$BEHIND"
         exit 1
       fi
 
-      printf '%s\n' "{
-  \"continue\": true,
-  \"hookSpecificOutput\": {
-    \"additionalContext\": \"TEMPLATE SYNC: Merged $BEHIND update(s) from claude-templates/main. Commit the merge if needed, then push again.\"
-  }
-}"
+      printf '%s\n' "{\"continue\": true, \"hookSpecificOutput\": {\"additionalContext\": \"TEMPLATE SYNC: Merged $BEHIND update(s). Commit if needed then push again.\"}}"
       exit 0
     fi
 
-    echo "[$TIMESTAMP] Already up to date with claude-templates/main" >> "$LOG_FILE"
+    echo "[$TIMESTAMP] Already up to date" >> "$LOG_FILE"
     exit 0
     ;;
 
-  # ── new repo: inject setup reminder ────────────────────────────────────────
   gh\ repo\ create*|git\ init*)
-    python3 -c "
+    $PY -c "
 import json, sys
-msg = 'NEW REPO REMINDER: After creating this repo, initialise from claude-templates before writing any code:\n  git remote add claude-templates ' + sys.argv[1] + '\n  git fetch claude-templates main\n  git merge claude-templates/main --allow-unrelated-histories\nThis brings in CLAUDE.md, GUARDRAILS.md, hooks, and settings.'
+msg = 'NEW REPO: After creating, run:\n  git remote add claude-templates ' + sys.argv[1] + '\n  git fetch claude-templates main\n  git merge claude-templates/main --allow-unrelated-histories'
 print(json.dumps({'continue': True, 'hookSpecificOutput': {'additionalContext': msg}}))
 " "$TEMPLATE_REPO"
     exit 0

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # pre-tool-summary.sh
-# Fires: PreToolUse on write/execute tools only
-# Forces Claude to state what/why/expected result before acting.
-# Silent pass on read-only tools — no errors, no noise.
+# Fires: PreToolUse on Bash|Edit|MultiEdit|Write|Task
+# Silent pass on read-only tools.
 
 set -euo pipefail
+source "$(dirname "$0")/_python.sh"
 
 INPUT=$(cat)
 
@@ -12,24 +12,20 @@ if command -v jq &>/dev/null; then
   TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // "unknown"')
   TOOL_INPUT=$(echo "$INPUT" | jq -c '.tool_input // {}')
 else
-  TOOL_NAME=$(echo "$INPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('tool_name','unknown'))" 2>/dev/null || echo "unknown")
+  TOOL_NAME=$(echo "$INPUT" | $PY -c "import sys,json; d=json.load(sys.stdin); print(d.get('tool_name','unknown'))" 2>/dev/null || echo "unknown")
   TOOL_INPUT="{}"
 fi
 
-# Silent pass for read-only tools — no summary needed, no noise
 case "$TOOL_NAME" in
-  Read|Glob|Grep|LS|TodoRead|WebSearch|WebFetch)
-    exit 0
-    ;;
+  Read|Glob|Grep|LS|TodoRead|WebSearch|WebFetch) exit 0 ;;
 esac
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 LOG_DIR="$PROJECT_DIR/.claude/logs"
 mkdir -p "$LOG_DIR"
-LOG_FILE="$LOG_DIR/pre-tool.log"
 
-TIMESTAMP=$(python3 -c "import datetime; print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))" 2>/dev/null || echo "unknown-time")
-echo "[$TIMESTAMP] PRE-TOOL: $TOOL_NAME | input: $TOOL_INPUT" >> "$LOG_FILE"
+TIMESTAMP=$($PY -c "import datetime; print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))" 2>/dev/null || echo "unknown-time")
+echo "[$TIMESTAMP] PRE-TOOL: $TOOL_NAME | input: $TOOL_INPUT" >> "$LOG_DIR/pre-tool.log"
 
 printf '%s\n' '{
   "continue": true,

@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # stop-check.sh
-# Fires: Stop (when Claude thinks it's finished)
-# Final gate: tests must pass, no debug markers, every source file needs a test file.
+# Fires: Stop
 
 set -euo pipefail
+source "$(dirname "$0")/_python.sh"
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 LOG_DIR="$PROJECT_DIR/.claude/logs"
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/stop-check.log"
-TIMESTAMP=$(python3 -c "import datetime; print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))" 2>/dev/null || echo "unknown-time")
+TIMESTAMP=$($PY -c "import datetime; print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))" 2>/dev/null || echo "unknown-time")
 echo "[$TIMESTAMP] Stop hook fired" >> "$LOG_FILE"
 
 FAILURES=()
@@ -32,7 +32,7 @@ if [[ -z "$TEST_CMD" ]]; then
   fi
 fi
 
-# 1. Run full test suite — || true so set -e doesn't kill us before we report
+# 1. Run full test suite
 if [[ -n "$TEST_CMD" ]]; then
   cd "$PROJECT_DIR"
   TEST_OUTPUT=$(eval "$TEST_CMD" 2>&1) || true
@@ -42,22 +42,21 @@ if [[ -n "$TEST_CMD" ]]; then
     FAILURES+=("TEST SUITE FAILED:\n$TAIL")
   fi
 fi
-# No test runner = no block (template repo has no tests by design)
 
-# 2. Check for debug/todo markers — inline python heredoc, no temp files needed
+# 2. Check for debug/todo markers
 MODIFIED=$(git -C "$PROJECT_DIR" diff --name-only HEAD 2>/dev/null || echo "")
 if [[ -n "$MODIFIED" ]]; then
-  DEBUG_HITS=$(python3 - "$PROJECT_DIR" << PYEOF
+  PYCHECK=$(mktemp /tmp/stopcheck_XXXXXX.py)
+  cat > "$PYCHECK" << 'PYEOF'
 import sys, os, re
 
-project_dir = sys.argv[1]
-modified_lines = """$MODIFIED""".strip().splitlines()
-
+modified_str = open(sys.argv[1]).read().strip()
+project_dir = sys.argv[2]
+if not modified_str:
+    sys.exit(0)
 pattern = re.compile(r'(console\.log|print\(|debugger|TODO|FIXME|HACK|XXX)')
 hits = []
-for rel in modified_lines:
-    if not rel.strip():
-        continue
+for rel in modified_str.splitlines():
     path = os.path.join(project_dir, rel)
     try:
         with open(path, encoding='utf-8', errors='ignore') as f:
@@ -65,28 +64,33 @@ for rel in modified_lines:
                 hits.append(rel)
     except Exception:
         pass
-print('\n'.join(hits))
+if hits:
+    print('\n'.join(hits))
 PYEOF
-  )
+  MOD_FILE=$(mktemp /tmp/stopcheck_mod_XXXXXX.txt)
+  echo "$MODIFIED" > "$MOD_FILE"
+  DEBUG_HITS=$($PY "$PYCHECK" "$MOD_FILE" "$PROJECT_DIR" 2>/dev/null || echo "")
+  rm -f "$PYCHECK" "$MOD_FILE"
   if [[ -n "$DEBUG_HITS" ]]; then
     FAILURES+=("DEBUG/TODO MARKERS in:\n$DEBUG_HITS\nClean these up before finishing.")
   fi
 fi
 
-# 3. Check test files exist for every new source file
+# 3. Check test files exist for new source files
 NEW_SRC=$(git -C "$PROJECT_DIR" diff --name-only HEAD 2>/dev/null || echo "")
 if [[ -n "$NEW_SRC" ]]; then
-  MISSING=$(python3 - "$PROJECT_DIR" << PYEOF
+  PYCHECK2=$(mktemp /tmp/stopcheck2_XXXXXX.py)
+  cat > "$PYCHECK2" << 'PYEOF'
 import sys, os, re
 
-project_dir = sys.argv[1]
-new_src_lines = """$NEW_SRC""".strip().splitlines()
-
+new_src_str = open(sys.argv[1]).read().strip()
+project_dir = sys.argv[2]
+if not new_src_str:
+    sys.exit(0)
 skip_pattern = re.compile(r'(test|spec|\.(md|json|sh|yaml|toml|env|lock))$', re.IGNORECASE)
 missing = []
-
-for rel in new_src_lines:
-    if not rel.strip() or skip_pattern.search(rel):
+for rel in new_src_str.splitlines():
+    if skip_pattern.search(rel):
         continue
     basename = os.path.splitext(os.path.basename(rel))[0]
     found = False
@@ -100,10 +104,13 @@ for rel in new_src_lines:
             break
     if not found:
         missing.append(rel)
-
-print('\n'.join(missing))
+if missing:
+    print('\n'.join(missing))
 PYEOF
-  )
+  SRC_FILE=$(mktemp /tmp/stopcheck_src_XXXXXX.txt)
+  echo "$NEW_SRC" > "$SRC_FILE"
+  MISSING=$($PY "$PYCHECK2" "$SRC_FILE" "$PROJECT_DIR" 2>/dev/null || echo "")
+  rm -f "$PYCHECK2" "$SRC_FILE"
   if [[ -n "$MISSING" ]]; then
     FAILURES+=("NO TEST FILE for:\n$MISSING\nEvery source file needs a test.")
   fi
@@ -112,10 +119,10 @@ fi
 if [[ ${#FAILURES[@]} -gt 0 ]]; then
   FAILURE_MSG=$(printf '%s\n---\n' "${FAILURES[@]}")
   echo "[$TIMESTAMP] BLOCKED: ${#FAILURES[@]} issue(s)" >> "$LOG_FILE"
-  python3 -c "
+  $PY -c "
 import json, sys
 msg = sys.argv[1]
-print(json.dumps({'decision': 'block', 'reason': 'TASK NOT DONE - issues must be resolved:\n\n' + msg}))
+print(json.dumps({'decision': 'block', 'reason': 'TASK NOT DONE — issues must be resolved:\n\n' + msg}))
 " "$FAILURE_MSG"
   exit 1
 fi

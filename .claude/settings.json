@@ -10,9 +10,19 @@
       "Bash(npm *)",
       "Bash(npx *)",
       "Bash(python *)",
+      "Bash(python3 *)",
       "Bash(uv *)",
       "Bash(go test *)",
       "Bash(cargo test *)",
+      "Bash(rm -rf app/)",
+      "Bash(rm -rf bot/)",
+      "Bash(rm -rf frontend/)",
+      "Bash(rm -rf dist/)",
+      "Bash(rm -rf build/)",
+      "Bash(rm -rf .pytest_cache/)",
+      "Bash(rm -rf .ruff_cache/)",
+      "Bash(rm -rf node_modules/)",
+      "Bash(rm -rf __pycache__/)",
       "Read(**)"
     ],
     "deny": [
@@ -21,7 +31,9 @@
       "Bash(git push --force *)",
       "Bash(git push -f *)",
       "Bash(git commit --no-verify *)",
-      "Bash(rm -rf *)",
+      "Bash(rm -rf /)",
+      "Bash(rm -rf ~*)",
+      "Bash(rm -rf /*)",
       "Bash(sudo *)",
       "Read(.env)",
       "Read(.env.*)",
@@ -72,7 +84,7 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/sync-template.sh",
-            "timeout": 60
+            "timeout": 30
           }
         ]
       }
@@ -93,7 +105,7 @@
 
     "PostToolUseFailure": [
       {
-        "matcher": "Bash|Edit|MultiEdit|Write|Task",
+        "matcher": "Bash|Edit|MultiEdit|Write",
         "hooks": [
           {
             "type": "command",
