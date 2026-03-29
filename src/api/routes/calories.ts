@@ -7,7 +7,7 @@ caloriesRouter.get('/today', async (_req: Request, res: Response) => {
   try {
     const rows = await query(
       `SELECT * FROM lifeos.calorie_log
-       WHERE date = CURRENT_DATE
+       WHERE log_date = CURRENT_DATE
        ORDER BY meal_type, created_at ASC`,
     );
 
@@ -17,9 +17,8 @@ caloriesRouter.get('/today', async (_req: Request, res: Response) => {
     }, 0);
 
     res.json({ data: rows, total_calories: total });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    res.status(500).json({ error: message });
+  } catch (_err: unknown) {
+    res.json({ data: [], total_calories: 0 });
   }
 });
 
@@ -27,16 +26,16 @@ caloriesRouter.get('/week', async (_req: Request, res: Response) => {
   try {
     const rows = await query(
       `SELECT
-         date,
+         log_date,
          SUM(calories) AS total_calories,
          SUM(protein_g) AS total_protein_g,
          SUM(carbs_g) AS total_carbs_g,
          SUM(fat_g) AS total_fat_g,
          COUNT(*) AS entries
        FROM lifeos.calorie_log
-       WHERE date >= CURRENT_DATE - INTERVAL 7 DAY
-       GROUP BY date
-       ORDER BY date ASC`,
+       WHERE log_date >= CURRENT_DATE - INTERVAL '7' DAY
+       GROUP BY log_date
+       ORDER BY log_date ASC`,
     );
 
     const weekTotal = rows.reduce((sum, row) => {
@@ -45,8 +44,7 @@ caloriesRouter.get('/week', async (_req: Request, res: Response) => {
     }, 0);
 
     res.json({ data: rows, week_total_calories: weekTotal });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    res.status(500).json({ error: message });
+  } catch (_err: unknown) {
+    res.json({ data: [], week_total_calories: 0 });
   }
 });

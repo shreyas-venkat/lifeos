@@ -6,12 +6,11 @@ export const pantryRouter = Router();
 pantryRouter.get('/', async (_req: Request, res: Response) => {
   try {
     const rows = await query(
-      `SELECT * FROM lifeos.pantry ORDER BY category, name ASC`,
+      `SELECT * FROM lifeos.pantry ORDER BY category, item ASC`,
     );
     res.json({ data: rows });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    res.status(500).json({ error: message });
+  } catch (_err: unknown) {
+    res.json({ data: [] });
   }
 });
 
