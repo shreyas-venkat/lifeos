@@ -1,1 +1,126 @@
-{}
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "enableAllProjectMcpServers": true,
+
+  "permissions": {
+    "allow": [
+      "Bash(git *)",
+      "Bash(gh *)",
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(python *)",
+      "Bash(python3 *)",
+      "Bash(uv *)",
+      "Bash(docker *)",
+      "Bash(rm -rf dist/)",
+      "Bash(rm -rf build/)",
+      "Bash(rm -rf node_modules/)",
+      "Bash(rm -rf __pycache__/)",
+      "Bash(rm -rf .pytest_cache/)",
+      "Read(**)"
+    ],
+    "deny": [
+      "Bash(git push origin main)",
+      "Bash(git push origin master)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(git commit --no-verify *)",
+      "Bash(rm -rf /)",
+      "Bash(rm -rf ~*)",
+      "Bash(rm -rf /*)",
+      "Bash(sudo *)",
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(secrets/**)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Edit(.env)",
+      "Edit(.env.*)",
+      "Edit(secrets/**)"
+    ]
+  },
+
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Edit|MultiEdit|Write|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/pre-tool-summary.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|MultiEdit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-spec.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-main.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-main.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/sync-template.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+
+    "PostToolUse": [
+      {
+        "matcher": "Edit|MultiEdit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/run-tests.sh",
+            "timeout": 120
+          }
+        ]
+      }
+    ],
+
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash|Edit|MultiEdit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/post-tool-failure.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/stop-check.sh",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}

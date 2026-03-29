@@ -1,6 +1,8 @@
-# NanoClaw
+@GUARDRAILS.md
 
-Personal Claude assistant. See [README.md](README.md) for philosophy and setup. See [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) for architecture decisions.
+# NanoClaw — LifeOS
+
+Personal Claude assistant for autonomous life management. See [README.md](README.md) for philosophy and setup. See [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) for architecture decisions.
 
 ## Quick Context
 
@@ -41,16 +43,19 @@ Four types of skills exist in NanoClaw. See [CONTRIBUTING.md](CONTRIBUTING.md) f
 | `/debug` | Container issues, logs, troubleshooting |
 | `/update-nanoclaw` | Bring upstream NanoClaw updates into a customized install |
 | `/init-onecli` | Install OneCLI Agent Vault and migrate `.env` credentials to it |
-| `/qodo-pr-resolver` | Fetch and fix Qodo PR review issues interactively or in batch |
-| `/get-qodo-rules` | Load org- and repo-level coding rules from Qodo before code tasks |
 
-## Contributing
+## MCP Servers
 
-Before creating a PR, adding a skill, or preparing any contribution, you MUST read [CONTRIBUTING.md](CONTRIBUTING.md). It covers accepted change types, the four skill types and their guidelines, SKILL.md format rules, PR requirements, and the pre-submission checklist (searching for existing PRs/issues, testing, description format).
+| Server | Purpose | Key env vars |
+|--------|---------|-------------|
+| `filesystem` | Expanded file access beyond the project root | -- |
+| `github` | Issues, PRs, reviews, releases, repo management | `GITHUB_TOKEN` |
+| `gmail` | Read, compose, reply, and search email | file-based OAuth (one-time setup) |
+| `motherduck` | Run SQL against MotherDuck (cloud DuckDB) | `MOTHERDUCK_TOKEN` |
 
 ## Development
 
-Run commands directly—don't tell the user to run them.
+Run commands directly -- don't tell the user to run them.
 
 ```bash
 npm run dev          # Run with hot reload
@@ -58,23 +63,14 @@ npm run build        # Compile TypeScript
 ./container/build.sh # Rebuild agent container
 ```
 
-Service management:
-```bash
-# macOS (launchd)
-launchctl load ~/Library/LaunchAgents/com.nanoclaw.plist
-launchctl unload ~/Library/LaunchAgents/com.nanoclaw.plist
-launchctl kickstart -k gui/$(id -u)/com.nanoclaw  # restart
+## Session Workflow
 
-# Linux (systemd)
-systemctl --user start nanoclaw
-systemctl --user stop nanoclaw
-systemctl --user restart nanoclaw
-```
+1. **Start with a spec.** Create or read `SPEC.md` before writing any code. The `check-spec` hook blocks all file writes until it exists and is filled out.
+2. **Never work on `main` directly.** The `block-main` hook blocks edits and pushes on main. Create a feature branch.
+3. **Tests run after every edit.** The `run-tests` hook fires after every file change. Fix failures before moving on.
+4. **Done means the Stop hook passes.** Full test suite green, no debug markers, every source file has a test file.
 
-## Troubleshooting
+## Conventions
 
-**WhatsApp not connecting after upgrade:** WhatsApp is now a separate skill, not bundled in core. Run `/add-whatsapp` (or `npx tsx scripts/apply-skill.ts .claude/skills/add-whatsapp && npm run build`) to install it. Existing auth credentials and groups are preserved.
-
-## Container Build Cache
-
-The container buildkit caches the build context aggressively. `--no-cache` alone does NOT invalidate COPY steps — the builder's volume retains stale files. To force a truly clean rebuild, prune the builder then re-run `./container/build.sh`.
+- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).
+- Branch names follow `type/short-description` (e.g. `feat/add-user-auth`).

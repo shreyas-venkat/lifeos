@@ -1,0 +1,190 @@
+---
+description: Spawn a multi-agent build team and coordinate parallel development work. Use when the user says "spawn agents", "build this with agents", "start the agent team", "run the build team", or after reviewing a plan from /build/plan. Requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 and Claude Code v2.1.32+.
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Task
+---
+
+You are the team lead. Your job is to analyse the task, decide on agent composition, set up coordination infrastructure, and spawn worker agents. You stay alive to monitor, unblock, and integrate.
+
+Task: $ARGUMENTS
+
+---
+
+## Step 0: Pre-flight checks
+
+Before spawning anything, verify:
+
+```bash
+# Check Claude Code version (need 2.1.32+)
+claude --version
+
+# Check feature flag is set
+echo ${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-"NOT SET"}
+
+# Check tmux is available
+which tmux || echo "tmux not found — agent output will merge into one thread"
+```
+
+If `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` is not set, run:
+```bash
+export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
+```
+And tell the user to add this to their shell profile or `.claude/project.env` so it persists.
+
+If Claude Code version is below 2.1.32, stop and tell the user to update:
+```bash
+npm update -g @anthropic-ai/claude-code
+```
+
+## Step 1: Read project context
+
+```bash
+find . -maxdepth 3 -not -path '*/.git/*' -not -path '*/node_modules/*' -not -path '*/__pycache__/*' | sort
+```
+
+Read:
+- `SPEC.md` — **required**. If missing, stop: "No SPEC.md found. Create SPEC.md before spawning agents."
+- `CLAUDE.md` + `GUARDRAILS.md` — conventions all agents must follow
+- `.claude/project.env` — test command, project config
+
+## Step 2: Determine team composition
+
+Apply this heuristic — default to fewer agents:
+
+| Situation | Agents |
+|-----------|--------|
+| Small bug / single-file | 1 — skip agents, just do it |
+| 2–3 related files | 1 |
+| 2 independent concerns | 2 |
+| 3+ independent concerns | 3 |
+| Large layered feature | 3–4 |
+| Full-stack (backend + frontend + DB + tests) | 4–5 max |
+
+Never spawn more than 5. Coordination overhead beats parallelism benefit above that.
+
+For each agent decide:
+- **Role name** (e.g. "api-worker", "db-worker", "test-worker", "integrator")
+- **Owns:** which files/directories/concerns
+- **Deliverable:** concrete output when done
+- **Dependencies:** which other agents must finish first
+
+## Step 3: Set up coordination infrastructure
+
+Create the shared task list and mailboxes before spawning:
+
+```bash
+mkdir -p .agent-mailbox
+```
+
+Write `.agent-tasks.md`:
+
+```markdown
+# Agent Task Board
+<!-- Agents: claim your task by replacing [ ] with [x:your-name] and update status -->
+
+## Active Tasks
+
+- [ ] [task description] — owner: agent-name — status: pending
+- [ ] [task description] — owner: agent-name — status: pending
+- [ ] [task description] — BLOCKED until [other task] complete
+
+## Completed
+<!-- Move tasks here when done -->
+
+## Mailbox
+See .agent-mailbox/<agent-name>.md for direct messages
+```
+
+Create a mailbox file per agent:
+```bash
+touch .agent-mailbox/agent-1.md
+touch .agent-mailbox/agent-2.md
+# etc.
+```
+
+Add to `.gitignore` if not already there:
+```
+.agent-tasks.md
+.agent-mailbox/
+```
+
+## Step 4: Write agent briefs
+
+For each agent, compose a self-contained prompt that includes:
+- Their role and what they own
+- The full task context (don't assume they share your context window)
+- The exact files they should touch
+- The deliverable and what "done" means
+- Where to write status updates (`.agent-tasks.md`)
+- Where to check for messages (`.agent-mailbox/<their-name>.md`)
+- Project conventions from GUARDRAILS.md (paste the key rules inline)
+- The test command from `.claude/project.env`
+- Instruction: run tests after every file change, mark task done only when tests pass
+
+Example brief structure:
+```
+You are [role]. Your job is [deliverable].
+
+Files you own: [list]
+Files you must NOT touch: [list — everything owned by other agents]
+
+Your task:
+1. [specific step]
+2. [specific step]
+
+When done:
+- All your tests pass
+- Update .agent-tasks.md: mark your tasks [x:your-name]
+- Write a summary to .agent-mailbox/lead.md
+
+Project conventions (follow unconditionally):
+[paste relevant GUARDRAILS.md rules]
+
+Test command: [from project.env]
+```
+
+## Step 5: Spawn agents
+
+Use the Task tool to spawn each agent with their brief. Spawn independent agents in parallel; spawn agents with dependencies after their blockers are marked complete.
+
+For a 3-agent team:
+```
+Spawn in parallel:
+- Agent 1 (api-worker): [brief]
+- Agent 2 (db-worker): [brief]
+
+Wait for both to mark tasks complete in .agent-tasks.md, then spawn:
+- Agent 3 (integrator): [brief — integrate, run full test suite, fix conflicts]
+```
+
+## Step 6: Monitor and unblock
+
+While agents work, poll `.agent-tasks.md` and `.agent-mailbox/lead.md` every few minutes:
+
+```bash
+cat .agent-tasks.md
+cat .agent-mailbox/lead.md 2>/dev/null || true
+```
+
+If an agent is blocked:
+- Read their mailbox message
+- Resolve the blocker (answer a question, fix a conflict, adjust a task)
+- Write your response to their mailbox file
+
+## Step 7: Integration and handoff
+
+When all worker agents mark tasks complete:
+1. Run the full test suite yourself: use the TEST_CMD from `.claude/project.env`
+2. Fix any integration failures (usually import conflicts or interface mismatches)
+3. Run linters: `ruff check --fix && ruff format` (Python) or `npx prettier --write src/` (TS)
+4. Commit the integrated result:
+   ```bash
+   git add .
+   git commit -m "feat: [task name] — multi-agent build ([N] workers)"
+   ```
+5. Clean up coordination files:
+   ```bash
+   rm -f .agent-tasks.md
+   rm -rf .agent-mailbox/
+   ```
+
+Report to the user: what each agent built, test results, and any deviations from SPEC.md.

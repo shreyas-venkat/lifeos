@@ -1,3 +1,29 @@
 {
-  "mcpServers": {}
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "C:\\repos\\lifeos"],
+      "env": {}
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+      }
+    },
+    "gmail": {
+      "command": "npx",
+      "args": [
+        "@gongrzhe/server-gmail-autoauth-mcp"
+      ]
+    },
+    "motherduck": {
+      "command": "uvx",
+      "args": ["mcp-server-motherduck", "--read-write"],
+      "env": {
+        "motherduck_token": "${MOTHERDUCK_TOKEN}"
+      }
+    }
+  }
 }

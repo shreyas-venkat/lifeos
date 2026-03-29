@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 .npm-cache/
+
 # Build output
 dist/
 
@@ -18,21 +19,38 @@ groups/global/*
 !groups/main/CLAUDE.md
 !groups/global/CLAUDE.md
 
-# Secrets
-*.keys.json
+# Credentials — never commit real secrets
 .env
+.env.local
+.env.*.local
+*.keys.json
 
 # Temp files
 .tmp-*
 
 # OS
 .DS_Store
+Thumbs.db
 
 # IDE
 .idea/
-.vscode/
+.vscode/settings.json
+*.swp
+*.swo
 
 # Skills system (local per-installation state)
 .nanoclaw/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.ruff_cache/
+.pytest_cache/
+
+# Claude Code local state
+.claude/project.env
+.claude/logs/
+.claude/settings.local.json
 
 agents-sdk-docs

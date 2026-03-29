@@ -1,0 +1,791 @@
+# SPEC.md — Phase 1: Foundation + Email + Discord
+
+> LifeOS Phase 1 — the backbone that all future phases build on.
+
+---
+
+## Feature Name
+
+LifeOS Phase 1 — NanoClaw deployment with Discord interface, Gmail email management, Google Calendar, and reminders system.
+
+---
+
+## Goal
+
+Get LifeOS alive on Discord, autonomously managing Gmail (categorize, delete spam, alert on important), reading/writing Google Calendar, and handling user reminders. This is the foundation all future phases build on.
+
+---
+
+## Scope
+
+### In Scope
+- NanoClaw setup with Docker container runtime
+- Discord channel: DM (main group) + server channels (#email-digest, #meals, #health, #activity-log, #reminders)
+- Gmail channel: scan every 15 min, categorize into buckets, auto-delete spam/promotions, alert important via Discord DM
+- MotherDuck schemas for emails, preferences, calendar_events, reminders
+- Google Calendar read/write via Google Calendar API
+- Morning briefing (6:00 AM MT weekdays) — schedule, emails, reminders
+- Reminder system — set via DM, recurring supported, stored in MotherDuck
+- 7-day soft-delete log for email deletions (safety)
+- Daily email digest to #email-digest channel
+
+### Out of Scope
+- Meal planning, pantry, health, supplements (Phase 2-3)
+- PWA (Phase 4)
+- Obsidian, smart home (Phase 5)
+- Outlook integration (deferred)
+- SMS/text notifications (later)
+
+---
+
+## Inputs & Outputs
+
+| | Description |
+|---|---|
+| **Input** | Gmail emails, Discord DM commands, Google Calendar events |
+| **Output** | Email categorization/deletion, Discord alerts, calendar events, reminder notifications |
+
+---
+
+## Implementation Plan
+
+### Step 0: GitHub Actions deploy workflow
+Create `.github/workflows/deploy.yml` that:
+1. Triggers on push to `feat/lifeos-init` branch (or any configured deploy branch)
+2. SSHs into the VPS using repo secrets: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`
+3. Clones/pulls the repo on the VPS
+4. Writes `.env` on the VPS from repo secrets:
+   - `ASSISTANT_NAME=LifeOS`
+   - `ANTHROPIC_API_KEY` from `${{ secrets.ANTHROPIC_API_KEY }}`
+   - `DISCORD_BOT_TOKEN` from `${{ secrets.DISCORD_TOKEN }}`
+   - `DISCORD_OWNER_ID` from `${{ secrets.DISCORD_OWNER_ID }}`
+   - `GITHUB_TOKEN` from `${{ secrets.GH_TOKEN }}`
+   - `GOOGLE_CLIENT_ID` from `${{ secrets.GMAIL_CLIENT_ID }}`
+   - `GOOGLE_CLIENT_SECRET` from `${{ secrets.GMAIL_CLIENT_SECRET }}`
+   - `GOOGLE_REFRESH_TOKEN` from `${{ secrets.GMAIL_REFRESH_TOKEN }}`
+   - `GOOGLE_CALENDAR_REFRESH_TOKEN` from `${{ secrets.GOOGLE_CALENDAR_REFRESH_TOKEN }}`
+   - `MOTHERDUCK_TOKEN` from `${{ secrets.MOTHERDUCK_TOKEN }}`
+   - `TZ=America/Edmonton`
+5. Installs system deps if missing (Docker, Node.js 20, nginx)
+6. Runs `npm install`
+7. Builds container image: `./container/build.sh`
+8. Configures nginx + SSL (certbot) if not already done
+9. Restarts the NanoClaw service
+
+**GitHub Secrets required** (already exist in the repo):
+| Secret Name | Used As |
+|---|---|
+| `ANTHROPIC_API_KEY` | Anthropic API key |
+| `DISCORD_TOKEN` | Discord bot token |
+| `DISCORD_OWNER_ID` | Discord owner user ID |
+| `DISCORD_TOKEN_STAGING` | Staging bot token (for testing) |
+| `GH_TOKEN` | GitHub personal access token |
+| `GMAIL_CLIENT_ID` | Google OAuth client ID |
+| `GMAIL_CLIENT_SECRET` | Google OAuth client secret |
+| `GMAIL_REFRESH_TOKEN` | Gmail OAuth refresh token |
+| `GOOGLE_CALENDAR_REFRESH_TOKEN` | Google Calendar refresh token |
+| `MOTHERDUCK_TOKEN` | MotherDuck cloud DuckDB token |
+| `VPS_HOST` | VPS IP/hostname |
+| `VPS_USER` | VPS SSH username |
+| `VPS_SSH_KEY` | VPS SSH private key |
+| `VPS_API_SECRET` | VPS API secret (if needed) |
+| `REPO_DIR` | Repo directory on VPS |
+
+### Step 1: NanoClaw core setup (on VPS, via deploy workflow)
+1. Install Node.js 20+ dependencies: `npm install`
+2. Build the Docker container image: `./container/build.sh`
+3. Initialize SQLite database (auto-created by `src/db.ts` on first run)
+4. Set timezone to `America/Edmonton` in config
+
+### Step 2: Discord channel integration
+1. Use the built-in `/add-discord` skill in `.claude/skills/add-discord/`
+2. The Discord channel implements the `Channel` interface from `src/types.ts`:
+   - `connect()` — connects discord.js client with intents: Guilds, GuildMessages, MessageContent, DirectMessages
+   - `sendMessage(jid, text)` — sends to channel, handles 2000-char limit splitting
+   - `isConnected()` / `ownsJid(jid)` — JID format: `dc:{channelId}`
+   - `setTyping(jid, isTyping)` — typing indicators
+3. Register via `registerChannel('discord', discordFactory)` in `src/channels/index.ts`
+4. Factory returns `null` if `DISCORD_BOT_TOKEN` not in env (graceful skip)
+5. Create Discord server with channels, get channel IDs
+6. Register groups in NanoClaw's `registered_groups` table:
+   - Main DM group: `jid=dc:{dm_channel_id}`, `is_main=true`, `requires_trigger=false`, `folder=main`
+   - Each server channel: `jid=dc:{channel_id}`, `is_main=false`, `requires_trigger=true`, `trigger_pattern=@LifeOS`
+7. Create `groups/main/CLAUDE.md` with LifeOS personality and instructions (see Step 9)
+
+### Step 3: Gmail channel integration
+1. Use NanoClaw's built-in `/add-gmail` skill which uses `@gongrzhe/server-gmail-autoauth-mcp`
+2. Run one-time OAuth: `npx @gongrzhe/server-gmail-autoauth-mcp auth`
+3. Credentials stored at `~/.gmail-mcp/`
+4. Gmail operates in **dual mode**:
+   - **Tool mode**: Agent can read/send/search email from any channel
+   - **Channel mode**: Listens to inbox autonomously
+5. Configure to filter Primary inbox only (skip Promotions, Social, Updates, Forums tabs)
+6. Mount Gmail MCP server in container via OneCLI Agent Vault
+
+### Step 4: Email categorization logic
+1. Create scheduled task via IPC (every 15 min, cron: `*/15 * * * *`):
+   ```json
+   {
+     "command": "schedule_task",
+     "schedule_type": "cron",
+     "schedule_value": "*/15 * * * *",
+     "group_folder": "main",
+     "chat_jid": "dc:{email_digest_channel_id}",
+     "context_mode": "group",
+     "prompt": "Check Gmail inbox for new emails. For each email: categorize it, take action, and log to MotherDuck."
+   }
+   ```
+2. The agent (running in container) uses Gmail MCP tools to:
+   - List unread emails
+   - For each email, classify into bucket:
+     - `actionable` — rent, appointments, action needed
+     - `transactions` — orders, receipts, shipping
+     - `bank` — RBC notifications
+     - `life` — personal, social
+     - `github` — GitHub Actions, PRs
+     - `spam_promotions` — auto-trash (Gmail trash, NOT permanent delete)
+     - `newsletters` — auto-archive or trash
+   - Log each action to MotherDuck `lifeos.emails` table
+   - If `actionable` or `bank`: send Discord DM alert to main group
+3. Daily digest (cron: `0 20 * * *` = 8 PM MT): post summary to `#email-digest`
+
+### Step 5: MotherDuck schemas
+Connect via DuckDB client (`duckdb` npm package or MotherDuck MCP server).
+
+```sql
+CREATE SCHEMA IF NOT EXISTS lifeos;
+
+CREATE TABLE IF NOT EXISTS lifeos.emails (
+    id VARCHAR PRIMARY KEY,
+    provider VARCHAR NOT NULL,
+    message_id VARCHAR,
+    sender VARCHAR NOT NULL,
+    sender_name VARCHAR,
+    subject VARCHAR,
+    category VARCHAR NOT NULL,
+    action_taken VARCHAR NOT NULL,
+    importance VARCHAR DEFAULT 'normal',
+    snippet TEXT,
+    processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS lifeos.preferences (
+    key VARCHAR NOT NULL,
+    value VARCHAR NOT NULL,
+    skill VARCHAR NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (key, skill)
+);
+
+CREATE TABLE IF NOT EXISTS lifeos.calendar_events (
+    id VARCHAR PRIMARY KEY,
+    google_event_id VARCHAR,
+    title VARCHAR NOT NULL,
+    description TEXT,
+    start_time TIMESTAMP NOT NULL,
+    end_time TIMESTAMP,
+    location VARCHAR,
+    event_type VARCHAR,
+    source VARCHAR DEFAULT 'google',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS lifeos.reminders (
+    id VARCHAR PRIMARY KEY,
+    message TEXT NOT NULL,
+    due_at TIMESTAMP NOT NULL,
+    recurring_cron VARCHAR,
+    status VARCHAR DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS lifeos.email_deletion_log (
+    id VARCHAR PRIMARY KEY,
+    email_id VARCHAR NOT NULL,
+    sender VARCHAR,
+    subject VARCHAR,
+    reason VARCHAR NOT NULL,
+    deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    recoverable_until TIMESTAMP
+);
+```
+
+### Step 6: Google Calendar integration
+1. Use Google Calendar API via `googleapis` npm package (add to container deps)
+2. Implement as agent capability described in `groups/main/CLAUDE.md`:
+   - Read today's events
+   - Create new events
+   - Check availability for a time slot
+3. Credentials via OneCLI Agent Vault (Google OAuth refresh token)
+4. Calendar syncs to Samsung Calendar automatically (Google Calendar -> Samsung)
+
+### Step 7: Morning briefing
+Schedule via IPC:
+```json
+{
+  "command": "schedule_task",
+  "schedule_type": "cron",
+  "schedule_value": "0 6 * * 1-5",
+  "group_folder": "main",
+  "context_mode": "group",
+  "prompt": "Good morning briefing. Check: 1) Today's Google Calendar events, 2) Any important emails since last evening, 3) Reminders due today. Format as a concise morning briefing and send to Discord DM."
+}
+```
+
+### Step 8: Reminders system
+1. User messages bot in DM: "remind me to pay rent on the 1st every month"
+2. Agent parses intent, writes to MotherDuck `lifeos.reminders`:
+   - `message`: "Pay rent"
+   - `due_at`: next 1st of month
+   - `recurring_cron`: "0 9 1 * *"
+3. Scheduled task (cron: `*/5 * * * *`) checks for due reminders:
+   ```
+   prompt: "Check lifeos.reminders for any reminders where due_at <= now and status = 'active'. For each, send a Discord DM reminder and update status. For recurring, calculate next due_at from recurring_cron."
+   ```
+4. Optimization: use `script` field on scheduled task to only wake agent if reminders are due:
+   ```bash
+   #!/bin/bash
+   RESULT=$(duckdb md: "SELECT count(*) as c FROM lifeos.reminders WHERE due_at <= now() AND status = 'active'" -json)
+   COUNT=$(echo "$RESULT" | jq '.[0].c')
+   if [ "$COUNT" -gt 0 ]; then
+     echo '{"wakeAgent": true, "data": {"dueCount": '$COUNT'}}'
+   else
+     echo '{"wakeAgent": false}'
+   fi
+   ```
+
+### Step 9: groups/main/CLAUDE.md (LifeOS personality)
+Write the main group's CLAUDE.md with:
+
+```markdown
+# LifeOS — Personal Life Assistant
+
+You are LifeOS, Shrey's personal life management assistant. You run 24/7 and proactively manage his daily life.
+
+## Personality
+- Talk like a helpful friend, not a corporate assistant
+- Be concise — no filler, no "Sure!", no trailing summaries
+- Proactive: do things without being asked when you know the routine
+- When uncertain about something destructive (spending money, deleting non-spam), ask first
+
+## Capabilities
+- **Email**: Read, categorize, delete, and alert on Gmail via MCP tools
+- **Calendar**: Read/write Google Calendar events
+- **Reminders**: Set, track, and fire reminders stored in MotherDuck
+- **MotherDuck**: Query and write to lifeos.* tables for persistent data
+- **Web**: Browse the web for information when needed
+- **Files**: Read/write files in your group folder for notes and state
+
+## Shrey's Context
+- Location: Calgary, AB (Mountain Time — America/Edmonton)
+- Work: Tue/Thu/Fri in-office, Mon/Wed WFH
+- Wake: 6-7 AM weekdays
+- Cooking: Every evening, makes dinner + next-day lunch (2 portions)
+- Likes cooking early to have free evening time for games/shows/reading
+- Flexible with plans — sometimes eats out, that's fine
+- Doesn't mind being bothered by notifications for most things
+- Gym: wants to get back into it, gentle nudges welcome
+
+## Email Rules
+- **Auto-trash**: spam, promotions, LinkedIn noise, "please review" nag emails, newsletters (unless user subscribed intentionally)
+- **Alert immediately**: rent reminders, orders/shipping, anything requiring action, bank alerts
+- **Categorize all**: actionable, transactions, bank, life, github, and create new buckets as needed
+- **Safety**: log all deletions to lifeos.email_deletion_log with 7-day recovery window
+- **Digest**: post daily summary to #email-digest at 8 PM MT
+
+## Reminder Rules
+- Parse natural language: "remind me to X on Y" or "every Z"
+- Store in lifeos.reminders with proper cron for recurring
+- Fire via Discord DM at the scheduled time
+- Support snooze ("remind me again in 1 hour")
+
+## Morning Briefing (6 AM MT, weekdays)
+Send a Discord DM with:
+1. Today's calendar events
+2. Important overnight emails (if any)
+3. Reminders due today
+4. If Tue/Thu/Fri: "Don't forget to pack lunch — [yesterday's dinner]" (Phase 2)
+
+## Channel Formatting
+- Discord: standard markdown
+- Keep messages under 1900 chars (Discord limit is 2000, leave buffer)
+- Use embeds sparingly — plain text is fine for most things
+```
+
+---
+
+## Tests Required
+
+- [ ] NanoClaw starts without errors (`npm start` or service)
+- [ ] SQLite database initializes with correct schema (chats, messages, scheduled_tasks, etc.)
+- [ ] Discord bot connects and responds to DM
+- [ ] Discord bot posts to each server channel (#email-digest, #meals, #health, #activity-log, #reminders)
+- [ ] Gmail OAuth credentials work — can list inbox emails
+- [ ] Email scan scheduled task fires every 15 minutes
+- [ ] Email categorization correctly classifies a test email into the right bucket
+- [ ] Spam/promotion emails are trashed (not permanently deleted)
+- [ ] Trashed emails logged to lifeos.email_deletion_log with 7-day window
+- [ ] Important email triggers Discord DM alert within 15 minutes
+- [ ] Daily email digest posts to #email-digest at 8 PM MT
+- [ ] Google Calendar: can read today's events
+- [ ] Google Calendar: can create a new event via Discord DM command
+- [ ] Morning briefing fires at 6 AM MT on weekdays (test with manual trigger first)
+- [ ] Reminder: "remind me to test at 5pm" -> fires at 5 PM MT
+- [ ] Reminder: "remind me to X every Monday" -> recurring, fires next Monday
+- [ ] Reminder snooze works
+- [ ] MotherDuck lifeos.emails table populated after email scan
+- [ ] MotherDuck lifeos.reminders table populated after setting reminder
+- [ ] Container starts and stops cleanly (no orphaned containers)
+- [ ] All scheduled tasks visible in SQLite scheduled_tasks table
+- [ ] Bot handles errors gracefully (no crashes on malformed input)
+
+---
+
+## Dependencies / Packages
+
+Already in NanoClaw:
+- `better-sqlite3` — SQLite for message queue, groups, tasks
+- `cron-parser` — scheduled task cron parsing
+- `@onecli-sh/sdk` — credential injection via OneCLI Agent Vault
+
+Container image (`node:22-slim`) already includes:
+- `@anthropic-ai/claude-code` — Claude Agent SDK
+- Chromium — browser automation
+
+Need to add/verify:
+- `discord.js` — Discord channel (comes from `/add-discord` skill)
+- `duckdb` — MotherDuck connection from within container
+- `googleapis` — Google Calendar API
+- `@gongrzhe/server-gmail-autoauth-mcp` — Gmail MCP (mounted as MCP server, not installed in container)
+
+---
+
+## Open Questions
+
+None — all clarified in planning conversation.
+
+---
+
+# Phase 2: Meal Planning + Pantry + Calories + Grocery
+
+## Goal
+Weekly meal plans, recipe management, pantry tracking with photo analysis, calorie logging (auto from recipes + manual for eating out), and Calgary Co-op grocery cart automation.
+
+## Implementation Plan
+
+### Step 10: MotherDuck schemas for Phase 2
+```sql
+CREATE TABLE IF NOT EXISTS lifeos.recipes (
+    id VARCHAR PRIMARY KEY,
+    name VARCHAR NOT NULL,
+    source_url VARCHAR,
+    ingredients JSON NOT NULL,
+    instructions TEXT,
+    prep_time_min INTEGER,
+    cook_time_min INTEGER,
+    servings INTEGER DEFAULT 2,
+    calories_per_serving DOUBLE,
+    macros JSON,
+    rating DOUBLE,
+    times_cooked INTEGER DEFAULT 0,
+    tags VARCHAR[],
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS lifeos.meal_plans (
+    id VARCHAR PRIMARY KEY,
+    week_start DATE NOT NULL,
+    day_of_week INTEGER NOT NULL,
+    meal_type VARCHAR NOT NULL,
+    recipe_id VARCHAR REFERENCES lifeos.recipes(id),
+    servings INTEGER DEFAULT 2,
+    notes TEXT,
+    status VARCHAR DEFAULT 'planned',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS lifeos.pantry (
+    id VARCHAR PRIMARY KEY,
+    item VARCHAR NOT NULL,
+    quantity DOUBLE,
+    unit VARCHAR,
+    category VARCHAR,
+    expiry_date DATE,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS lifeos.dietary_preferences (
+    id VARCHAR PRIMARY KEY,
+    pref_type VARCHAR NOT NULL,
+    value VARCHAR NOT NULL,
+    active BOOLEAN DEFAULT TRUE
+);
+
+CREATE TABLE IF NOT EXISTS lifeos.calorie_log (
+    id VARCHAR PRIMARY KEY,
+    log_date DATE NOT NULL,
+    meal_type VARCHAR NOT NULL,
+    description TEXT,
+    source VARCHAR NOT NULL,
+    calories DOUBLE,
+    protein_g DOUBLE,
+    carbs_g DOUBLE,
+    fat_g DOUBLE,
+    fiber_g DOUBLE,
+    recipe_id VARCHAR,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS lifeos.grocery_lists (
+    id VARCHAR PRIMARY KEY,
+    week_start DATE NOT NULL,
+    items JSON NOT NULL,
+    status VARCHAR DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### Step 11: Meal planning skill
+1. Scheduled task (Saturday 9 AM MT, cron: `0 9 * * 6`):
+   - Read dietary preferences from `lifeos.dietary_preferences`
+   - Read current pantry from `lifeos.pantry`
+   - Read previous recipe ratings from `lifeos.recipes`
+   - Scrape 7 recipes from sites (AllRecipes, Budget Bytes, etc.) that match preferences
+   - Account for user's pattern: cook once evening -> dinner + next-day lunch (2 portions)
+   - Office days (Tue/Thu/Fri) need packable lunches
+   - Generate meal plan, insert into `lifeos.meal_plans`
+   - Post plan to `#meals` channel + DM user for approval
+   - User can reply: "swap Thursday for pasta", "mark Friday as eating out", "approved"
+2. After cooking (bot asks ~7 PM nightly): "How was [recipe]? Rate 1-5"
+   - Update `lifeos.recipes.rating` and `times_cooked`
+   - Auto-log calories from recipe data
+   - Auto-deduct ingredients from `lifeos.pantry`
+
+### Step 12: Pantry management skill
+1. Photo-based: user sends pantry/fridge photo via Discord DM or PWA
+   - Claude vision analyzes image, identifies items
+   - Updates `lifeos.pantry` table (add new items, update quantities)
+2. Manual: user says "bought 2kg chicken and rice" -> parses and updates pantry
+3. Expiry tracking: daily check (cron `0 8 * * *`), warn if items expiring within 3 days
+4. Auto-deduct: when a meal plan status changes to "cooked", subtract recipe ingredients from pantry
+
+### Step 13: Calorie tracking skill
+1. Auto from recipes: when meal status = "cooked", log calories + macros from recipe data
+   - Use USDA FoodData Central API for ingredient-level nutrition if recipe doesn't have it
+2. Manual: user says "ate butter chicken and naan from XYZ restaurant"
+   - Claude estimates calories + macros, logs to `lifeos.calorie_log`
+3. Daily summary to `#health` channel at 9 PM: total calories, protein, carbs, fat
+4. Weekly trend comparison against targets
+
+### Step 14: Grocery automation skill
+1. After meal plan approved: generate shopping list
+   - meal plan ingredients - current pantry stock = shopping list
+   - Store in `lifeos.grocery_lists`
+2. Calgary Co-op cart (Playwright browser automation):
+   - Navigate to `shoponline.calgarycoop.com`
+   - Login with stored credentials
+   - Search each item, select best match, add to cart with correct quantity
+   - DM user: "Grocery cart ready: [item list]. Review and checkout at [link]"
+3. Add "Grocery pickup/delivery" event to Google Calendar
+
+## Phase 2 Tests
+- [ ] Saturday meal plan generates with 7 dinners matching dietary preferences
+- [ ] Recipes have nutritional data (calories, macros)
+- [ ] Meal plan posted to #meals channel
+- [ ] User can swap/skip meals via Discord DM
+- [ ] Pantry photo analysis identifies common items correctly
+- [ ] Pantry auto-deducts ingredients when meal is cooked
+- [ ] Calorie auto-logs from recipe when meal is cooked
+- [ ] Manual calorie entry for eating out produces reasonable estimates
+- [ ] Grocery list = meal plan ingredients minus pantry
+- [ ] Playwright successfully adds items to Calgary Co-op cart
+- [ ] Grocery calendar event created
+- [ ] Daily calorie summary posts to #health
+
+---
+
+# Phase 3: Health + Supplements + Fitness
+
+## Goal
+Health data pipeline from Health Connect Webhook, supplement management with AI-adjusted dosages, and fitness accountability nudges.
+
+## Implementation Plan
+
+### Step 15: MotherDuck schemas for Phase 3
+```sql
+CREATE TABLE IF NOT EXISTS lifeos.health_metrics (
+    id VARCHAR PRIMARY KEY,
+    metric_type VARCHAR NOT NULL,
+    value DOUBLE NOT NULL,
+    unit VARCHAR,
+    recorded_at TIMESTAMP NOT NULL,
+    source VARCHAR DEFAULT 'health_connect',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS lifeos.supplements (
+    id VARCHAR PRIMARY KEY,
+    name VARCHAR NOT NULL,
+    default_dosage DOUBLE NOT NULL,
+    unit VARCHAR NOT NULL,
+    time_of_day VARCHAR NOT NULL,
+    max_safe_dosage DOUBLE,
+    active BOOLEAN DEFAULT TRUE,
+    notes TEXT
+);
+
+CREATE TABLE IF NOT EXISTS lifeos.supplement_log (
+    id VARCHAR PRIMARY KEY,
+    supplement_id VARCHAR NOT NULL,
+    recommended_dosage DOUBLE,
+    reason TEXT,
+    taken BOOLEAN DEFAULT FALSE,
+    log_date DATE NOT NULL,
+    time_of_day VARCHAR NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS lifeos.fitness_log (
+    id VARCHAR PRIMARY KEY,
+    log_date DATE NOT NULL,
+    activity VARCHAR,
+    duration_min INTEGER,
+    steps INTEGER,
+    notes TEXT
+);
+
+CREATE TABLE IF NOT EXISTS lifeos.fitness_nudges (
+    id VARCHAR PRIMARY KEY,
+    nudge_date DATE NOT NULL,
+    message TEXT NOT NULL,
+    trigger_reason VARCHAR,
+    acknowledged BOOLEAN DEFAULT FALSE
+);
+```
+
+### Step 16: Health Connect webhook endpoint
+1. Create Express/Fastify HTTP endpoint at `/api/health-webhook`
+   - Accepts POST with JSON body from Health Connect Webhook Android app
+   - Parses all 18 metric types: steps, heart_rate, hrv, blood_pressure, spo2, weight, sleep_duration, sleep_quality, respiratory_rate, body_temp, blood_glucose, etc.
+   - Inserts raw data into `lifeos.health_metrics`
+   - Endpoint secured with a simple API key header
+2. Add to `api/routes/health-webhook.ts`
+3. nginx already configured to proxy `/api/health-webhook` to port 3100
+
+### Step 17: Supplement management skill
+1. Initial setup: user provides supplement list via DM -> stored in `lifeos.supplements`
+2. Daily evening recommendation (cron `0 21 * * *` for next morning):
+   - Query today's health data from `lifeos.health_metrics`
+   - Analyze: sleep quality, HRV, activity level, stress indicators
+   - Adjust dosages within safe ranges (never exceed `max_safe_dosage`):
+     - Bad sleep -> extra magnesium
+     - Low HRV -> increase ashwagandha
+     - Low activity -> skip pre-workout
+   - DM: "Morning supplements for tomorrow: [list with dosages and brief reasoning]"
+   - Log recommendations to `lifeos.supplement_log`
+3. Morning recommendation (cron `0 6 * * *` for evening):
+   - Same logic for evening supplements
+4. Weekly suggestions: suggest new supplements or removal based on health trends
+5. If health data is abnormal (very low/high HR, SpO2 < 90%, etc.): flag for medical attention, DO NOT adjust supplements
+
+### Step 18: Fitness nudge skill
+1. Step monitoring (daily cron `0 20 * * *`):
+   - Query steps from `lifeos.health_metrics` for last 3 days
+   - If avg < 5000/day -> friendly nudge via DM
+2. Weight trend (weekly cron `0 9 * * 0`):
+   - Query weight from health_metrics for last 2 weeks
+   - If trending up -> gentle nudge about activity
+3. Gym accountability:
+   - User sets goal: "I want to go to gym 3x per week"
+   - Store in `lifeos.preferences`
+   - Track via exercise_sessions from Health Connect
+   - Mid-week check: if behind pace -> "You've hit the gym once this week, want me to block off Thursday evening?"
+4. All nudges: friendly tone, never aggressive
+5. Log nudges to `lifeos.fitness_nudges`
+
+### Step 19: Health dashboard data
+Daily health summary to `#health` channel (cron `0 21 * * *`):
+- Sleep: duration + quality
+- Steps + active calories
+- Resting HR, HRV, SpO2
+- Weight + 7-day trend
+- Calories + macros (from Phase 2)
+- Supplements: recommended vs taken
+
+## Phase 3 Tests
+- [ ] Health webhook endpoint accepts POST and stores data in MotherDuck
+- [ ] All 18 health metric types parsed correctly
+- [ ] Supplement recommendations generate with reasoning
+- [ ] Dosages never exceed max_safe_dosage
+- [ ] Abnormal vitals trigger medical warning, not supplement adjustment
+- [ ] Fitness nudges fire after 3+ days of low steps
+- [ ] Weight trend calculation is accurate
+- [ ] Gym goal tracking works
+- [ ] Daily health summary posts to #health
+
+---
+
+# Phase 4: Unified PWA
+
+## Goal
+Single standalone PWA for Android with dashboard view — health, meals, pantry, supplements, calories. Opens as native app, not in browser.
+
+## Implementation Plan
+
+### Step 20: API server
+1. Create `api/` directory with Express/Fastify server
+2. Endpoints (all query MotherDuck):
+   - `GET /api/health/today` — today's vitals
+   - `GET /api/health/trends?days=30` — historical trends
+   - `GET /api/meals/plan?week=current` — this week's meal plan
+   - `POST /api/meals/plan/:id/status` — update meal status (cooked/skipped/ate_out)
+   - `GET /api/recipes` — list recipes with search/filter
+   - `POST /api/recipes/:id/rate` — rate a recipe
+   - `GET /api/pantry` — current pantry inventory
+   - `POST /api/pantry/photo` — upload photo for analysis
+   - `GET /api/supplements/today` — today's recommendations
+   - `POST /api/supplements/:id/taken` — mark as taken
+   - `GET /api/calories/today` — today's calorie log
+   - `GET /api/calories/week` — weekly calorie summary
+   - `GET /api/preferences` — all preferences
+   - `PUT /api/preferences` — update preferences
+3. Auth: simple bearer token (single user, stored in .env)
+4. Port 3100, proxied via nginx at `/api`
+
+### Step 21: PWA frontend
+1. Use SvelteKit with static adapter (lightweight, fast PWA support)
+2. Create `pwa/` directory
+3. `pwa/static/manifest.json`:
+   ```json
+   {
+     "name": "LifeOS",
+     "short_name": "LifeOS",
+     "start_url": "/app",
+     "display": "standalone",
+     "background_color": "#1a1a2e",
+     "theme_color": "#16213e",
+     "icons": [{"src": "/app/icon-192.png", "sizes": "192x192", "type": "image/png"}]
+   }
+   ```
+4. Service worker for offline caching
+5. Pages:
+   - `/app` — dashboard with cards: Health, Meals, Pantry, Supplements
+   - `/app/health` — vitals, sleep, steps, weight chart, trends
+   - `/app/meals` — week plan, recipe browser, calorie log, macros chart
+   - `/app/pantry` — inventory list, photo upload, expiry alerts, grocery status
+   - `/app/supplements` — today's stack, mark taken, history, effectiveness
+   - `/app/preferences` — dietary prefs, supplement list, notification settings
+6. Charts: use Chart.js or lightweight alternative
+7. Photo upload: camera access via `navigator.mediaDevices.getUserMedia()`
+8. Served via nginx at `/app`
+
+## Phase 4 Tests
+- [ ] PWA installs on Android home screen without browser chrome
+- [ ] manifest.json has display: standalone
+- [ ] Service worker registers and caches assets
+- [ ] All API endpoints return correct data
+- [ ] Health dashboard shows real vitals with charts
+- [ ] Meal plan shows current week with swap/skip actions
+- [ ] Pantry photo upload triggers analysis and updates inventory
+- [ ] Supplement "mark as taken" logs correctly
+- [ ] Offline: app loads cached data when network is down
+
+---
+
+# Phase 5: Obsidian + Smart Home + Advanced
+
+## Goal
+Deep Obsidian vault integration (read/write, personality learning), Wyze lamp clock (sleep-aware alarm), Lefant M210 vacuum (auto-clean), bill tracking from email.
+
+## Implementation Plan
+
+### Step 22: Obsidian vault integration
+1. Clone `MyVault` repo to VPS: `git clone https://github.com/shreyas-venkat/MyVault.git ~/MyVault`
+2. Daily scan (cron `0 3 * * *`): read vault notes for context about user
+   - Extract preferences, interests, writing style
+   - Update `groups/main/CLAUDE.md` personality section with learned traits
+3. Write to vault `LifeOS/` folder:
+   - `daily-summaries/YYYY-MM-DD.md` — health, meals, activity, bot actions
+   - `learned-preferences.md` — accumulated user preferences
+   - `health-insights.md` — notable health observations
+4. After writing: `git add . && git commit -m "LifeOS daily update" && git push`
+5. Obsidian syncs via GitHub plugin on user's devices
+
+### Step 23: Wyze lamp clock integration
+1. Install `wyze-sdk` Python package on VPS
+2. Create wrapper script: `scripts/wyze-control.py`
+   - `set_brightness(level)`, `set_color_temp(temp)`, `turn_on()`, `turn_off()`
+3. Sleep-aware alarm (cron `0 5 * * 1-5` — runs at 5 AM to prepare):
+   - Query last night's sleep data from `lifeos.health_metrics`
+   - If restless night: gentler sunrise ramp (slower brightness increase)
+   - If deep sleep near alarm: delay sunrise slightly
+   - Alarm window: 6:00-7:00 AM MT weekdays
+4. Wyze credentials stored in Agent Vault
+5. Weekends: no alarm unless user requests
+
+### Step 24: Lefant M210 vacuum integration
+1. Register on Tuya IoT Developer Platform, get API keys
+2. Use `tinytuya` Python library for Tuya Cloud API
+3. Create wrapper script: `scripts/vacuum-control.py`
+   - `start_clean()`, `stop_clean()`, `return_home()`, `get_status()`
+4. Auto-clean trigger:
+   - Office days (Tue/Thu/Fri), triggered by morning briefing
+   - DM: "You're heading to the office — want me to run the vacuum?"
+   - If user confirms (or set to auto): trigger clean
+5. On-demand: user says "clean the house" in DM -> triggers vacuum
+
+### Step 25: Bill tracking from email
+1. Parse RBC bank email notifications (already categorized as "bank" in Phase 1)
+2. Extract: amount, merchant, date, recurring pattern
+3. Store in new table:
+```sql
+CREATE TABLE IF NOT EXISTS lifeos.bills (
+    id VARCHAR PRIMARY KEY,
+    name VARCHAR NOT NULL,
+    amount DOUBLE,
+    merchant VARCHAR,
+    due_date DATE,
+    recurring VARCHAR,
+    status VARCHAR DEFAULT 'upcoming',
+    source_email_id VARCHAR,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+4. Remind user 3 days before due date via Discord DM
+5. Monthly spending summary to `#reminders` channel
+
+## Phase 5 Tests
+- [ ] Bot reads Obsidian vault notes and references them in conversation
+- [ ] Daily summary written to vault and visible in Obsidian
+- [ ] Wyze lamp turns on/off via bot command
+- [ ] Sleep-aware alarm adjusts brightness based on sleep data
+- [ ] Lefant vacuum starts from Discord command
+- [ ] Bill amounts extracted correctly from RBC emails
+- [ ] Bill reminders fire 3 days before due date
+
+---
+
+# Post-Build: Manual Configuration Steps
+
+After all code is built, user needs to do these one-time manual steps:
+
+1. **Discord**: Create "LifeOS" server, create channels (#email-digest, #meals, #health, #activity-log, #reminders), invite bot, get channel IDs, update config
+2. **Gmail OAuth**: Run `npx @gongrzhe/server-gmail-autoauth-mcp auth` on VPS (browser-based one-time flow)
+3. **Health Connect**: Install Health Connect Webhook app on phone, configure webhook URL to `https://{domain}/api/health-webhook`, select all metrics, set 15-min interval
+4. **Wyze**: Add Wyze account credentials to Agent Vault on VPS
+5. **Tuya**: Register on Tuya IoT Developer Platform, extract Lefant M210 device keys, add to Agent Vault
+6. **Calgary Co-op**: Add login credentials to Agent Vault for Playwright automation
+7. **Domain**: Point DNS A record to VPS IP, run certbot for SSL
+
+---
+
+## Definition of Done (All Phases)
+
+- [ ] All implementation steps (0-25) completed
+- [ ] All phase-specific tests passing
+- [ ] Full test suite exits 0
+- [ ] Linters pass (eslint / tsc)
+- [ ] No dead code, no debug statements
+- [ ] SPEC.md updated to reflect any deviations
+- [ ] Deploy workflow triggers successfully on push to main
+- [ ] Manual config steps documented clearly above
