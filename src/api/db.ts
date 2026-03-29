@@ -10,6 +10,11 @@ export async function getDb(): Promise<DuckDBConnection> {
   const connStr = token ? `md:?motherduck_token=${token}` : ':memory:';
   instance = await DuckDBInstance.create(connStr);
   conn = await instance.connect();
+  // Set default database to my_db to avoid ambiguous schema reference
+  // (MotherDuck has both a "lifeos" database and "lifeos" schema in my_db)
+  if (token) {
+    await conn.run('USE my_db');
+  }
   return conn;
 }
 
@@ -18,8 +23,7 @@ export async function query<T = Record<string, unknown>>(
   ...params: unknown[]
 ): Promise<T[]> {
   const connection = await getDb();
-  const values =
-    params.length > 0 ? (params as DuckDBValue[]) : undefined;
+  const values = params.length > 0 ? (params as DuckDBValue[]) : undefined;
   const result = await connection.runAndReadAll(sql, values);
   const columns = result.columnNames();
   return result.getRows().map((row) => {
