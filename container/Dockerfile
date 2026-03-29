@@ -51,8 +51,9 @@ COPY agent-runner/package*.json ./
 # Install dependencies
 RUN npm install
 
-# Copy MCP servers
+# Copy MCP servers and install their dependencies
 COPY mcp-servers/ /app/mcp-servers/
+RUN cd /app/mcp-servers && npm init -y > /dev/null 2>&1 && npm install googleapis @modelcontextprotocol/sdk
 
 # Copy source code
 COPY agent-runner/ ./
