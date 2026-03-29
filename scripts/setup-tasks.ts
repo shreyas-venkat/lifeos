@@ -83,7 +83,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       chat_jid: config.mainChannelJid,
       context_mode: 'group',
       prompt:
-        'Check Gmail inbox for new emails. For each unread email: categorize it (actionable, transactions, bank, life, github, spam_promotions, newsletters), take appropriate action (trash spam, alert on important), and log to MotherDuck lifeos.emails table. If actionable or bank, alert via Discord DM.',
+        'Check Gmail inbox for new unread emails. For each: categorize it (actionable, transactions, bank, life, github, spam_promotions, newsletters). Trash spam/promotions. For actionable or bank emails, use the send_message MCP tool to alert the user via Discord immediately. Log all processed emails to MotherDuck lifeos.emails table.',
     },
 
     // 2. Daily email digest (8 PM MT)
@@ -95,7 +95,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       chat_jid: config.emailDigestJid,
       context_mode: 'group',
       prompt:
-        'Generate daily email digest. Query lifeos.emails for all emails processed today. Summarize by category with counts. Post to the email digest channel.',
+        'Generate daily email digest. Query lifeos.emails for all emails processed today. Summarize by category with counts. Use the send_message MCP tool to post the digest.',
     },
 
     // 3. Morning briefing (6 AM MT weekdays)
@@ -107,7 +107,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       chat_jid: config.mainChannelJid,
       context_mode: 'group',
       prompt:
-        'Good morning briefing. Check: 1) Today\'s Google Calendar events, 2) Any important emails since last evening, 3) Reminders due today. Format as a concise morning briefing and send to Discord DM.',
+        'Good morning briefing. Check: 1) Today\'s Google Calendar events using the google_calendar MCP tools, 2) Any important emails since last evening via Gmail MCP, 3) Reminders due today from lifeos.reminders. Format as a concise morning briefing and use the send_message MCP tool to send it.',
     },
 
     // 4. Reminder checker (every 5 min, with pre-check script)
@@ -119,7 +119,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       chat_jid: config.mainChannelJid,
       context_mode: 'group',
       prompt:
-        "Check lifeos.reminders for reminders where due_at <= now() and status = 'active'. For each: send a Discord DM reminder. For recurring reminders, calculate next due_at from recurring_cron and update. For one-time reminders, set status to 'completed'.",
+        "Check lifeos.reminders for reminders where due_at <= now() and status = 'active'. For each due reminder: use the send_message MCP tool to send the reminder text to the user via Discord. For recurring reminders, calculate next due_at from recurring_cron and update. For one-time reminders, set status to 'completed'.",
       script: path.join(scriptsDir, 'reminder-check.sh'),
     },
 
@@ -132,7 +132,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       chat_jid: config.mealsChannelJid,
       context_mode: 'group',
       prompt:
-        'Generate weekly meal plan. Read dietary preferences from lifeos.dietary_preferences. Read current pantry from lifeos.pantry. Read previous recipe ratings from lifeos.recipes. Plan 7 dinners (each makes 2 portions for dinner + next-day lunch). Office days (Tue/Thu/Fri) need packable lunches. Post plan to meals channel and DM user for approval.',
+        'Generate weekly meal plan. Read dietary preferences from lifeos.dietary_preferences and current pantry from lifeos.pantry. Plan 7 dinners (2 portions each). Office days (Tue/Thu/Fri) need packable lunches. Use the send_message MCP tool to post the plan and ask for approval.',
     },
 
     // 6. Cooking check-in (7 PM daily)
@@ -144,7 +144,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       chat_jid: config.mainChannelJid,
       context_mode: 'group',
       prompt:
-        "Check today's meal plan from lifeos.meal_plans. Ask user: 'How was [recipe]? Rate 1-5.' If user cooked, log calories from recipe data to lifeos.calorie_log and deduct ingredients from lifeos.pantry.",
+        "Check today's meal plan from lifeos.meal_plans. Use the send_message MCP tool to ask user: 'How was [recipe]? Rate 1-5.' If user cooked, log calories from recipe data to lifeos.calorie_log and deduct ingredients from lifeos.pantry.",
     },
 
     // 7. Pantry expiry check (8 AM daily, with pre-check script)
@@ -156,7 +156,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       chat_jid: config.mainChannelJid,
       context_mode: 'group',
       prompt:
-        'Check lifeos.pantry for items with expiry_date within 3 days. Warn user about expiring items.',
+        'Check lifeos.pantry for items with expiry_date within 3 days. If any found, use the send_message MCP tool to warn the user about expiring items.',
       script: path.join(scriptsDir, 'pantry-expiry-check.sh'),
     },
 
@@ -169,7 +169,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       chat_jid: config.healthChannelJid,
       context_mode: 'group',
       prompt:
-        'Generate daily calorie summary. Query lifeos.calorie_log for today. Post total calories, protein, carbs, fat to health channel.',
+        'Generate daily calorie summary. Query lifeos.calorie_log for today. Use the send_message MCP tool to post total calories, protein, carbs, fat.',
     },
 
     // 9. Evening supplement recommendation (9 PM MT)
@@ -181,7 +181,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       chat_jid: config.mainChannelJid,
       context_mode: 'group',
       prompt:
-        "Generate morning supplement recommendations for tomorrow. Query today's health data from lifeos.health_metrics. Analyze sleep quality, HRV, activity level. Adjust dosages within safe ranges (check lifeos.supplements.max_safe_dosage). DM recommendations with reasoning. Log to lifeos.supplement_log.",
+        "Generate morning supplement recommendations for tomorrow. Query today's health data from lifeos.health_metrics. Adjust dosages within safe ranges (check lifeos.supplements.max_safe_dosage). Use the send_message MCP tool to send recommendations with reasoning. Log to lifeos.supplement_log.",
     },
 
     // 10. Morning supplement recommendation (6 AM MT)
@@ -193,7 +193,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       chat_jid: config.mainChannelJid,
       context_mode: 'group',
       prompt:
-        "Generate evening supplement recommendations. Query today's health data. DM recommendations with reasoning. Log to lifeos.supplement_log.",
+        "Generate evening supplement recommendations. Query today's health data from lifeos.health_metrics. Use the send_message MCP tool to send recommendations. Log to lifeos.supplement_log.",
     },
 
     // 11. Step monitoring (8 PM daily, with pre-check script)
@@ -205,7 +205,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       chat_jid: config.mainChannelJid,
       context_mode: 'group',
       prompt:
-        'Query lifeos.health_metrics for steps over last 3 days. If average below 5000, send friendly fitness nudge. Log to lifeos.fitness_nudges.',
+        'Query lifeos.health_metrics for steps over last 3 days. If average below 5000, use the send_message MCP tool to send a friendly fitness nudge. Log to lifeos.fitness_nudges.',
       script: path.join(scriptsDir, 'steps-check.sh'),
     },
 
@@ -218,7 +218,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       chat_jid: config.healthChannelJid,
       context_mode: 'group',
       prompt:
-        'Query weight from lifeos.health_metrics for last 2 weeks. Calculate trend. If trending up, send gentle nudge about activity.',
+        'Query weight from lifeos.health_metrics for last 2 weeks. Calculate trend. If trending up, use the send_message MCP tool to send a gentle nudge about activity.',
     },
 
     // 13. Daily health summary (9 PM MT)
@@ -230,7 +230,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       chat_jid: config.healthChannelJid,
       context_mode: 'group',
       prompt:
-        'Generate daily health summary. Query lifeos.health_metrics for today: sleep duration/quality, steps, active calories, resting HR, HRV, SpO2, weight + 7-day trend. Include calories + macros from lifeos.calorie_log. Include supplements recommended vs taken from lifeos.supplement_log. Post to health channel.',
+        'Generate daily health summary. Query lifeos.health_metrics for today: sleep, steps, calories, HR, HRV, SpO2, weight. Include calories from lifeos.calorie_log and supplements from lifeos.supplement_log. Use the send_message MCP tool to post the summary.',
     },
 
     // 14. Obsidian daily sync (3 AM daily)
@@ -254,7 +254,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       chat_jid: config.remindersChannelJid,
       context_mode: 'group',
       prompt:
-        'Check lifeos.bills for bills due within 3 days. Send Discord DM reminder for each.',
+        'Check lifeos.bills for bills due within 3 days. For each, use the send_message MCP tool to alert the user.',
       script: path.join(scriptsDir, 'bill-check.sh'),
     },
 
@@ -267,7 +267,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       chat_jid: config.remindersChannelJid,
       context_mode: 'group',
       prompt:
-        'Generate monthly spending summary from lifeos.bills for last month. Categorize by merchant/type. Post to reminders channel.',
+        'Generate monthly spending summary from lifeos.bills for last month. Categorize by merchant/type. Use the send_message MCP tool to post the summary.',
     },
   ];
 }
