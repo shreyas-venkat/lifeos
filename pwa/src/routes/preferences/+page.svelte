@@ -1,47 +1,62 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
+	import type { PreferenceRow } from '$lib/api';
 
-	let dietary = $state('');
-	let notifications = $state(false);
-	let supplementList = $state('');
+	let preferences = $state<PreferenceRow[]>([]);
 	let loading = $state(true);
+	let editingKey = $state<string | null>(null);
+	let editValue = $state('');
 	let saving = $state(false);
-	let error = $state('');
-	let saved = $state(false);
 
-	onMount(async () => {
-		try {
-			const prefs = await api.preferences.get();
-			if (prefs && !Array.isArray(prefs)) {
-				dietary = prefs.dietary || '';
-				notifications = prefs.notifications ?? false;
-				supplementList = (prefs.supplements || []).join(', ');
-			}
-		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load preferences';
-		} finally {
-			loading = false;
+	// Group preferences by skill
+	const grouped = $derived(() => {
+		const groups: Record<string, PreferenceRow[]> = {};
+		for (const pref of preferences) {
+			const section = pref.skill || 'General';
+			if (!groups[section]) groups[section] = [];
+			groups[section].push(pref);
 		}
+		return groups;
 	});
 
-	async function savePreferences() {
+	function startEdit(pref: PreferenceRow) {
+		editingKey = pref.key;
+		editValue = pref.value;
+	}
+
+	async function saveEdit(key: string) {
 		saving = true;
-		saved = false;
 		try {
-			await api.preferences.update({
-				dietary,
-				notifications: String(notifications),
-				supplements: supplementList,
-			});
-			saved = true;
-			setTimeout(() => (saved = false), 2000);
-		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to save';
+			await api.preferences.update({ [key]: editValue });
+			const idx = preferences.findIndex((p) => p.key === key);
+			if (idx >= 0) {
+				preferences[idx].value = editValue;
+				preferences = [...preferences];
+			}
+			editingKey = null;
+		} catch {
+			// Failed to save
 		} finally {
 			saving = false;
 		}
 	}
+
+	function cancelEdit() {
+		editingKey = null;
+		editValue = '';
+	}
+
+	function formatKey(key: string): string {
+		return key
+			.replace(/_/g, ' ')
+			.replace(/\b\w/g, (c) => c.toUpperCase());
+	}
+
+	onMount(async () => {
+		preferences = await api.preferences.get();
+		loading = false;
+	});
 </script>
 
 <svelte:head>
@@ -52,159 +67,190 @@
 	<h1>Preferences</h1>
 
 	{#if loading}
-		<p class="loading">Loading preferences...</p>
-	{:else if error}
-		<p class="error">{error}</p>
+		{#each Array(5) as _}
+			<div class="skeleton" style="height: 56px; margin-bottom: 0.5rem;"></div>
+		{/each}
+	{:else if preferences.length === 0}
+		<div class="empty-state fade-in">
+			<p>No preferences configured yet.</p>
+			<p class="empty-hint">Preferences will appear here as you configure LifeOS via Discord.</p>
+		</div>
 	{:else}
-		<form onsubmit={(e) => { e.preventDefault(); savePreferences(); }}>
-			<div class="field">
-				<label for="dietary">Dietary Preferences</label>
-				<textarea
-					id="dietary"
-					bind:value={dietary}
-					placeholder="e.g., vegetarian, low-carb, no dairy..."
-					rows="3"
-				></textarea>
-			</div>
-
-			<div class="field">
-				<label for="supplements">Supplement List</label>
-				<textarea
-					id="supplements"
-					bind:value={supplementList}
-					placeholder="e.g., Vitamin D, Omega-3, Magnesium..."
-					rows="3"
-				></textarea>
-				<span class="hint">Comma-separated list</span>
-			</div>
-
-			<div class="field toggle-field">
-				<label for="notifications">Notifications</label>
-				<label class="toggle">
-					<input type="checkbox" id="notifications" bind:checked={notifications} />
-					<span class="toggle-slider"></span>
-				</label>
-			</div>
-
-			<button type="submit" class="save-btn" disabled={saving}>
-				{#if saving}
-					Saving...
-				{:else if saved}
-					Saved
-				{:else}
-					Save Preferences
-				{/if}
-			</button>
-		</form>
+		{#each Object.entries(grouped()) as [section, prefs]}
+			<section class="pref-section fade-in">
+				<h2>{section}</h2>
+				<div class="pref-list">
+					{#each prefs as pref}
+						<div class="pref-row">
+							{#if editingKey === pref.key}
+								<div class="pref-edit">
+									<span class="pref-key">{formatKey(pref.key)}</span>
+									<input
+										type="text"
+										bind:value={editValue}
+										class="pref-input"
+										onkeydown={(e) => {
+											if (e.key === 'Enter') saveEdit(pref.key);
+											if (e.key === 'Escape') cancelEdit();
+										}}
+									/>
+									<div class="edit-actions">
+										<button
+											class="save-btn"
+											onclick={() => saveEdit(pref.key)}
+											disabled={saving}
+										>
+											{saving ? '...' : 'Save'}
+										</button>
+										<button class="cancel-btn" onclick={cancelEdit}>
+											Cancel
+										</button>
+									</div>
+								</div>
+							{:else}
+								<button class="pref-display" onclick={() => startEdit(pref)}>
+									<span class="pref-key">{formatKey(pref.key)}</span>
+									<span class="pref-value">{pref.value}</span>
+								</button>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			</section>
+		{/each}
 	{/if}
 </div>
 
 <style>
-	.page h1 {
+	h1 {
 		font-size: 1.5rem;
-		margin-bottom: 1rem;
+		font-weight: 600;
+		margin-bottom: 1.25rem;
 	}
-	form {
-		display: flex;
-		flex-direction: column;
-		gap: 1.25rem;
+
+	.pref-section {
+		margin-bottom: 1.5rem;
 	}
-	.field {
-		display: flex;
-		flex-direction: column;
-		gap: 0.35rem;
-	}
-	.field label {
-		font-size: 0.85rem;
+
+	.pref-section h2 {
+		font-size: 0.75rem;
 		color: var(--text-secondary);
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
+		letter-spacing: 0.06em;
+		font-weight: 600;
+		margin-bottom: 8px;
+		padding-left: 4px;
 	}
-	textarea {
+
+	.pref-list {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.pref-row {
 		background: var(--bg-card);
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		border-radius: 0.5rem;
-		padding: 0.6rem;
-		color: var(--text-primary);
-		font-size: 0.9rem;
-		font-family: inherit;
-		resize: vertical;
+		border-radius: 10px;
+		border: 1px solid var(--border);
+		overflow: hidden;
 	}
-	textarea::placeholder {
-		color: var(--text-secondary);
-	}
-	.hint {
-		font-size: 0.7rem;
-		color: var(--text-secondary);
-	}
-	.toggle-field {
-		flex-direction: row;
+
+	.pref-display {
+		width: 100%;
+		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		background: var(--bg-card);
-		border-radius: 0.5rem;
-		padding: 0.75rem;
-	}
-	.toggle {
-		position: relative;
-		display: inline-block;
-		width: 44px;
-		height: 24px;
-	}
-	.toggle input {
-		opacity: 0;
-		width: 0;
-		height: 0;
-	}
-	.toggle-slider {
-		position: absolute;
+		padding: 12px 14px;
+		background: none;
+		border: none;
+		color: var(--text-primary);
+		text-align: left;
 		cursor: pointer;
-		top: 0;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		background: rgba(255, 255, 255, 0.1);
-		border-radius: 24px;
-		transition: 0.3s;
+		transition: background 0.2s;
 	}
-	.toggle-slider::before {
-		content: '';
-		position: absolute;
-		height: 18px;
-		width: 18px;
-		left: 3px;
-		bottom: 3px;
-		background: white;
-		border-radius: 50%;
-		transition: 0.3s;
+
+	.pref-display:hover {
+		background: var(--bg-elevated);
 	}
-	.toggle input:checked + .toggle-slider {
-		background: var(--success);
+
+	.pref-key {
+		font-size: 0.85rem;
+		font-weight: 500;
 	}
-	.toggle input:checked + .toggle-slider::before {
-		transform: translateX(20px);
+
+	.pref-value {
+		font-size: 0.85rem;
+		color: var(--text-secondary);
+		max-width: 60%;
+		text-align: right;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
+
+	.pref-edit {
+		padding: 12px 14px;
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.pref-input {
+		width: 100%;
+		background: var(--bg-elevated);
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		padding: 8px 12px;
+		color: var(--text-primary);
+		font-size: 0.9rem;
+		transition: border-color 0.2s;
+	}
+
+	.pref-input:focus {
+		outline: none;
+		border-color: var(--accent);
+	}
+
+	.edit-actions {
+		display: flex;
+		gap: 8px;
+		justify-content: flex-end;
+	}
+
 	.save-btn {
 		background: var(--accent);
 		color: var(--text-primary);
 		border: none;
-		border-radius: 0.5rem;
-		padding: 0.75rem;
-		font-size: 0.95rem;
-		cursor: pointer;
+		border-radius: 8px;
+		padding: 6px 16px;
+		font-size: 0.8rem;
 		font-weight: 500;
+		transition: opacity 0.2s;
 	}
+
 	.save-btn:disabled {
 		opacity: 0.6;
-		cursor: not-allowed;
 	}
-	.loading,
-	.error {
+
+	.cancel-btn {
+		background: none;
+		color: var(--text-secondary);
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		padding: 6px 16px;
+		font-size: 0.8rem;
+		font-weight: 500;
+	}
+
+	.empty-state {
 		text-align: center;
-		padding: 2rem;
+		padding: 3rem 1rem;
 		color: var(--text-secondary);
 	}
-	.error {
-		color: var(--danger);
+
+	.empty-hint {
+		font-size: 0.85rem;
+		margin-top: 0.5rem;
+		opacity: 0.7;
 	}
 </style>

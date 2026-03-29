@@ -1,53 +1,84 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
-	import type { MealPlanDay, CalorieEntry, Recipe } from '$lib/api';
+	import type { MealPlanRecord, CalorieEntry, RecipeSummary } from '$lib/api';
 
-	let plan = $state<MealPlanDay[]>([]);
-	let calories = $state<CalorieEntry | null>(null);
-	let recipes = $state<Recipe[]>([]);
+	let plan = $state<MealPlanRecord[]>([]);
+	let todayCalories = $state<CalorieEntry[]>([]);
+	let recipes = $state<RecipeSummary[]>([]);
 	let search = $state('');
 	let loading = $state(true);
-	let error = $state('');
+	let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
-	const filteredRecipes = $derived(
-		search.length > 0
-			? recipes.filter((r) => r.name.toLowerCase().includes(search.toLowerCase()))
-			: recipes
+	const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+	const statusColors: Record<string, string> = {
+		planned: '#8888a0',
+		cooked: '#22c55e',
+		skipped: '#f59e0b',
+		ate_out: '#6366f1',
+	};
+
+	// Compute daily calorie totals
+	const totalCalories = $derived(
+		todayCalories.reduce((sum, e) => sum + (e.calories ?? 0), 0)
 	);
+	const totalProtein = $derived(
+		todayCalories.reduce((sum, e) => sum + (e.protein_g ?? 0), 0)
+	);
+	const totalCarbs = $derived(
+		todayCalories.reduce((sum, e) => sum + (e.carbs_g ?? 0), 0)
+	);
+	const totalFat = $derived(
+		todayCalories.reduce((sum, e) => sum + (e.fat_g ?? 0), 0)
+	);
+	const totalMacros = $derived(totalProtein + totalCarbs + totalFat);
 
-	onMount(async () => {
-		try {
-			const [p, c, r] = await Promise.allSettled([
-				api.meals.plan(),
-				api.calories.today(),
-				api.meals.recipes(),
-			]);
-			if (p.status === 'fulfilled') plan = Array.isArray(p.value) ? p.value : [];
-			if (c.status === 'fulfilled') calories = Array.isArray(c.value) ? null : c.value;
-			if (r.status === 'fulfilled') recipes = Array.isArray(r.value) ? r.value : [];
-		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load meals';
-		} finally {
-			loading = false;
+	// Group meal plan by day_of_week
+	const planByDay = $derived(() => {
+		const grouped: Record<number, MealPlanRecord[]> = {};
+		for (const meal of plan) {
+			if (!grouped[meal.day_of_week]) grouped[meal.day_of_week] = [];
+			grouped[meal.day_of_week].push(meal);
 		}
+		return grouped;
 	});
 
-	async function updateMealStatus(id: string, status: string) {
+	function handleSearch() {
+		if (searchTimeout) clearTimeout(searchTimeout);
+		searchTimeout = setTimeout(async () => {
+			recipes = await api.meals.recipes(search);
+		}, 300);
+	}
+
+	async function toggleStatus(meal: MealPlanRecord) {
+		const nextStatus = meal.status === 'cooked' ? 'planned' : 'cooked';
 		try {
-			await api.meals.updateStatus(id, status);
-			for (const day of plan) {
-				const meal = day.meals.find((m) => m.id === id);
-				if (meal) {
-					meal.status = status;
-					plan = [...plan];
-					break;
-				}
-			}
+			await api.meals.updateStatus(meal.id, nextStatus);
+			meal.status = nextStatus;
+			plan = [...plan];
 		} catch {
-			// Silently fail, user sees no change
+			// Keep current state
 		}
 	}
+
+	function renderStars(rating: number | null): string {
+		if (rating === null) return '';
+		const full = Math.round(rating);
+		return '\u2605'.repeat(full) + '\u2606'.repeat(5 - full);
+	}
+
+	onMount(async () => {
+		const [p, c, r] = await Promise.allSettled([
+			api.meals.plan(),
+			api.calories.today(),
+			api.meals.recipes(),
+		]);
+		if (p.status === 'fulfilled') plan = p.value;
+		if (c.status === 'fulfilled') todayCalories = c.value;
+		if (r.status === 'fulfilled') recipes = r.value;
+		loading = false;
+	});
 </script>
 
 <svelte:head>
@@ -55,86 +86,121 @@
 </svelte:head>
 
 <div class="page">
-	<h1>Meals</h1>
+	<h1>Meals & Calories</h1>
 
 	{#if loading}
-		<p class="loading">Loading meal plan...</p>
-	{:else if error}
-		<p class="error">{error}</p>
+		<div class="skeleton" style="height: 120px; margin-bottom: 1rem;"></div>
+		<div class="skeleton" style="height: 200px; margin-bottom: 1rem;"></div>
 	{:else}
-		{#if calories}
-			<div class="calorie-summary">
+		<!-- Calorie Summary -->
+		<section class="calorie-card fade-in">
+			{#if todayCalories.length > 0}
 				<div class="calorie-header">
-					<span>Today's Calories</span>
-					<span class="calorie-count">{calories.total} / {calories.target} kcal</span>
+					<span class="calorie-label">Today's Calories</span>
+					<span class="calorie-total">{Math.round(totalCalories)} kcal</span>
 				</div>
-				<div class="progress-bar">
-					<div
-						class="progress-fill"
-						style="width: {Math.min((calories.total / calories.target) * 100, 100)}%"
-					></div>
-				</div>
-				{#if calories.meals.length > 0}
-					<div class="calorie-meals">
-						{#each calories.meals as meal}
-							<div class="calorie-meal">
-								<span>{meal.name}</span>
-								<span class="cal-value">{meal.calories} kcal</span>
-							</div>
-						{/each}
+				{#if totalMacros > 0}
+					<div class="macro-bar">
+						<div
+							class="macro-segment protein"
+							style="width: {(totalProtein / totalMacros) * 100}%"
+							title="Protein: {Math.round(totalProtein)}g"
+						></div>
+						<div
+							class="macro-segment carbs"
+							style="width: {(totalCarbs / totalMacros) * 100}%"
+							title="Carbs: {Math.round(totalCarbs)}g"
+						></div>
+						<div
+							class="macro-segment fat"
+							style="width: {(totalFat / totalMacros) * 100}%"
+							title="Fat: {Math.round(totalFat)}g"
+						></div>
+					</div>
+					<div class="macro-labels">
+						<span class="macro-label protein-label">P: {Math.round(totalProtein)}g</span>
+						<span class="macro-label carbs-label">C: {Math.round(totalCarbs)}g</span>
+						<span class="macro-label fat-label">F: {Math.round(totalFat)}g</span>
 					</div>
 				{/if}
-			</div>
-		{/if}
-
-		<section class="meal-plan">
-			<h2>Weekly Plan</h2>
-			{#each plan as day}
-				<div class="day-card">
-					<h3>{day.date}</h3>
-					{#each day.meals as meal}
-						<div class="meal-item" class:done={meal.status === 'done'}>
-							<div class="meal-info">
-								<span class="meal-type">{meal.type}</span>
-								<span class="meal-name">{meal.name}</span>
-								<span class="meal-cal">{meal.calories} kcal</span>
-							</div>
-							<button
-								class="meal-toggle"
-								onclick={() => updateMealStatus(meal.id, meal.status === 'done' ? 'pending' : 'done')}
-							>
-								{meal.status === 'done' ? 'Done' : 'Mark'}
-							</button>
-						</div>
-					{/each}
-				</div>
-			{/each}
-			{#if plan.length === 0}
-				<p class="no-data">No meal plan for this week</p>
+			{:else}
+				<p class="empty-text">No meals logged today</p>
 			{/if}
 		</section>
 
-		<section class="recipe-browser">
+		<!-- Weekly Meal Plan -->
+		<section class="section fade-in">
+			<h2>Weekly Plan</h2>
+			{#if plan.length > 0}
+				<div class="week-grid">
+					{#each Array(7) as _, dayIdx}
+						{@const dayMeals = planByDay()[dayIdx + 1] ?? []}
+						<div class="day-column">
+							<span class="day-label">{dayNames[dayIdx]}</span>
+							{#each dayMeals as meal}
+								<button
+									class="meal-chip"
+									style="border-left: 3px solid {statusColors[meal.status] ?? '#8888a0'}"
+									onclick={() => toggleStatus(meal)}
+								>
+									<span class="meal-name">{meal.recipe_name ?? meal.meal_type}</span>
+									{#if meal.calories_per_serving}
+										<span class="meal-cal">{meal.calories_per_serving} kcal</span>
+									{/if}
+								</button>
+							{/each}
+							{#if dayMeals.length === 0}
+								<span class="no-meal">--</span>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			{:else}
+				<p class="empty-text">No meal plan for this week</p>
+			{/if}
+		</section>
+
+		<!-- Recipe Browser -->
+		<section class="section fade-in">
 			<h2>Recipes</h2>
 			<input
 				type="text"
 				placeholder="Search recipes..."
 				bind:value={search}
+				oninput={handleSearch}
 				class="search-input"
 			/>
 			<div class="recipe-list">
-				{#each filteredRecipes as recipe}
+				{#each recipes as recipe}
 					<div class="recipe-card">
-						<div class="recipe-name">{recipe.name}</div>
-						<div class="recipe-desc">{recipe.description}</div>
-						<div class="recipe-meta">
-							<span>{recipe.calories} kcal</span>
-							<span class="recipe-rating">{'*'.repeat(recipe.rating)}</span>
+						<div class="recipe-header">
+							<span class="recipe-name">{recipe.name}</span>
+							{#if recipe.rating !== null}
+								<span class="recipe-stars">{renderStars(recipe.rating)}</span>
+							{/if}
 						</div>
+						<div class="recipe-meta">
+							{#if recipe.calories_per_serving !== null}
+								<span>{recipe.calories_per_serving} kcal</span>
+							{/if}
+							{#if recipe.prep_time_min !== null}
+								<span>{recipe.prep_time_min} min</span>
+							{/if}
+							{#if recipe.times_cooked > 0}
+								<span>Cooked {recipe.times_cooked}x</span>
+							{/if}
+						</div>
+						{#if recipe.tags && recipe.tags.length > 0}
+							<div class="recipe-tags">
+								{#each recipe.tags as tag}
+									<span class="tag">{tag}</span>
+								{/each}
+							</div>
+						{/if}
 					</div>
 				{/each}
-				{#if filteredRecipes.length === 0}
-					<p class="no-data">No recipes found</p>
+				{#if recipes.length === 0}
+					<p class="empty-text">No recipes found</p>
 				{/if}
 			</div>
 		</section>
@@ -142,156 +208,223 @@
 </div>
 
 <style>
-	.page h1 {
+	h1 {
 		font-size: 1.5rem;
-		margin-bottom: 1rem;
+		font-weight: 600;
+		margin-bottom: 1.25rem;
 	}
+
 	h2 {
-		font-size: 0.85rem;
+		font-size: 0.8rem;
 		color: var(--text-secondary);
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
+		letter-spacing: 0.06em;
 		margin-bottom: 0.75rem;
+		font-weight: 500;
 	}
-	.calorie-summary {
-		background: var(--bg-card);
-		border-radius: 0.75rem;
-		padding: 1rem;
+
+	.section {
 		margin-bottom: 1.5rem;
 	}
+
+	.calorie-card {
+		background: var(--bg-card);
+		border-radius: 12px;
+		padding: 1rem;
+		margin-bottom: 1.5rem;
+		border: 1px solid var(--border);
+	}
+
 	.calorie-header {
 		display: flex;
 		justify-content: space-between;
-		margin-bottom: 0.5rem;
+		align-items: center;
+		margin-bottom: 0.75rem;
 	}
-	.calorie-count {
-		font-weight: 600;
-	}
-	.progress-bar {
-		height: 4px;
-		background: rgba(255, 255, 255, 0.1);
-		border-radius: 2px;
-		overflow: hidden;
-	}
-	.progress-fill {
-		height: 100%;
-		background: var(--accent-light);
-		border-radius: 2px;
-	}
-	.calorie-meals {
-		margin-top: 0.75rem;
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-	}
-	.calorie-meal {
-		display: flex;
-		justify-content: space-between;
+
+	.calorie-label {
 		font-size: 0.85rem;
 		color: var(--text-secondary);
 	}
-	.cal-value {
+
+	.calorie-total {
+		font-size: 1.25rem;
+		font-weight: 700;
 		font-variant-numeric: tabular-nums;
 	}
-	.meal-plan {
-		margin-bottom: 1.5rem;
-	}
-	.day-card {
-		background: var(--bg-card);
-		border-radius: 0.75rem;
-		padding: 0.75rem;
+
+	.macro-bar {
+		display: flex;
+		height: 8px;
+		border-radius: 4px;
+		overflow: hidden;
+		background: var(--bg-elevated);
 		margin-bottom: 0.5rem;
 	}
-	.day-card h3 {
-		font-size: 0.8rem;
-		color: var(--text-secondary);
-		margin-bottom: 0.5rem;
+
+	.macro-segment {
+		height: 100%;
+		transition: width 0.3s ease;
 	}
-	.meal-item {
+
+	.macro-segment.protein { background: #3b82f6; }
+	.macro-segment.carbs { background: #f59e0b; }
+	.macro-segment.fat { background: #ef4444; }
+
+	.macro-labels {
 		display: flex;
 		justify-content: space-between;
-		align-items: center;
-		padding: 0.5rem 0;
-		border-top: 1px solid rgba(255, 255, 255, 0.05);
+		font-size: 0.75rem;
 	}
-	.meal-item.done {
-		opacity: 0.5;
+
+	.macro-label { color: var(--text-secondary); }
+	.protein-label { color: #3b82f6; }
+	.carbs-label { color: #f59e0b; }
+	.fat-label { color: #ef4444; }
+
+	.week-grid {
+		display: grid;
+		grid-template-columns: repeat(7, 1fr);
+		gap: 6px;
 	}
-	.meal-info {
+
+	@media (max-width: 500px) {
+		.week-grid {
+			grid-template-columns: repeat(4, 1fr);
+		}
+	}
+
+	.day-column {
 		display: flex;
 		flex-direction: column;
-		gap: 0.15rem;
+		gap: 4px;
 	}
-	.meal-type {
+
+	.day-label {
 		font-size: 0.7rem;
 		color: var(--text-secondary);
 		text-transform: uppercase;
+		font-weight: 600;
+		text-align: center;
+		margin-bottom: 2px;
 	}
-	.meal-name {
-		font-size: 0.9rem;
+
+	.meal-chip {
+		background: var(--bg-card);
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		padding: 6px 8px;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		cursor: pointer;
+		text-align: left;
+		color: var(--text-primary);
+		transition: border-color 0.2s;
 	}
-	.meal-cal {
-		font-size: 0.75rem;
+
+	.meal-chip:hover {
+		border-color: var(--accent);
+	}
+
+	.meal-chip .meal-name {
+		font-size: 0.7rem;
+		font-weight: 500;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.meal-chip .meal-cal {
+		font-size: 0.6rem;
 		color: var(--text-secondary);
 	}
-	.meal-toggle {
-		background: var(--accent);
-		color: var(--text-primary);
-		border: none;
-		border-radius: 0.5rem;
-		padding: 0.35rem 0.75rem;
-		font-size: 0.75rem;
-		cursor: pointer;
+
+	.no-meal {
+		font-size: 0.7rem;
+		color: var(--text-secondary);
+		text-align: center;
+		padding: 6px;
 	}
+
 	.search-input {
 		width: 100%;
 		background: var(--bg-card);
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		border-radius: 0.5rem;
-		padding: 0.6rem;
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		padding: 10px 14px;
 		color: var(--text-primary);
 		font-size: 0.9rem;
 		margin-bottom: 0.75rem;
+		transition: border-color 0.2s;
 	}
+
+	.search-input:focus {
+		outline: none;
+		border-color: var(--accent);
+	}
+
 	.search-input::placeholder {
 		color: var(--text-secondary);
 	}
+
 	.recipe-list {
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
+		gap: 8px;
 	}
+
 	.recipe-card {
 		background: var(--bg-card);
-		border-radius: 0.75rem;
-		padding: 0.75rem;
+		border-radius: 12px;
+		padding: 12px;
+		border: 1px solid var(--border);
 	}
-	.recipe-name {
-		font-weight: 600;
-		margin-bottom: 0.25rem;
-	}
-	.recipe-desc {
-		font-size: 0.8rem;
-		color: var(--text-secondary);
-		margin-bottom: 0.25rem;
-	}
-	.recipe-meta {
+
+	.recipe-header {
 		display: flex;
 		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 4px;
+	}
+
+	.recipe-name {
+		font-weight: 600;
+		font-size: 0.95rem;
+	}
+
+	.recipe-stars {
+		color: var(--warning);
+		font-size: 0.85rem;
+	}
+
+	.recipe-meta {
+		display: flex;
+		gap: 12px;
 		font-size: 0.75rem;
 		color: var(--text-secondary);
 	}
-	.recipe-rating {
-		color: var(--warning);
+
+	.recipe-tags {
+		display: flex;
+		gap: 4px;
+		margin-top: 6px;
+		flex-wrap: wrap;
 	}
-	.loading,
-	.error,
-	.no-data {
-		text-align: center;
-		padding: 2rem;
+
+	.tag {
+		background: var(--bg-elevated);
 		color: var(--text-secondary);
+		padding: 2px 8px;
+		border-radius: 6px;
+		font-size: 0.65rem;
+		font-weight: 500;
 	}
-	.error {
-		color: var(--danger);
+
+	.empty-text {
+		text-align: center;
+		padding: 1.5rem;
+		color: var(--text-secondary);
+		font-size: 0.9rem;
 	}
 </style>
