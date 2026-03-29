@@ -1,22 +1,29 @@
-import { Database } from 'duckdb-async';
+import { DuckDBInstance, DuckDBConnection } from '@duckdb/node-api';
 
-let db: Database | null = null;
+let instance: DuckDBInstance | null = null;
+let conn: DuckDBConnection | null = null;
 
-export async function getDb(): Promise<Database> {
-  if (db) return db;
+export async function getDb(): Promise<DuckDBConnection> {
+  if (conn) return conn;
   const token = process.env.MOTHERDUCK_TOKEN;
-  if (!token) {
-    db = await Database.create(':memory:');
-  } else {
-    db = await Database.create(`md:?motherduck_token=${token}`);
-  }
-  return db;
+  const connStr = token ? `md:?motherduck_token=${token}` : ':memory:';
+  instance = await DuckDBInstance.create(connStr);
+  conn = await instance.connect();
+  return conn;
 }
 
 export async function query<T = Record<string, unknown>>(
   sql: string,
-  ...params: unknown[]
+  ..._params: unknown[]
 ): Promise<T[]> {
-  const conn = await getDb();
-  return conn.all(sql, ...params) as Promise<T[]>;
+  const connection = await getDb();
+  const result = await connection.runAndReadAll(sql);
+  const columns = result.columnNames();
+  return result.getRows().map((row) => {
+    const obj: Record<string, unknown> = {};
+    columns.forEach((col, i) => {
+      obj[col] = row[i];
+    });
+    return obj;
+  }) as T[];
 }
