@@ -20,8 +20,9 @@ export function createApiServer(_port = 3100): express.Express {
     next();
   });
 
-  // API key auth middleware
-  app.use('/api', (req, res, next) => {
+  // API key auth only on health webhook (called from phone over Tailscale)
+  // Data routes don't need auth — everything is behind Tailscale
+  app.use('/api/health-webhook', (req, res, next) => {
     const apiKey = req.headers['x-api-key'] || req.query.key;
     const expectedKey = process.env.VPS_API_SECRET;
     if (expectedKey && apiKey !== expectedKey) {
@@ -29,9 +30,7 @@ export function createApiServer(_port = 3100): express.Express {
       return;
     }
     next();
-  });
-
-  app.use('/api/health-webhook', healthWebhookRouter);
+  }, healthWebhookRouter);
 
   // Mount Phase 4 data routes
   const apiRouter = express.Router();
