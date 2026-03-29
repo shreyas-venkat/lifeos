@@ -123,9 +123,16 @@ export interface PreferenceRow {
 	skill: string;
 }
 
+/** Exported for direct use in dashboard */
+export { fetchSafe };
+
+function dateParam(date?: string): string {
+	return date ? `?date=${encodeURIComponent(date)}` : '';
+}
+
 export const api = {
 	health: {
-		today: () => fetchSafe<HealthMetric[]>('/health/today', []),
+		today: (date?: string) => fetchSafe<HealthMetric[]>(`/health/today${dateParam(date)}`, []),
 		history: (days = 30, metric = 'all') =>
 			fetchSafe<HealthHistoryPoint[]>(
 				`/health/history?days=${encodeURIComponent(days)}&metric=${encodeURIComponent(metric)}`,
@@ -160,14 +167,14 @@ export const api = {
 			}),
 	},
 	supplements: {
-		today: () => fetchSafe<SupplementWithStatus[]>('/supplements/today', []),
+		today: (date?: string) => fetchSafe<SupplementWithStatus[]>(`/supplements/today${dateParam(date)}`, []),
 		markTaken: (id: string) =>
 			fetchApi<void>(`/supplements/${encodeURIComponent(id)}/taken`, {
 				method: 'POST',
 			}),
 	},
 	calories: {
-		today: () => fetchSafe<CalorieEntry[]>('/calories/today', []),
+		today: (date?: string) => fetchSafe<CalorieEntry[]>(`/calories/today${dateParam(date)}`, []),
 		history: (days = 30) =>
 			fetchSafe<DailyCalorieSummary[]>(
 				`/calories/history?days=${encodeURIComponent(days)}`,
