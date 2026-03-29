@@ -933,22 +933,103 @@ interface PreferenceRow {
 
 ### Pages
 
-#### `/app` — Dashboard (Node Graph)
+#### `/app` — Dashboard (Living Node Graph)
 
-Interactive force-directed graph using D3.js:
+Full-viewport interactive force-directed graph using D3.js. This is the centerpiece of the app — it must feel alive, organic, and modern.
 
-- **Center node**: "LifeOS" label with today's date
-- **4 satellite nodes**: Health, Meals, Pantry, Supplements
-- Each node is a circle (60-80px) with:
-  - Icon (SVG or emoji)
-  - Label below
-  - Live stat inside (e.g., "7,200 steps", "3/5 taken", "12 items")
-- **Edges**: Subtle curved lines connecting nodes to center, with gentle pulse animation
-- **Interaction**: Click a node → navigate to that page with smooth transition
-- **Data**: Fetch summary stats on mount: `health/today`, `supplements/today`, `pantry`, `calories/today`
-- **Empty state**: Nodes show "No data" with muted styling — never crash
+**Nodes:**
+- **Center node**: Larger (100px), filled with radial gradient (`--accent` → transparent`), "LifeOS" text + current date below. Subtle breathing animation (scale 1.0 → 1.03 → 1.0 over 3s, infinite).
+- **4 satellite nodes**: Health (red), Meals (amber), Pantry (green), Supplements (purple). Each 80px diameter.
+- All nodes are **filled circles** with:
+  - Radial gradient fill (node color center → darker edge)
+  - Soft inner glow (box-shadow or SVG filter with `feGaussianBlur`)
+  - SVG icon inside (heart for health, utensils for meals, basket for pantry, pill for supplements)
+  - Stat text below icon (e.g., "7,200 steps")
+  - Label text below the circle
+- **No data state**: Node fill becomes muted (`--bg-elevated`), stat shows "—", icon dimmed to 30% opacity
 
-Physics: gentle spring force, nodes float slightly, draggable. On mobile: nodes arranged in a clean circle, no physics (performance).
+**Physics & Animation:**
+- D3 force simulation runs CONTINUOUSLY — never stops. Use `simulation.alphaTarget(0.02).restart()` to keep gentle motion forever.
+- Forces: center gravity (strength 0.01), collision (radius + padding), link force (distance 180), gentle random jitter force that nudges nodes slightly every few seconds
+- Nodes drift slowly at all times — the graph should never be static
+- Each node has a subtle **breathing pulse**: CSS animation on the glow/shadow, `scale(1.0)` → `scale(1.02)` → `scale(1.0)` with staggered delays per node
+- Draggable: click and drag to reposition nodes. On release, node rejoins physics.
+
+**Edges:**
+- Curved SVG paths (use `d3.linkHorizontal` or quadratic bezier) connecting each satellite to center
+- Stroke: subtle gradient from center node color to satellite node color, opacity 0.3
+- **Pulse animation**: Small glowing dot (SVG circle, 4px) travels along each edge path continuously using `<animateMotion>` with `dur="3s"` and staggered `begin` per edge. Creates a "data flowing" effect.
+
+**Zoom & Pan:**
+- `d3.zoom()` behavior attached to the SVG
+- Scroll wheel zooms on desktop, pinch-to-zoom on mobile
+- Pan by dragging empty space
+- Zoom range: 0.3x to 3x
+- Double-tap/click on empty space resets zoom to default
+
+**Date Picker:**
+- Top-right corner: minimal date picker showing "Today" by default
+- Click to open: shows a small calendar or left/right arrows to navigate days
+- Changing date re-fetches all summary data for that date (pass date param to API)
+- Shows "Mar 29" format when not today, "Today" when today
+
+**Click Interaction:**
+- Hovering a node: node scales to 1.15x, glow intensifies (double shadow spread), connected edge brightens to opacity 0.8, cursor: pointer
+- Clicking a node: zoom animation toward the clicked node (d3 zoom.translateTo + scaleTo over 400ms), then `goto(href)` after animation completes
+- Click on center node: no navigation, just a satisfying pulse animation
+
+**Data:**
+- On mount: fetch `health/today`, `supplements/today`, `pantry`, `calories/today` via `fetchSafe` (never crashes)
+- On date change: re-fetch all with date param
+- Stat computation: Steps from latest `steps` metric, calories from sum of calorie entries, supplements taken/total, pantry item count
+
+**Mobile:**
+- Same physics, just tighter layout (reduce link distance to 120)
+- Touch: drag nodes, pinch zoom, tap to navigate
+- No hover effects (touch doesn't hover)
+
+**Performance:**
+- SVG rendering, not Canvas (simpler, works with CSS transitions)
+- Only 5 nodes + 4 edges — no performance concerns
+- `will-change: transform` on node groups for GPU compositing
+
+#### PWA Installation
+
+The app MUST be installable on Android as a standalone app (no browser chrome).
+
+**`pwa/static/manifest.json`:**
+```json
+{
+  "name": "LifeOS",
+  "short_name": "LifeOS",
+  "description": "Personal life management dashboard",
+  "start_url": "/app",
+  "display": "standalone",
+  "background_color": "#0f0f14",
+  "theme_color": "#0f0f14",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/app/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/app/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
+```
+
+**Icons:** Generate proper LifeOS icons (dark background, indigo accent, "L" lettermark or brain/node graphic). NOT blank/placeholder PNGs. Use an SVG → PNG conversion or programmatic canvas generation during build.
+
+**`pwa/src/app.html`** must include:
+```html
+<meta name="theme-color" content="#0f0f14" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="manifest" href="%sveltekit.assets%/manifest.json" />
+```
+
+**Service worker** (`pwa/src/service-worker.ts`):
+- Cache all static assets on install
+- Network-first for API calls (fall back to cache)
+- Stale-while-revalidate for assets
+- Cache version tied to build hash
 
 #### `/app/health` — Health Detail
 
