@@ -3,6 +3,12 @@ import { healthWebhookRouter } from './routes/health-webhook.js';
 import { mountRoutes } from './routes/index.js';
 import { logger } from '../logger.js';
 
+// Global BigInt serialization support — DuckDB returns BigInt for many numeric types
+// eslint-disable-next-line @typescript-eslint/no-wrapper-object-types
+(BigInt.prototype as BigInt & { toJSON?: () => number }).toJSON = function () {
+  return Number(this);
+};
+
 export function createApiServer(_port = 3100): express.Express {
   const app = express();
 
@@ -22,15 +28,19 @@ export function createApiServer(_port = 3100): express.Express {
 
   // API key auth only on health webhook (called from phone over Tailscale)
   // Data routes don't need auth — everything is behind Tailscale
-  app.use('/api/health-webhook', (req, res, next) => {
-    const apiKey = req.headers['x-api-key'] || req.query.key;
-    const expectedKey = process.env.VPS_API_SECRET;
-    if (expectedKey && apiKey !== expectedKey) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
-    next();
-  }, healthWebhookRouter);
+  app.use(
+    '/api/health-webhook',
+    (req, res, next) => {
+      const apiKey = req.headers['x-api-key'] || req.query.key;
+      const expectedKey = process.env.VPS_API_SECRET;
+      if (expectedKey && apiKey !== expectedKey) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+      next();
+    },
+    healthWebhookRouter,
+  );
 
   // Mount Phase 4 data routes
   const apiRouter = express.Router();
