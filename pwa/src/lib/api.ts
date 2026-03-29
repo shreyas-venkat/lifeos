@@ -11,7 +11,12 @@ async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
 		},
 	});
 	if (!res.ok) throw new Error(`API error: ${res.status}`);
-	return res.json();
+	const json = await res.json();
+	// API routes wrap results in { data: [...] } — unwrap if present
+	if (json && typeof json === 'object' && 'data' in json && !('total' in json)) {
+		return json.data as T;
+	}
+	return json as T;
 }
 
 export interface HealthToday {
