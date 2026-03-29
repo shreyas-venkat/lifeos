@@ -61,6 +61,7 @@ import {
   shouldDropMessage,
 } from './sender-allowlist.js';
 import { startSchedulerLoop } from './task-scheduler.js';
+import { startApiServer } from './api/server.js';
 import { Channel, NewMessage, RegisteredGroup } from './types.js';
 import { logger } from './logger.js';
 
@@ -431,6 +432,9 @@ async function startMessageLoop(): Promise<void> {
     return;
   }
   messageLoopRunning = true;
+
+  // Start the API server for health webhook, PWA endpoints, etc.
+  startApiServer(3100);
 
   logger.info(`NanoClaw running (default trigger: ${DEFAULT_TRIGGER})`);
 
