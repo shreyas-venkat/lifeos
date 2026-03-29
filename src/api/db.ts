@@ -29,9 +29,19 @@ export async function query<T = Record<string, unknown>>(
   return result.getRows().map((row) => {
     const obj: Record<string, unknown> = {};
     columns.forEach((col, i) => {
-      // Convert BigInt to Number for JSON serialization
       const val = row[i];
-      obj[col] = typeof val === 'bigint' ? Number(val) : val;
+      if (typeof val === 'bigint') {
+        obj[col] = Number(val);
+      } else if (val && typeof val === 'object' && 'micros' in val) {
+        // DuckDB TIMESTAMP → ISO string (micros since epoch)
+        obj[col] = new Date(Number(BigInt(val.micros as bigint) / 1000n)).toISOString();
+      } else if (val && typeof val === 'object' && 'days' in val) {
+        // DuckDB DATE → ISO date string (days since epoch)
+        const d = new Date(Number(val.days as number) * 86400000);
+        obj[col] = d.toISOString().split('T')[0];
+      } else {
+        obj[col] = val;
+      }
     });
     return obj;
   }) as T[];
