@@ -87,24 +87,8 @@ jobs:
             git checkout main
             git pull origin main
 
-            # Write .env from secrets
-            cat > .env << 'ENVEOF'
-            ASSISTANT_NAME=LifeOS
-            TZ=America/Edmonton
-            ENVEOF
-
-            # Append secrets (can't use heredoc for these)
-            echo "ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}" >> .env
-            echo "DISCORD_BOT_TOKEN=${{ secrets.DISCORD_TOKEN }}" >> .env
-            echo "DISCORD_OWNER_ID=${{ secrets.DISCORD_OWNER_ID }}" >> .env
-            echo "GITHUB_TOKEN=${{ secrets.GH_TOKEN }}" >> .env
-            echo "GOOGLE_CLIENT_ID=${{ secrets.GMAIL_CLIENT_ID }}" >> .env
-            echo "GOOGLE_CLIENT_SECRET=${{ secrets.GMAIL_CLIENT_SECRET }}" >> .env
-            echo "GOOGLE_REFRESH_TOKEN=${{ secrets.GMAIL_REFRESH_TOKEN }}" >> .env
-            echo "GOOGLE_CALENDAR_REFRESH_TOKEN=${{ secrets.GOOGLE_CALENDAR_REFRESH_TOKEN }}" >> .env
-            echo "MOTHERDUCK_TOKEN=${{ secrets.MOTHERDUCK_TOKEN }}" >> .env
-
-            # Secure the .env file
+            # Write .env from secrets (printf avoids DRONE_SSH line injection from script_stop)
+            printf '%s\n' 'ASSISTANT_NAME=LifeOS' 'TZ=America/Edmonton' 'ONECLI_URL=http://127.0.0.1:10254' "DISCORD_BOT_TOKEN=${{ secrets.DISCORD_TOKEN }}" "DISCORD_OWNER_ID=${{ secrets.DISCORD_OWNER_ID }}" "GITHUB_TOKEN=${{ secrets.GH_TOKEN }}" "GOOGLE_CLIENT_ID=${{ secrets.GMAIL_CLIENT_ID }}" "GOOGLE_CLIENT_SECRET=${{ secrets.GMAIL_CLIENT_SECRET }}" "GOOGLE_REFRESH_TOKEN=${{ secrets.GMAIL_REFRESH_TOKEN }}" "GOOGLE_CALENDAR_REFRESH_TOKEN=${{ secrets.GOOGLE_CALENDAR_REFRESH_TOKEN }}" "MOTHERDUCK_TOKEN=${{ secrets.MOTHERDUCK_TOKEN }}" > .env
             chmod 600 .env
 
             # Install Node dependencies (ignore-scripts skips husky prepare hook)
