@@ -428,12 +428,12 @@ async function runQuery(
           },
         },
         gmail: {
-          command: 'server-gmail-autoauth-mcp',
+          command: 'gmail-mcp',
           args: [],
           env: {},
         },
         motherduck: {
-          command: '/root/.local/bin/mcp-server-motherduck',
+          command: 'mcp-server-motherduck',
           args: ['--read-write'],
           env: {
             motherduck_token: process.env.MOTHERDUCK_TOKEN || '',

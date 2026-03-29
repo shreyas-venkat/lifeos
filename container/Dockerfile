@@ -34,9 +34,11 @@ ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 RUN npm install -g agent-browser @anthropic-ai/claude-code @gongrzhe/server-gmail-autoauth-mcp
 
 # Install Python + uv for MotherDuck MCP server
+# Install as root, then symlink to /usr/local/bin so node user can access it
 RUN apt-get update && apt-get install -y python3 python3-pip python3-venv \
     && pip3 install --break-system-packages uv \
     && uv tool install mcp-server-motherduck \
+    && ln -sf /root/.local/bin/mcp-server-motherduck /usr/local/bin/mcp-server-motherduck \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Create app directory
