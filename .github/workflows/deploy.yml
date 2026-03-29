@@ -107,8 +107,8 @@ jobs:
             # Secure the .env file
             chmod 600 .env
 
-            # Install Node dependencies
-            npm install --production
+            # Install Node dependencies (ignore-scripts skips husky prepare hook)
+            npm install --omit=dev --ignore-scripts
 
             # Build container image
             if [ -f "./container/build.sh" ]; then
