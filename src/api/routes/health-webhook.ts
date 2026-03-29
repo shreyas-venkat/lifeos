@@ -4,132 +4,228 @@ import crypto from 'crypto';
 
 export const healthWebhookRouter = Router();
 
-// All 18 Health Connect metric types
-export const VALID_METRIC_TYPES = [
-  'steps',
-  'heart_rate',
-  'hrv',
-  'blood_pressure',
-  'spo2',
-  'weight',
-  'sleep_duration',
-  'sleep_quality',
-  'respiratory_rate',
-  'body_temp',
-  'blood_glucose',
-  'active_calories',
-  'total_calories',
-  'distance',
-  'elevation',
-  'floors',
-  'exercise_session',
-  'hydration',
-] as const;
-
-export type MetricType = (typeof VALID_METRIC_TYPES)[number];
-
 export interface HealthMetricPayload {
-  metric_type: MetricType;
+  metric_type: string;
   value: number;
   unit?: string;
-  recorded_at: string; // ISO timestamp
+  recorded_at: string;
   source?: string;
 }
 
-export interface HealthWebhookBody {
-  metrics: HealthMetricPayload[];
-}
+/**
+ * Transform Health Connect Webhook app payload into normalized metrics.
+ *
+ * The app sends data grouped by type:
+ *   { steps: [{count, start_time, end_time}], heart_rate: [{bpm, time}], ... }
+ *
+ * We normalize into flat metrics:
+ *   [{metric_type: "steps", value: 840, recorded_at: "..."}]
+ */
+function transformHealthConnectPayload(
+  body: Record<string, unknown>,
+): HealthMetricPayload[] {
+  const metrics: HealthMetricPayload[] = [];
 
-// Validate a single metric
-export function validateMetric(metric: unknown): {
-  valid: boolean;
-  error?: string;
-  metric?: HealthMetricPayload;
-} {
-  if (!metric || typeof metric !== 'object')
-    return { valid: false, error: 'Metric must be an object' };
-  const m = metric as Record<string, unknown>;
-
-  if (
-    !m.metric_type ||
-    !VALID_METRIC_TYPES.includes(m.metric_type as MetricType)
-  ) {
-    return {
-      valid: false,
-      error: `Invalid metric_type: ${String(m.metric_type)}. Valid types: ${VALID_METRIC_TYPES.join(', ')}`,
-    };
-  }
-  if (typeof m.value !== 'number' || isNaN(m.value)) {
-    return { valid: false, error: 'value must be a number' };
-  }
-  if (!m.recorded_at || isNaN(Date.parse(m.recorded_at as string))) {
-    return { valid: false, error: 'recorded_at must be a valid ISO timestamp' };
-  }
-
-  return {
-    valid: true,
-    metric: {
-      metric_type: m.metric_type as MetricType,
-      value: m.value as number,
-      unit: (m.unit as string) || undefined,
-      recorded_at: m.recorded_at as string,
-      source: (m.source as string) || 'health_connect',
-    },
-  };
-}
-
-// POST /api/health-webhook
-healthWebhookRouter.post('/', (req: Request, res: Response) => {
-  const body = req.body as HealthWebhookBody;
-
-  if (!body.metrics || !Array.isArray(body.metrics)) {
-    res
-      .status(400)
-      .json({ error: 'Request body must contain a metrics array' });
-    return;
-  }
-
-  const results: {
-    accepted: HealthMetricPayload[];
-    rejected: { index: number; error: string }[];
-  } = {
-    accepted: [],
-    rejected: [],
-  };
-
-  for (let i = 0; i < body.metrics.length; i++) {
-    const validation = validateMetric(body.metrics[i]);
-    if (validation.valid && validation.metric) {
-      // Generate ID for tracking (MotherDuck integration will be added later)
-      const _metricWithId = {
-        id: crypto.randomUUID(),
-        ...validation.metric,
-        created_at: new Date().toISOString(),
-      };
-      results.accepted.push(validation.metric);
-      logger.info(
-        {
-          metric_type: validation.metric.metric_type,
-          value: validation.metric.value,
-        },
-        'Health metric received',
-      );
-    } else {
-      results.rejected.push({
-        index: i,
-        error: validation.error || 'Unknown error',
+  // Steps: {count, start_time, end_time}
+  if (Array.isArray(body.steps)) {
+    for (const entry of body.steps) {
+      const e = entry as Record<string, unknown>;
+      metrics.push({
+        metric_type: 'steps',
+        value: Number(e.count ?? 0),
+        recorded_at: String(e.end_time ?? e.start_time ?? ''),
+        source: 'health_connect',
       });
     }
   }
 
-  res.status(200).json({
-    accepted: results.accepted.length,
-    rejected: results.rejected.length,
-    errors: results.rejected.length > 0 ? results.rejected : undefined,
-  });
+  // Heart rate: {bpm, time}
+  if (Array.isArray(body.heart_rate)) {
+    for (const entry of body.heart_rate) {
+      const e = entry as Record<string, unknown>;
+      metrics.push({
+        metric_type: 'heart_rate',
+        value: Number(e.bpm ?? 0),
+        recorded_at: String(e.time ?? ''),
+        source: 'health_connect',
+      });
+    }
+  }
+
+  // Sleep: {duration_hours, start_time, end_time} or {duration, ...}
+  if (Array.isArray(body.sleep)) {
+    for (const entry of body.sleep) {
+      const e = entry as Record<string, unknown>;
+      const duration =
+        Number(e.duration_hours ?? e.duration ?? 0);
+      metrics.push({
+        metric_type: 'sleep_duration',
+        value: duration,
+        unit: 'hours',
+        recorded_at: String(e.end_time ?? e.start_time ?? ''),
+        source: 'health_connect',
+      });
+    }
+  }
+
+  // Weight: {weight_kg, time} or {value, time}
+  if (Array.isArray(body.weight)) {
+    for (const entry of body.weight) {
+      const e = entry as Record<string, unknown>;
+      metrics.push({
+        metric_type: 'weight',
+        value: Number(e.weight_kg ?? e.value ?? 0),
+        unit: 'kg',
+        recorded_at: String(e.time ?? ''),
+        source: 'health_connect',
+      });
+    }
+  }
+
+  // Blood pressure: {systolic, diastolic, time}
+  if (Array.isArray(body.blood_pressure)) {
+    for (const entry of body.blood_pressure) {
+      const e = entry as Record<string, unknown>;
+      metrics.push({
+        metric_type: 'blood_pressure',
+        value: Number(e.systolic ?? 0),
+        unit: `${e.systolic}/${e.diastolic}`,
+        recorded_at: String(e.time ?? ''),
+        source: 'health_connect',
+      });
+    }
+  }
+
+  // SpO2: {percentage, time}
+  if (Array.isArray(body.spo2)) {
+    for (const entry of body.spo2) {
+      const e = entry as Record<string, unknown>;
+      metrics.push({
+        metric_type: 'spo2',
+        value: Number(e.percentage ?? e.value ?? 0),
+        recorded_at: String(e.time ?? ''),
+        source: 'health_connect',
+      });
+    }
+  }
+
+  // HRV: {hrv_ms, time} or {value, time}
+  if (Array.isArray(body.hrv)) {
+    for (const entry of body.hrv) {
+      const e = entry as Record<string, unknown>;
+      metrics.push({
+        metric_type: 'hrv',
+        value: Number(e.hrv_ms ?? e.value ?? 0),
+        unit: 'ms',
+        recorded_at: String(e.time ?? ''),
+        source: 'health_connect',
+      });
+    }
+  }
+
+  // Active calories: {calories, start_time, end_time}
+  if (Array.isArray(body.active_calories)) {
+    for (const entry of body.active_calories) {
+      const e = entry as Record<string, unknown>;
+      metrics.push({
+        metric_type: 'active_calories',
+        value: Number(e.calories ?? e.value ?? 0),
+        unit: 'kcal',
+        recorded_at: String(e.end_time ?? e.start_time ?? ''),
+        source: 'health_connect',
+      });
+    }
+  }
+
+  // Distance: {distance_meters, start_time, end_time}
+  if (Array.isArray(body.distance)) {
+    for (const entry of body.distance) {
+      const e = entry as Record<string, unknown>;
+      metrics.push({
+        metric_type: 'distance',
+        value: Number(e.distance_meters ?? e.value ?? 0),
+        unit: 'meters',
+        recorded_at: String(e.end_time ?? e.start_time ?? ''),
+        source: 'health_connect',
+      });
+    }
+  }
+
+  // Generic handler for any other keys with array values
+  const handled = new Set([
+    'steps', 'heart_rate', 'sleep', 'weight', 'blood_pressure',
+    'spo2', 'hrv', 'active_calories', 'distance',
+    'timestamp', 'app_version',
+  ]);
+  for (const [key, val] of Object.entries(body)) {
+    if (handled.has(key) || !Array.isArray(val)) continue;
+    for (const entry of val) {
+      const e = entry as Record<string, unknown>;
+      const value = Number(
+        e.value ?? e.count ?? e.bpm ?? e.percentage ?? 0,
+      );
+      const time = String(
+        e.time ?? e.end_time ?? e.start_time ?? e.recorded_at ?? '',
+      );
+      if (value && time) {
+        metrics.push({
+          metric_type: key,
+          value,
+          recorded_at: time,
+          source: 'health_connect',
+        });
+      }
+    }
+  }
+
+  return metrics;
+}
+
+// POST /api/health-webhook
+healthWebhookRouter.post('/', (req: Request, res: Response) => {
+  const body = req.body as Record<string, unknown>;
+
+  let metrics: HealthMetricPayload[];
+
+  // Support both formats:
+  // 1. Our format: { metrics: [{metric_type, value, recorded_at}] }
+  // 2. Health Connect Webhook app: { steps: [...], heart_rate: [...], ... }
+  if (Array.isArray(body.metrics)) {
+    metrics = body.metrics as HealthMetricPayload[];
+  } else {
+    metrics = transformHealthConnectPayload(body);
+  }
+
+  if (metrics.length === 0) {
+    res.status(400).json({ error: 'No metrics found in request body' });
+    return;
+  }
+
+  let accepted = 0;
+  for (const metric of metrics) {
+    const _metricWithId = {
+      id: crypto.randomUUID(),
+      ...metric,
+      created_at: new Date().toISOString(),
+    };
+    accepted++;
+    logger.info(
+      { metric_type: metric.metric_type, value: metric.value },
+      'Health metric received',
+    );
+  }
+
+  res.status(200).json({ accepted, rejected: 0 });
 });
 
 // GET /api/health-webhook/metrics -- list valid metric types
 healthWebhookRouter.get('/metrics', (_req: Request, res: Response) => {
-  res.json({ metric_types: VALID_METRIC_TYPES });
+  res.json({
+    metric_types: [
+      'steps', 'heart_rate', 'hrv', 'blood_pressure', 'spo2',
+      'weight', 'sleep_duration', 'sleep_quality', 'respiratory_rate',
+      'body_temp', 'blood_glucose', 'active_calories', 'total_calories',
+      'distance', 'elevation', 'floors', 'exercise_session', 'hydration',
+    ],
+  });
 });
