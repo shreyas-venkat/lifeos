@@ -698,6 +698,14 @@ async function main(): Promise<void> {
       const text = formatOutbound(rawText);
       if (text) await channel.sendMessage(jid, text);
     },
+    setSession: (groupFolder, sessionId) => {
+      if (sessionId) {
+        sessions[groupFolder] = sessionId;
+      } else {
+        delete sessions[groupFolder];
+      }
+      setSession(groupFolder, sessionId);
+    },
   });
   startIpcWatcher({
     sendMessage: (jid, text) => {

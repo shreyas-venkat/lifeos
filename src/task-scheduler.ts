@@ -73,6 +73,7 @@ export interface SchedulerDependencies {
     groupFolder: string,
   ) => void;
   sendMessage: (jid: string, text: string) => Promise<void>;
+  setSession: (groupFolder: string, sessionId: string) => void;
 }
 
 async function runTask(
@@ -205,6 +206,15 @@ async function runTask(
 
     if (output.status === 'error') {
       error = output.error || 'Unknown error';
+      // Clear stale session to prevent retry loops
+      if (task.context_mode === 'group' && sessions[task.group_folder]) {
+        logger.warn(
+          { taskId: task.id, sessionId: sessions[task.group_folder] },
+          'Clearing session after task error',
+        );
+        delete sessions[task.group_folder];
+        deps.setSession(task.group_folder, '');
+      }
     } else if (output.result) {
       // Result was already forwarded to the user via the streaming callback above
       result = output.result;
