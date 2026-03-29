@@ -402,6 +402,15 @@ async function runAgent(
     }
 
     if (output.status === 'error') {
+      // Clear session on error to prevent stale session retry loops
+      if (sessions[group.folder]) {
+        logger.warn(
+          { group: group.name, sessionId: sessions[group.folder] },
+          'Clearing session after agent error',
+        );
+        delete sessions[group.folder];
+        setSession(group.folder, '');
+      }
       logger.error(
         { group: group.name, error: output.error },
         'Container agent error',
