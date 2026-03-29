@@ -25,7 +25,8 @@
     "@onecli-sh/sdk": "^0.2.0",
     "better-sqlite3": "11.10.0",
     "cron-parser": "5.5.0",
-    "@duckdb/node-api": "^1.5.1-r.1",
+    "discord.js": "^14.25.1",
+    "duckdb-async": "^1.4.2",
     "express": "^5.2.1",
     "googleapis": "^171.4.0"
   },
