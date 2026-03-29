@@ -19,14 +19,14 @@
 				api.supplements.today(),
 				api.pantry.list(),
 			]);
-			if (h.status === 'fulfilled') health = h.value;
-			if (c.status === 'fulfilled') calories = c.value;
-			if (s.status === 'fulfilled') supplements = s.value;
-			if (p.status === 'fulfilled') {
+			if (h.status === 'fulfilled') health = h.value || null;
+			if (c.status === 'fulfilled') calories = c.value || null;
+			if (s.status === 'fulfilled') supplements = s.value || [];
+			if (p.status === 'fulfilled' && Array.isArray(p.value)) {
 				const now = Date.now();
 				const threeDays = 3 * 24 * 60 * 60 * 1000;
 				pantryAlerts = p.value.filter(
-					(item) => new Date(item.expiry).getTime() - now < threeDays
+					(item) => item.expiry && new Date(item.expiry).getTime() - now < threeDays
 				);
 			}
 		} catch (e) {

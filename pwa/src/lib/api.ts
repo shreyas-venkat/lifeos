@@ -13,8 +13,11 @@ async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
 	if (!res.ok) throw new Error(`API error: ${res.status}`);
 	const json = await res.json();
 	// API routes wrap results in { data: [...] } — unwrap if present
-	if (json && typeof json === 'object' && 'data' in json && !('total' in json)) {
-		return json.data as T;
+	if (json && typeof json === 'object' && 'data' in json) {
+		const data = json.data;
+		// If the API returned an empty array and caller expects an object, return null
+		if (Array.isArray(data) && data.length === 0) return null as T;
+		return data as T;
 	}
 	return json as T;
 }
@@ -90,9 +93,9 @@ export const api = {
 				method: 'POST',
 				body: JSON.stringify({ status }),
 			}),
-		recipes: () => fetchApi<Recipe[]>('/recipes'),
+		recipes: () => fetchApi<Recipe[]>('/meals/recipes'),
 		rateRecipe: (id: string, rating: number) =>
-			fetchApi(`/recipes/${id}/rate`, {
+			fetchApi(`/meals/recipes/${id}/rate`, {
 				method: 'POST',
 				body: JSON.stringify({ rating }),
 			}),
