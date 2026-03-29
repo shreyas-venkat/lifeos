@@ -166,6 +166,7 @@ export async function processTaskIpc(
     groupFolder?: string;
     chatJid?: string;
     targetJid?: string;
+    outputJid?: string;
     // For register_group
     jid?: string;
     name?: string;
@@ -256,10 +257,13 @@ export async function processTaskIpc(
           data.context_mode === 'group' || data.context_mode === 'isolated'
             ? data.context_mode
             : 'isolated';
+        // outputJid lets main group route output to a different channel
+        // while keeping the task in the main group's context
+        const outputJid = isMain && data.outputJid ? data.outputJid : targetJid;
         createTask({
           id: taskId,
           group_folder: targetFolder,
-          chat_jid: targetJid,
+          chat_jid: outputJid,
           prompt: data.prompt,
           script: data.script || null,
           schedule_type: scheduleType,

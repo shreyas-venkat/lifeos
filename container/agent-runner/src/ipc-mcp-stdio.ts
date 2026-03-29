@@ -91,6 +91,7 @@ SCHEDULE VALUE FORMAT (all times are LOCAL timezone):
     schedule_value: z.string().describe('cron: "*/5 * * * *" | interval: milliseconds like "300000" | once: local timestamp like "2026-02-01T15:30:00" (no Z suffix!)'),
     context_mode: z.enum(['group', 'isolated']).default('group').describe('group=runs with chat history and memory, isolated=fresh session (include context in prompt)'),
     target_group_jid: z.string().optional().describe('(Main group only) JID of the group to schedule the task for. Defaults to the current group.'),
+    output_channel_jid: z.string().optional().describe('(Main group only) JID of the Discord channel where task output should be delivered. Defaults to the target group channel. Use this to run a task in the main group but deliver output to a different channel like #reminders.'),
     script: z.string().optional().describe('Optional bash script to run before waking the agent. Script must output JSON on the last line of stdout: { "wakeAgent": boolean, "data"?: any }. If wakeAgent is false, the agent is not called. Test your script with bash -c "..." before scheduling.'),
   },
   async (args) => {
@@ -130,6 +131,9 @@ SCHEDULE VALUE FORMAT (all times are LOCAL timezone):
 
     // Non-main groups can only schedule for themselves
     const targetJid = isMain && args.target_group_jid ? args.target_group_jid : chatJid;
+    // output_channel_jid lets main group route output to a different channel
+    // while keeping the task running in the main group's context
+    const outputJid = isMain && args.output_channel_jid ? args.output_channel_jid : targetJid;
 
     const taskId = `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -142,6 +146,7 @@ SCHEDULE VALUE FORMAT (all times are LOCAL timezone):
       schedule_value: args.schedule_value,
       context_mode: args.context_mode || 'group',
       targetJid,
+      outputJid,
       createdBy: groupFolder,
       timestamp: new Date().toISOString(),
     };
