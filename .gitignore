@@ -14,10 +14,25 @@ logs/
 groups/*
 !groups/main/
 !groups/global/
+!groups/discord_email-digest/
+!groups/discord_meals/
+!groups/discord_health/
+!groups/discord_activity-log/
+!groups/discord_reminders/
 groups/main/*
 groups/global/*
+groups/discord_email-digest/*
+groups/discord_meals/*
+groups/discord_health/*
+groups/discord_activity-log/*
+groups/discord_reminders/*
 !groups/main/CLAUDE.md
 !groups/global/CLAUDE.md
+!groups/discord_email-digest/CLAUDE.md
+!groups/discord_meals/CLAUDE.md
+!groups/discord_health/CLAUDE.md
+!groups/discord_activity-log/CLAUDE.md
+!groups/discord_reminders/CLAUDE.md
 
 # Credentials — never commit real secrets
 .env

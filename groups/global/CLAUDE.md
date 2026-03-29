@@ -113,3 +113,10 @@ If a user wants tasks running more than ~2x daily and a script can't reduce agen
 - Suggest restructuring with a script that checks the condition first
 - If the user needs an LLM to evaluate data, suggest using an API key with direct Anthropic API calls inside the script
 - Help the user find the minimum viable frequency
+
+## LifeOS Global Context
+- Owner: Shrey, based in Calgary AB (Mountain Time)
+- Assistant name: LifeOS
+- Timezone: America/Edmonton
+- MotherDuck schema: `lifeos.*` (emails, preferences, calendar_events, reminders, recipes, meal_plans, pantry, health_metrics, supplements, etc.)
+- Discord server channels: #email-digest, #meals, #health, #activity-log, #reminders
