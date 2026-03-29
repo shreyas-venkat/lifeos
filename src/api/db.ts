@@ -29,7 +29,9 @@ export async function query<T = Record<string, unknown>>(
   return result.getRows().map((row) => {
     const obj: Record<string, unknown> = {};
     columns.forEach((col, i) => {
-      obj[col] = row[i];
+      // Convert BigInt to Number for JSON serialization
+      const val = row[i];
+      obj[col] = typeof val === 'bigint' ? Number(val) : val;
     });
     return obj;
   }) as T[];
