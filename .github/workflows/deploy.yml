@@ -1,22 +1,152 @@
-name: Deploy
+name: Deploy LifeOS
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      setup_vps:
+        description: 'Run full VPS setup (first-time only)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to VPS
+      - name: First-time VPS setup
+        if: github.event.inputs.setup_vps == 'true'
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          # REPO_DIR must be set per-repo — override in the repo's copy of this file
+          script_stop: true
+          command_timeout: 10m
           script: |
-            cd ${{ secrets.REPO_DIR }}
-            git pull origin main || git pull origin master
-            docker-compose up -d --build --no-deps
-            docker image prune -f
+            set -euo pipefail
+
+            # Install Docker if missing
+            if ! command -v docker &>/dev/null; then
+              curl -fsSL https://get.docker.com | sh
+              systemctl enable docker
+              systemctl start docker
+              usermod -aG docker $USER
+            fi
+
+            # Install Node.js 20 if missing
+            if ! command -v node &>/dev/null || [[ "$(node -v)" != v20* && "$(node -v)" != v22* ]]; then
+              curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+              apt-get install -y nodejs
+            fi
+
+            # Install nginx if missing
+            if ! command -v nginx &>/dev/null; then
+              apt-get install -y nginx certbot python3-certbot-nginx
+            fi
+
+            # Install jq if missing (used by scheduled task scripts)
+            if ! command -v jq &>/dev/null; then
+              apt-get install -y jq
+            fi
+
+            # UFW firewall
+            if command -v ufw &>/dev/null; then
+              ufw allow 22/tcp
+              ufw allow 80/tcp
+              ufw allow 443/tcp
+              ufw --force enable
+            fi
+
+            echo "VPS setup complete"
+
+      - name: Deploy LifeOS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script_stop: true
+          command_timeout: 10m
+          script: |
+            set -euo pipefail
+
+            REPO_DIR="${{ secrets.REPO_DIR }}"
+
+            # Clone if not exists, otherwise pull
+            if [ ! -d "$REPO_DIR" ]; then
+              git clone https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/shreyas-venkat/lifeos.git "$REPO_DIR"
+            fi
+
+            cd "$REPO_DIR"
+            git fetch origin main
+            git checkout main
+            git pull origin main
+
+            # Write .env from secrets
+            cat > .env << 'ENVEOF'
+            ASSISTANT_NAME=LifeOS
+            TZ=America/Edmonton
+            ENVEOF
+
+            # Append secrets (can't use heredoc for these)
+            echo "ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}" >> .env
+            echo "DISCORD_BOT_TOKEN=${{ secrets.DISCORD_TOKEN }}" >> .env
+            echo "DISCORD_OWNER_ID=${{ secrets.DISCORD_OWNER_ID }}" >> .env
+            echo "GITHUB_TOKEN=${{ secrets.GH_TOKEN }}" >> .env
+            echo "GOOGLE_CLIENT_ID=${{ secrets.GMAIL_CLIENT_ID }}" >> .env
+            echo "GOOGLE_CLIENT_SECRET=${{ secrets.GMAIL_CLIENT_SECRET }}" >> .env
+            echo "GOOGLE_REFRESH_TOKEN=${{ secrets.GMAIL_REFRESH_TOKEN }}" >> .env
+            echo "GOOGLE_CALENDAR_REFRESH_TOKEN=${{ secrets.GOOGLE_CALENDAR_REFRESH_TOKEN }}" >> .env
+            echo "MOTHERDUCK_TOKEN=${{ secrets.MOTHERDUCK_TOKEN }}" >> .env
+
+            # Secure the .env file
+            chmod 600 .env
+
+            # Install Node dependencies
+            npm install --production
+
+            # Build container image
+            if [ -f "./container/build.sh" ]; then
+              chmod +x ./container/build.sh
+              ./container/build.sh
+            fi
+
+            # Set up systemd service if not exists
+            SERVICE_FILE="$HOME/.config/systemd/user/nanoclaw.service"
+            if [ ! -f "$SERVICE_FILE" ]; then
+              mkdir -p "$HOME/.config/systemd/user"
+              cat > "$SERVICE_FILE" << SVCEOF
+            [Unit]
+            Description=NanoClaw LifeOS
+            After=network.target docker.service
+
+            [Service]
+            Type=simple
+            WorkingDirectory=$REPO_DIR
+            ExecStart=$(which node) dist/index.js
+            Restart=always
+            RestartSec=10
+            Environment=NODE_ENV=production
+
+            [Install]
+            WantedBy=default.target
+            SVCEOF
+
+              systemctl --user daemon-reload
+              systemctl --user enable nanoclaw
+              loginctl enable-linger $USER
+            fi
+
+            # Build TypeScript
+            npm run build 2>/dev/null || true
+
+            # Restart service
+            systemctl --user restart nanoclaw || systemctl --user start nanoclaw
+
+            echo "LifeOS deployed at $(date)"
+            systemctl --user status nanoclaw --no-pager || true

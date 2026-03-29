@@ -49,7 +49,49 @@ Get LifeOS alive on Discord, autonomously managing Gmail (categorize, delete spa
 
 ## Implementation Plan
 
-### Step 1: NanoClaw core setup
+### Step 0: GitHub Actions deploy workflow
+Create `.github/workflows/deploy.yml` that:
+1. Triggers on push to `feat/lifeos-init` branch (or any configured deploy branch)
+2. SSHs into the VPS using repo secrets: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`
+3. Clones/pulls the repo on the VPS
+4. Writes `.env` on the VPS from repo secrets:
+   - `ASSISTANT_NAME=LifeOS`
+   - `ANTHROPIC_API_KEY` from `${{ secrets.ANTHROPIC_API_KEY }}`
+   - `DISCORD_BOT_TOKEN` from `${{ secrets.DISCORD_TOKEN }}`
+   - `DISCORD_OWNER_ID` from `${{ secrets.DISCORD_OWNER_ID }}`
+   - `GITHUB_TOKEN` from `${{ secrets.GH_TOKEN }}`
+   - `GOOGLE_CLIENT_ID` from `${{ secrets.GMAIL_CLIENT_ID }}`
+   - `GOOGLE_CLIENT_SECRET` from `${{ secrets.GMAIL_CLIENT_SECRET }}`
+   - `GOOGLE_REFRESH_TOKEN` from `${{ secrets.GMAIL_REFRESH_TOKEN }}`
+   - `GOOGLE_CALENDAR_REFRESH_TOKEN` from `${{ secrets.GOOGLE_CALENDAR_REFRESH_TOKEN }}`
+   - `MOTHERDUCK_TOKEN` from `${{ secrets.MOTHERDUCK_TOKEN }}`
+   - `TZ=America/Edmonton`
+5. Installs system deps if missing (Docker, Node.js 20, nginx)
+6. Runs `npm install`
+7. Builds container image: `./container/build.sh`
+8. Configures nginx + SSL (certbot) if not already done
+9. Restarts the NanoClaw service
+
+**GitHub Secrets required** (already exist in the repo):
+| Secret Name | Used As |
+|---|---|
+| `ANTHROPIC_API_KEY` | Anthropic API key |
+| `DISCORD_TOKEN` | Discord bot token |
+| `DISCORD_OWNER_ID` | Discord owner user ID |
+| `DISCORD_TOKEN_STAGING` | Staging bot token (for testing) |
+| `GH_TOKEN` | GitHub personal access token |
+| `GMAIL_CLIENT_ID` | Google OAuth client ID |
+| `GMAIL_CLIENT_SECRET` | Google OAuth client secret |
+| `GMAIL_REFRESH_TOKEN` | Gmail OAuth refresh token |
+| `GOOGLE_CALENDAR_REFRESH_TOKEN` | Google Calendar refresh token |
+| `MOTHERDUCK_TOKEN` | MotherDuck cloud DuckDB token |
+| `VPS_HOST` | VPS IP/hostname |
+| `VPS_USER` | VPS SSH username |
+| `VPS_SSH_KEY` | VPS SSH private key |
+| `VPS_API_SECRET` | VPS API secret (if needed) |
+| `REPO_DIR` | Repo directory on VPS |
+
+### Step 1: NanoClaw core setup (on VPS, via deploy workflow)
 1. Install Node.js 20+ dependencies: `npm install`
 2. Build the Docker container image: `./container/build.sh`
 3. Initialize SQLite database (auto-created by `src/db.ts` on first run)
