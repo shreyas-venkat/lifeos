@@ -316,28 +316,28 @@ Send a Discord DM with:
 
 ## Tests Required
 
-- [ ] NanoClaw starts without errors (`npm start` or service)
-- [ ] SQLite database initializes with correct schema (chats, messages, scheduled_tasks, etc.)
-- [ ] Discord bot connects and responds to DM
-- [ ] Discord bot posts to each server channel (#email-digest, #meals, #health, #activity-log, #reminders)
-- [ ] Gmail OAuth credentials work — can list inbox emails
-- [ ] Email scan scheduled task fires every 15 minutes
+- [x] NanoClaw starts without errors (`npm start` or service)
+- [x] SQLite database initializes with correct schema (chats, messages, scheduled_tasks, etc.)
+- [x] Discord bot connects and responds to DM
+- [x] Discord bot posts to each server channel (#email-digest, #meals, #health, #activity-log, #reminders)
+- [x] Gmail OAuth credentials work — can list inbox emails
+- [x] Email scan scheduled task fires every 15 minutes
 - [ ] Email categorization correctly classifies a test email into the right bucket
-- [ ] Spam/promotion emails are trashed (not permanently deleted)
+- [x] Spam/promotion emails are trashed (not permanently deleted)
 - [ ] Trashed emails logged to lifeos.email_deletion_log with 7-day window
 - [ ] Important email triggers Discord DM alert within 15 minutes
-- [ ] Daily email digest posts to #email-digest at 8 PM MT
-- [ ] Google Calendar: can read today's events
+- [x] Daily email digest posts to #email-digest at 8 PM MT
+- [x] Google Calendar: can read today's events
 - [ ] Google Calendar: can create a new event via Discord DM command
 - [ ] Morning briefing fires at 6 AM MT on weekdays (test with manual trigger first)
-- [ ] Reminder: "remind me to test at 5pm" -> fires at 5 PM MT
+- [x] Reminder: "remind me to test at 5pm" -> fires at 5 PM MT
 - [ ] Reminder: "remind me to X every Monday" -> recurring, fires next Monday
 - [ ] Reminder snooze works
 - [ ] MotherDuck lifeos.emails table populated after email scan
 - [ ] MotherDuck lifeos.reminders table populated after setting reminder
-- [ ] Container starts and stops cleanly (no orphaned containers)
-- [ ] All scheduled tasks visible in SQLite scheduled_tasks table
-- [ ] Bot handles errors gracefully (no crashes on malformed input)
+- [x] Container starts and stops cleanly (no orphaned containers)
+- [x] All scheduled tasks visible in SQLite scheduled_tasks table
+- [x] Bot handles errors gracefully (no crashes on malformed input)
 
 ---
 
@@ -613,8 +613,8 @@ Daily health summary to `#health` channel (cron `0 21 * * *`):
 - Supplements: recommended vs taken
 
 ## Phase 3 Tests
-- [ ] Health webhook endpoint accepts POST and stores data in MotherDuck
-- [ ] All 18 health metric types parsed correctly
+- [x] Health webhook endpoint accepts POST and stores data in MotherDuck
+- [x] All 18 health metric types parsed correctly
 - [ ] Supplement recommendations generate with reasoning
 - [ ] Dosages never exceed max_safe_dosage
 - [ ] Abnormal vitals trigger medical warning, not supplement adjustment
@@ -625,70 +625,438 @@ Daily health summary to `#health` channel (cron `0 21 * * *`):
 
 ---
 
-# Phase 4: Unified PWA
+# Phase 4: LifeOS PWA v2
 
 ## Goal
-Single standalone PWA for Android with dashboard view — health, meals, pantry, supplements, calories. Opens as native app, not in browser.
+Modern, polished standalone PWA. Interactive node-graph dashboard. History views with 7/30/90 day toggles. Clean data visualization with proper charts. All API endpoints aligned with actual MotherDuck schema.
 
-## Implementation Plan
+## Design System
 
-### Step 20: API server
-1. Create `api/` directory with Express/Fastify server
-2. Endpoints (all query MotherDuck):
-   - `GET /api/health/today` — today's vitals
-   - `GET /api/health/trends?days=30` — historical trends
-   - `GET /api/meals/plan?week=current` — this week's meal plan
-   - `POST /api/meals/plan/:id/status` — update meal status (cooked/skipped/ate_out)
-   - `GET /api/recipes` — list recipes with search/filter
-   - `POST /api/recipes/:id/rate` — rate a recipe
-   - `GET /api/pantry` — current pantry inventory
-   - `POST /api/pantry/photo` — upload photo for analysis
-   - `GET /api/supplements/today` — today's recommendations
-   - `POST /api/supplements/:id/taken` — mark as taken
-   - `GET /api/calories/today` — today's calorie log
-   - `GET /api/calories/week` — weekly calorie summary
-   - `GET /api/preferences` — all preferences
-   - `PUT /api/preferences` — update preferences
-3. Auth: simple bearer token (single user, stored in .env)
-4. Port 3100, proxied via nginx at `/api`
+### Color Palette
+```
+--bg-primary:    #0f0f14     (near-black background)
+--bg-card:       #1a1a24     (card/surface)
+--bg-elevated:   #242430     (elevated surfaces, modals)
+--border:        #2a2a3a     (subtle borders)
+--text-primary:  #e8e8ed     (main text)
+--text-secondary:#8888a0     (labels, hints)
+--accent:        #6366f1     (indigo — primary actions, active states)
+--accent-glow:   #818cf820   (subtle glow on interactive elements)
+--success:       #22c55e     (green — good values, taken)
+--warning:       #f59e0b     (amber — expiring, moderate)
+--danger:        #ef4444     (red — expired, critical)
+```
 
-### Step 21: PWA frontend
-1. Use SvelteKit with static adapter (lightweight, fast PWA support)
-2. Create `pwa/` directory
-3. `pwa/static/manifest.json`:
-   ```json
-   {
-     "name": "LifeOS",
-     "short_name": "LifeOS",
-     "start_url": "/app",
-     "display": "standalone",
-     "background_color": "#1a1a2e",
-     "theme_color": "#16213e",
-     "icons": [{"src": "/app/icon-192.png", "sizes": "192x192", "type": "image/png"}]
-   }
-   ```
-4. Service worker for offline caching
-5. Pages:
-   - `/app` — dashboard with cards: Health, Meals, Pantry, Supplements
-   - `/app/health` — vitals, sleep, steps, weight chart, trends
-   - `/app/meals` — week plan, recipe browser, calorie log, macros chart
-   - `/app/pantry` — inventory list, photo upload, expiry alerts, grocery status
-   - `/app/supplements` — today's stack, mark taken, history, effectiveness
-   - `/app/preferences` — dietary prefs, supplement list, notification settings
-6. Charts: use Chart.js or lightweight alternative
-7. Photo upload: camera access via `navigator.mediaDevices.getUserMedia()`
-8. Served via nginx at `/app`
+### Typography
+- Font: Inter (Google Fonts) or system -apple-system stack
+- Headings: 600 weight, tracking -0.02em
+- Body: 400 weight, 14-16px
+- Numbers/stats: tabular-nums, monospace feel
+
+### Components
+- Cards: rounded-xl (16px), subtle border, no heavy shadows
+- Buttons: rounded-lg, 36px height, ghost style by default
+- Charts: smooth curves, gradient fills, no grid lines
+- Progress rings: SVG circle with stroke-dasharray animation
+- Transitions: 200ms ease-out on all interactive elements
+
+---
+
+## Step 20: API Server (rewrite)
+
+### Existing infrastructure
+- Express server at `src/api/server.ts`, starts on port 3100 with NanoClaw
+- Routes mounted via `src/api/routes/index.ts` → `mountRoutes()`
+- DB helper at `src/api/db.ts` using `@duckdb/node-api` → MotherDuck
+- No auth on data routes (behind Tailscale), API key only on `/api/health-webhook`
+- nginx proxies `/api` → `localhost:3100`, serves PWA at `/app`
+
+### API endpoints to implement/fix
+
+All responses follow format: `{ data: T }` for single items, `{ data: T[] }` for lists, with additional metadata fields as needed.
+
+**Health endpoints** (`src/api/routes/health.ts`):
+
+```
+GET /api/health/today
+  SQL: SELECT metric_type, value, unit, recorded_at
+       FROM lifeos.health_metrics
+       WHERE recorded_at >= CURRENT_DATE
+       ORDER BY recorded_at DESC
+  Response: { data: { metric_type: string, value: number, unit: string | null, recorded_at: string }[] }
+  Notes: Returns raw metric array. PWA aggregates client-side (latest value per metric_type).
+
+GET /api/health/history?days=7&metric=steps
+  SQL: SELECT CAST(recorded_at AS DATE) AS date, metric_type, AVG(value) AS avg_value, MIN(value) AS min_value, MAX(value) AS max_value, COUNT(*) AS readings
+       FROM lifeos.health_metrics
+       WHERE recorded_at >= CURRENT_DATE - INTERVAL '{days}' DAY
+       AND (metric_type = '{metric}' OR '{metric}' = 'all')
+       GROUP BY CAST(recorded_at AS DATE), metric_type
+       ORDER BY date ASC, metric_type
+  Response: { data: { date: string, metric_type: string, avg_value: number, min_value: number, max_value: number, readings: number }[], days: number }
+  Params: days (7|30|90, default 7), metric (steps|heart_rate|hrv|spo2|weight|sleep_duration|all, default all)
+```
+
+**Meals endpoints** (`src/api/routes/meals.ts`):
+
+```
+GET /api/meals/plan?week=current
+  SQL: SELECT mp.id, mp.week_start, mp.day_of_week, mp.meal_type, mp.status, mp.notes, mp.servings,
+              r.name AS recipe_name, r.calories_per_serving, r.prep_time_min, r.cook_time_min
+       FROM lifeos.meal_plans mp
+       LEFT JOIN lifeos.recipes r ON mp.recipe_id = r.id
+       WHERE mp.week_start = date_trunc('week', CURRENT_DATE)
+       ORDER BY mp.day_of_week, mp.meal_type
+  Response: { data: MealPlanRecord[], week_start: string }
+
+POST /api/meals/plan/:id/status
+  Body: { status: 'cooked' | 'skipped' | 'ate_out' }
+  SQL: UPDATE lifeos.meal_plans SET status = $1 WHERE id = $2
+  Response: { success: true }
+
+GET /api/meals/recipes?search=chicken&limit=20
+  SQL: SELECT id, name, calories_per_serving, rating, times_cooked, prep_time_min, tags
+       FROM lifeos.recipes
+       WHERE ($1 IS NULL OR name ILIKE '%' || $1 || '%')
+       ORDER BY rating DESC NULLS LAST, times_cooked DESC
+       LIMIT $2
+  Response: { data: RecipeSummary[] }
+
+POST /api/meals/recipes/:id/rate
+  Body: { rating: number } (1-5)
+  SQL: UPDATE lifeos.recipes SET rating = $1 WHERE id = $2
+  Response: { success: true }
+```
+
+**Calories endpoints** (`src/api/routes/calories.ts`):
+
+```
+GET /api/calories/today
+  SQL: SELECT id, meal_type, description, source, calories, protein_g, carbs_g, fat_g, fiber_g, created_at
+       FROM lifeos.calorie_log
+       WHERE log_date = CURRENT_DATE
+       ORDER BY created_at ASC
+  Response: { data: CalorieEntry[], total: { calories: number, protein_g: number, carbs_g: number, fat_g: number } }
+
+GET /api/calories/history?days=7
+  SQL: SELECT log_date, SUM(calories) AS calories, SUM(protein_g) AS protein_g, SUM(carbs_g) AS carbs_g, SUM(fat_g) AS fat_g, COUNT(*) AS entries
+       FROM lifeos.calorie_log
+       WHERE log_date >= CURRENT_DATE - INTERVAL '{days}' DAY
+       GROUP BY log_date
+       ORDER BY log_date ASC
+  Response: { data: DailyCalorieSummary[], days: number }
+```
+
+**Pantry endpoints** (`src/api/routes/pantry.ts`):
+
+```
+GET /api/pantry
+  SQL: SELECT id, item, quantity, unit, category, expiry_date, updated_at
+       FROM lifeos.pantry
+       ORDER BY category, item ASC
+  Response: { data: PantryItem[] }
+
+POST /api/pantry/photo
+  Body: { image: string } (base64, max 10MB)
+  Response: { status: 'accepted', image_size: number }
+```
+
+**Supplements endpoints** (`src/api/routes/supplements.ts`):
+
+```
+GET /api/supplements/today
+  SQL: SELECT s.id AS supplement_id, s.name, s.default_dosage, s.unit, s.time_of_day,
+              sl.id AS log_id, sl.recommended_dosage, sl.reason, sl.taken, sl.log_date
+       FROM lifeos.supplements s
+       LEFT JOIN lifeos.supplement_log sl ON s.id = sl.supplement_id AND sl.log_date = CURRENT_DATE
+       WHERE s.active = true
+       ORDER BY s.time_of_day ASC
+  Response: { data: SupplementWithStatus[] }
+  Notes: Joins master supplement list with today's log. If no log entry exists, taken=false.
+
+POST /api/supplements/:id/taken
+  SQL: INSERT INTO lifeos.supplement_log (id, supplement_id, taken, log_date, time_of_day)
+       VALUES ($1, $2, true, CURRENT_DATE, $3)
+       ON CONFLICT (id) DO UPDATE SET taken = true
+  Response: { success: true }
+  Notes: Use parameterized queries. Generate UUID for id.
+```
+
+**Preferences endpoints** (`src/api/routes/preferences.ts`):
+
+```
+GET /api/preferences
+  SQL: SELECT key, value, skill, updated_at FROM lifeos.preferences ORDER BY skill, key
+  Response: { data: { key: string, value: string, skill: string }[] }
+
+PUT /api/preferences
+  Body: { preferences: { key: string, value: string, skill?: string }[] }
+  SQL: INSERT INTO lifeos.preferences (key, value, skill) VALUES ($1, $2, $3)
+       ON CONFLICT (key, skill) DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP
+  Response: { success: true, updated: number }
+```
+
+**Health webhook** (`src/api/routes/health-webhook.ts`):
+
+```
+POST /api/health-webhook
+  Auth: x-api-key header required (VPS_API_SECRET)
+  Body: Health Connect app format { steps: [{count, start_time, end_time}], heart_rate: [{bpm, time}], ... }
+  Action: Transform to normalized metrics AND INSERT INTO lifeos.health_metrics
+  SQL: INSERT INTO lifeos.health_metrics (id, metric_type, value, unit, recorded_at, source, created_at)
+       VALUES ($1, $2, $3, $4, $5, 'health_connect', CURRENT_TIMESTAMP)
+  Response: { accepted: number, rejected: number }
+  IMPORTANT: Currently accepts metrics but does NOT write to MotherDuck. Must add INSERT.
+```
+
+### Critical API fixes
+1. **Health webhook must write to DB** — currently logs and discards
+2. **SQL injection in supplements** — use parameterized queries everywhere
+3. **Supplements must JOIN** — query both `supplements` and `supplement_log` tables
+4. **Calories needs totals** — compute sum of macros server-side
+5. **New `/history` endpoints** — for 7/30/90 day chart data
+
+---
+
+## Step 21: PWA Frontend (complete rewrite)
+
+### Stack
+- SvelteKit 5 with static adapter (keep existing setup)
+- D3.js for the dashboard node graph
+- Chart.js for line/bar charts on detail pages
+- Inter font from Google Fonts
+- CSS custom properties for theming (no component library — hand-crafted)
+- Existing: `pwa/` directory, base path `/app`, manifest.json
+
+### TypeScript interfaces (`pwa/src/lib/api.ts`)
+
+These MUST match the actual API responses exactly:
+
+```typescript
+// Health
+interface HealthMetric {
+  metric_type: string;
+  value: number;
+  unit: string | null;
+  recorded_at: string;
+}
+
+interface HealthHistoryPoint {
+  date: string;
+  metric_type: string;
+  avg_value: number;
+  min_value: number;
+  max_value: number;
+  readings: number;
+}
+
+// Meals
+interface MealPlanRecord {
+  id: string;
+  week_start: string;
+  day_of_week: number;
+  meal_type: string;
+  status: string;
+  notes: string | null;
+  servings: number;
+  recipe_name: string | null;
+  calories_per_serving: number | null;
+  prep_time_min: number | null;
+  cook_time_min: number | null;
+}
+
+interface RecipeSummary {
+  id: string;
+  name: string;
+  calories_per_serving: number | null;
+  rating: number | null;
+  times_cooked: number;
+  prep_time_min: number | null;
+  tags: string[] | null;
+}
+
+// Calories
+interface CalorieEntry {
+  id: string;
+  meal_type: string;
+  description: string | null;
+  source: string;
+  calories: number | null;
+  protein_g: number | null;
+  carbs_g: number | null;
+  fat_g: number | null;
+  fiber_g: number | null;
+  created_at: string;
+}
+
+interface DailyCalorieSummary {
+  log_date: string;
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  entries: number;
+}
+
+// Pantry
+interface PantryItem {
+  id: string;
+  item: string;           // NOT "name" — column is "item"
+  quantity: number | null;
+  unit: string | null;
+  category: string | null;
+  expiry_date: string | null;  // NOT "expiry" — column is "expiry_date"
+  updated_at: string;
+}
+
+// Supplements
+interface SupplementWithStatus {
+  supplement_id: string;
+  name: string;
+  default_dosage: number;
+  unit: string;
+  time_of_day: string;
+  log_id: string | null;
+  recommended_dosage: number | null;
+  reason: string | null;
+  taken: boolean;
+  log_date: string | null;
+}
+
+// Preferences
+interface PreferenceRow {
+  key: string;
+  value: string;
+  skill: string;
+}
+```
+
+### Pages
+
+#### `/app` — Dashboard (Node Graph)
+
+Interactive force-directed graph using D3.js:
+
+- **Center node**: "LifeOS" label with today's date
+- **4 satellite nodes**: Health, Meals, Pantry, Supplements
+- Each node is a circle (60-80px) with:
+  - Icon (SVG or emoji)
+  - Label below
+  - Live stat inside (e.g., "7,200 steps", "3/5 taken", "12 items")
+- **Edges**: Subtle curved lines connecting nodes to center, with gentle pulse animation
+- **Interaction**: Click a node → navigate to that page with smooth transition
+- **Data**: Fetch summary stats on mount: `health/today`, `supplements/today`, `pantry`, `calories/today`
+- **Empty state**: Nodes show "No data" with muted styling — never crash
+
+Physics: gentle spring force, nodes float slightly, draggable. On mobile: nodes arranged in a clean circle, no physics (performance).
+
+#### `/app/health` — Health Detail
+
+- **Top bar**: 7D | 30D | 90D toggle buttons (pill style, accent color when active)
+- **Today's vitals**: Row of metric cards (Steps, HR, HRV, SpO2, Weight, Sleep)
+  - Each card: large number, unit below, subtle trend arrow (↑↓) if prior data exists
+  - Use latest value per `metric_type` from `health/today`
+  - If no data for a metric: show "—" with muted text
+- **Charts section**: One multi-line chart (Chart.js)
+  - X-axis: dates
+  - Y-axis: auto-scaled per dataset
+  - Datasets: steps (blue), heart rate (red), sleep hours (purple)
+  - Data from `health/history?days={selected}&metric=all`
+  - Smooth curves, gradient fill below lines, no grid
+- **Empty state**: "No health data yet. Connect Health Connect on your phone to start tracking."
+
+#### `/app/meals` — Meals & Calories
+
+- **Calorie summary card**: Today's total calories + macro breakdown (protein/carbs/fat as colored bar segments)
+  - Data from `calories/today`
+  - If empty: "No meals logged today"
+- **Weekly meal plan**: 7-day grid (Mon-Sun)
+  - Each day shows meal entries with recipe name, calories, status badge
+  - Status badges: planned (gray), cooked (green), skipped (amber), ate_out (blue)
+  - Click to toggle status via `POST /meals/plan/:id/status`
+  - Data from `meals/plan?week=current`
+  - If empty: "No meal plan for this week"
+- **Recipe browser**: Searchable list below meal plan
+  - Search input with debounce
+  - Recipe cards: name, rating stars, calories, cook time
+  - Data from `meals/recipes?search=...`
+
+#### `/app/pantry` — Pantry Inventory
+
+- **Summary bar**: Total items count, expiring soon count (amber badge), expired count (red badge)
+- **Item list**: Grouped by category with section headers
+  - Each item: name (`item` column), quantity + unit, expiry badge
+  - Expiry badge colors: green (>7 days), amber (1-7 days), red (expired)
+  - If `expiry_date` is null: no badge
+- **Photo upload**: Camera button (FAB in bottom-right)
+  - Opens camera via `navigator.mediaDevices.getUserMedia()`
+  - Captures photo, converts to base64, sends to `POST /pantry/photo`
+- **Empty state**: "Pantry is empty. Add items via Discord or snap a photo."
+
+#### `/app/supplements` — Supplement Tracker
+
+- **Progress ring**: Large SVG ring showing taken/total ratio
+  - Fill color transitions from accent to success as progress increases
+- **Supplement list**: Sorted by time_of_day (morning first)
+  - Each entry: supplement name, dosage, time of day, reason (if any)
+  - Toggle button: untaken (outline) → taken (filled green with checkmark)
+  - Click toggles via `POST /supplements/:id/taken`
+  - Data from `supplements/today` (JOIN query)
+- **Empty state**: "No supplements configured. Tell LifeOS about your supplement stack via Discord."
+
+#### `/app/preferences` — Settings
+
+- **Sections**: Dietary Preferences, Supplement List, Notification Settings
+- Each section shows key-value pairs from `preferences` table
+- Editable: click value to edit inline, auto-saves via `PUT /preferences`
+- **Empty state**: Show form fields with placeholder text
+
+### Layout & Navigation
+
+- **Bottom nav bar**: Fixed, 5 tabs (Home, Health, Meals, Pantry, Supps)
+  - Active tab: accent color icon + label
+  - Inactive: muted icon, no label on mobile
+  - 56px height, glass-morphism background (blur + transparency)
+- **Page transitions**: Fade/slide (200ms)
+- **Pull-to-refresh**: On all detail pages
+- **Loading states**: Skeleton placeholders (pulsing rectangles), never blank screens
+
+---
 
 ## Phase 4 Tests
+
+### PWA Tests
 - [ ] PWA installs on Android home screen without browser chrome
-- [ ] manifest.json has display: standalone
+- [ ] manifest.json has `display: standalone`
 - [ ] Service worker registers and caches assets
-- [ ] All API endpoints return correct data
-- [ ] Health dashboard shows real vitals with charts
-- [ ] Meal plan shows current week with swap/skip actions
-- [ ] Pantry photo upload triggers analysis and updates inventory
-- [ ] Supplement "mark as taken" logs correctly
-- [ ] Offline: app loads cached data when network is down
+- [ ] Dashboard node graph renders with 4 nodes + center
+- [ ] Clicking a node navigates to the correct detail page
+- [ ] All pages show empty states gracefully when no data exists
+- [ ] 7D/30D/90D toggles switch chart data on health page
+- [ ] Health vitals cards show latest value per metric_type
+- [ ] Meal plan status toggle sends correct value (cooked/skipped/ate_out)
+- [ ] Supplement mark-as-taken updates UI immediately
+- [ ] Pantry groups items by category
+- [ ] Expiry badges show correct color based on date
+- [ ] Photo upload captures and sends base64 image
+- [ ] Preferences load and save correctly
+- [ ] No console errors on any page with empty data
+- [ ] No `.toLocaleString()` or `.filter()` crashes on null/undefined
+
+### API Tests
+- [ ] `GET /api/health/today` returns metric array with correct columns
+- [ ] `GET /api/health/history?days=7` returns aggregated daily data
+- [ ] `GET /api/health/history?days=90&metric=steps` filters by metric
+- [ ] `POST /api/health-webhook` writes metrics to MotherDuck (not just logs them)
+- [ ] `GET /api/supplements/today` JOINs supplements + supplement_log
+- [ ] `POST /api/supplements/:id/taken` uses parameterized query (no SQL injection)
+- [ ] `GET /api/calories/today` returns entries + computed totals
+- [ ] `GET /api/calories/history?days=30` returns daily summaries
+- [ ] `GET /api/pantry` returns items with correct column names (item, expiry_date)
+- [ ] `GET /api/preferences` returns key/value/skill rows
+- [ ] `PUT /api/preferences` upserts correctly
+- [ ] All endpoints return `{ data: [...] }` wrapper consistently
+- [ ] All SQL uses parameterized queries — zero string interpolation
 
 ---
 
