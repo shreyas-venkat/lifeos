@@ -412,6 +412,7 @@ async function runQuery(
         'mcp__nanoclaw__*',
         'mcp__gmail__*',
         'mcp__motherduck__*',
+        'mcp__google_calendar__*',
       ],
       env: sdkEnv,
       permissionMode: 'bypassPermissions',
@@ -437,6 +438,15 @@ async function runQuery(
           args: ['--read-write'],
           env: {
             motherduck_token: process.env.MOTHERDUCK_TOKEN || '',
+          },
+        },
+        google_calendar: {
+          command: 'node',
+          args: ['/app/mcp-servers/google-calendar.mjs'],
+          env: {
+            GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
+            GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
+            GOOGLE_CALENDAR_REFRESH_TOKEN: process.env.GOOGLE_CALENDAR_REFRESH_TOKEN || '',
           },
         },
       },

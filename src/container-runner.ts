@@ -244,6 +244,20 @@ async function buildContainerArgs(
   // Pass host timezone so container's local time matches the user's
   args.push('-e', `TZ=${TIMEZONE}`);
 
+  // Pass service credentials to the container for MCP servers.
+  // These are NOT Anthropic keys (handled by OneCLI) — they're for
+  // Google Calendar, MotherDuck, and other integrations.
+  const serviceEnvVars = [
+    'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET',
+    'GOOGLE_REFRESH_TOKEN', 'GOOGLE_CALENDAR_REFRESH_TOKEN',
+    'MOTHERDUCK_TOKEN',
+  ];
+  for (const key of serviceEnvVars) {
+    if (process.env[key]) {
+      args.push('-e', `${key}=${process.env[key]}`);
+    }
+  }
+
   // OneCLI gateway handles credential injection — containers never see real secrets.
   // The gateway intercepts HTTPS traffic and injects API keys or OAuth tokens.
   const onecliApplied = await onecli.applyContainerConfig(args, {

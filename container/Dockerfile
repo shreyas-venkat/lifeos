@@ -31,7 +31,7 @@ ENV AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 
 # Install agent-browser, claude-code, and MCP servers globally
-RUN npm install -g agent-browser @anthropic-ai/claude-code @gongrzhe/server-gmail-autoauth-mcp
+RUN npm install -g agent-browser @anthropic-ai/claude-code @gongrzhe/server-gmail-autoauth-mcp googleapis @modelcontextprotocol/sdk
 
 # Install Python + uv for MotherDuck MCP server
 # Install as root, then symlink to /usr/local/bin so node user can access it
@@ -50,6 +50,9 @@ COPY agent-runner/package*.json ./
 
 # Install dependencies
 RUN npm install
+
+# Copy MCP servers
+COPY mcp-servers/ /app/mcp-servers/
 
 # Copy source code
 COPY agent-runner/ ./
