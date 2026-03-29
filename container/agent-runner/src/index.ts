@@ -447,6 +447,7 @@ async function runQuery(
             GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
             GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
             GOOGLE_CALENDAR_REFRESH_TOKEN: process.env.GOOGLE_CALENDAR_REFRESH_TOKEN || '',
+            NODE_PATH: '/usr/local/lib/node_modules',
           },
         },
       },
