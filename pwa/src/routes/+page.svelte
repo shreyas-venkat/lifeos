@@ -19,9 +19,9 @@
 				api.supplements.today(),
 				api.pantry.list(),
 			]);
-			if (h.status === 'fulfilled') health = h.value || null;
-			if (c.status === 'fulfilled') calories = c.value || null;
-			if (s.status === 'fulfilled') supplements = s.value || [];
+			if (h.status === 'fulfilled') health = Array.isArray(h.value) ? null : h.value;
+			if (c.status === 'fulfilled') calories = Array.isArray(c.value) ? null : c.value;
+			if (s.status === 'fulfilled') supplements = Array.isArray(s.value) ? s.value : [];
 			if (p.status === 'fulfilled' && Array.isArray(p.value)) {
 				const now = Date.now();
 				const threeDays = 3 * 24 * 60 * 60 * 1000;

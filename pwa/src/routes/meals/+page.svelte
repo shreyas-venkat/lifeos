@@ -23,9 +23,9 @@
 				api.calories.today(),
 				api.meals.recipes(),
 			]);
-			if (p.status === 'fulfilled') plan = p.value;
-			if (c.status === 'fulfilled') calories = c.value;
-			if (r.status === 'fulfilled') recipes = r.value;
+			if (p.status === 'fulfilled') plan = Array.isArray(p.value) ? p.value : [];
+			if (c.status === 'fulfilled') calories = Array.isArray(c.value) ? null : c.value;
+			if (r.status === 'fulfilled') recipes = Array.isArray(r.value) ? r.value : [];
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load meals';
 		} finally {

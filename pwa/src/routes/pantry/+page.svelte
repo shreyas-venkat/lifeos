@@ -30,7 +30,8 @@
 
 	onMount(async () => {
 		try {
-			items = await api.pantry.list();
+			const result = await api.pantry.list();
+			items = Array.isArray(result) ? result : [];
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load pantry';
 		} finally {

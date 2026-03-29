@@ -17,8 +17,8 @@
 				api.health.today(),
 				api.health.trends(7),
 			]);
-			if (t.status === 'fulfilled') today = t.value;
-			if (tr.status === 'fulfilled') trends = tr.value;
+			if (t.status === 'fulfilled') today = Array.isArray(t.value) ? null : t.value;
+			if (tr.status === 'fulfilled') trends = Array.isArray(tr.value) ? tr.value : [];
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load health data';
 		} finally {

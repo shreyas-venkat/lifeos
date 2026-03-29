@@ -12,7 +12,8 @@
 
 	onMount(async () => {
 		try {
-			supplements = await api.supplements.today();
+			const result = await api.supplements.today();
+			supplements = Array.isArray(result) ? result : [];
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load supplements';
 		} finally {

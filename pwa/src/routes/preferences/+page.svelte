@@ -13,9 +13,11 @@
 	onMount(async () => {
 		try {
 			const prefs = await api.preferences.get();
-			dietary = prefs.dietary || '';
-			notifications = prefs.notifications ?? false;
-			supplementList = (prefs.supplements || []).join(', ');
+			if (prefs && !Array.isArray(prefs)) {
+				dietary = prefs.dietary || '';
+				notifications = prefs.notifications ?? false;
+				supplementList = (prefs.supplements || []).join(', ');
+			}
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load preferences';
 		} finally {

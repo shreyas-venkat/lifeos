@@ -14,10 +14,7 @@ async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
 	const json = await res.json();
 	// API routes wrap results in { data: [...] } — unwrap if present
 	if (json && typeof json === 'object' && 'data' in json) {
-		const data = json.data;
-		// If the API returned an empty array and caller expects an object, return null
-		if (Array.isArray(data) && data.length === 0) return null as T;
-		return data as T;
+		return json.data as T;
 	}
 	return json as T;
 }
