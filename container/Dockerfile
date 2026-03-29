@@ -38,7 +38,8 @@ RUN npm install -g agent-browser @anthropic-ai/claude-code @gongrzhe/server-gmai
 RUN apt-get update && apt-get install -y python3 python3-pip python3-venv \
     && pip3 install --break-system-packages uv \
     && uv tool install mcp-server-motherduck \
-    && ln -sf /root/.local/bin/mcp-server-motherduck /usr/local/bin/mcp-server-motherduck \
+    && cp /root/.local/bin/mcp-server-motherduck /usr/local/bin/mcp-server-motherduck \
+    && chmod 755 /usr/local/bin/mcp-server-motherduck \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Create app directory
