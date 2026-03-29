@@ -4,6 +4,7 @@
  */
 import { ChildProcess, spawn } from 'child_process';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 
 import {
@@ -176,6 +177,16 @@ function buildVolumeMounts(
     containerPath: '/workspace/ipc',
     readonly: false,
   });
+
+  // Gmail MCP credentials (file-based OAuth from ~/.gmail-mcp/)
+  const gmailMcpDir = path.join(os.homedir(), '.gmail-mcp');
+  if (fs.existsSync(gmailMcpDir)) {
+    mounts.push({
+      hostPath: gmailMcpDir,
+      containerPath: '/home/node/.gmail-mcp',
+      readonly: true,
+    });
+  }
 
   // Copy agent-runner source into a per-group writable location so agents
   // can customize it (add tools, change behavior) without affecting other
