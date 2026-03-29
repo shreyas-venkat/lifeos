@@ -1,4 +1,5 @@
 import { DuckDBInstance, DuckDBConnection } from '@duckdb/node-api';
+import type { DuckDBValue } from '@duckdb/node-api';
 
 let instance: DuckDBInstance | null = null;
 let conn: DuckDBConnection | null = null;
@@ -14,10 +15,12 @@ export async function getDb(): Promise<DuckDBConnection> {
 
 export async function query<T = Record<string, unknown>>(
   sql: string,
-  ..._params: unknown[]
+  ...params: unknown[]
 ): Promise<T[]> {
   const connection = await getDb();
-  const result = await connection.runAndReadAll(sql);
+  const values =
+    params.length > 0 ? (params as DuckDBValue[]) : undefined;
+  const result = await connection.runAndReadAll(sql, values);
   const columns = result.columnNames();
   return result.getRows().map((row) => {
     const obj: Record<string, unknown> = {};

@@ -15,16 +15,25 @@ mealsRouter.get('/plan', async (req: Request, res: Response) => {
     const weekFilter =
       week === 'current'
         ? `date_trunc('week', CURRENT_DATE)`
-        : `date_trunc('week', CURRENT_DATE) + INTERVAL 7 DAY`;
+        : `date_trunc('week', CURRENT_DATE) + INTERVAL '7' DAY`;
 
     const rows = await query(
-      `SELECT mp.*, r.name AS recipe_name, r.cuisine, r.prep_time_min
+      `SELECT mp.id, mp.week_start, mp.day_of_week, mp.meal_type, mp.status,
+              mp.notes, mp.servings,
+              r.name AS recipe_name, r.calories_per_serving,
+              r.prep_time_min, r.cook_time_min
        FROM lifeos.meal_plans mp
        LEFT JOIN lifeos.recipes r ON mp.recipe_id = r.id
        WHERE mp.week_start = ${weekFilter}
        ORDER BY mp.day_of_week, mp.meal_type`,
     );
-    res.json({ data: rows, week });
+
+    const weekStart =
+      rows.length > 0
+        ? (rows[0] as Record<string, unknown>).week_start
+        : null;
+
+    res.json({ data: rows, week_start: weekStart });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     res.status(500).json({ error: message });
@@ -48,7 +57,7 @@ mealsRouter.post('/plan/:id/status', async (req: Request, res: Response) => {
       status,
       id,
     );
-    res.json({ success: true, id, status });
+    res.json({ success: true });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     res.status(500).json({ error: message });
@@ -57,24 +66,27 @@ mealsRouter.post('/plan/:id/status', async (req: Request, res: Response) => {
 
 mealsRouter.get('/recipes', async (req: Request, res: Response) => {
   const search = req.query.search as string | undefined;
-  const cuisine = req.query.cuisine as string | undefined;
+  const limitParam = req.query.limit;
+  const limit = limitParam ? Number(limitParam) : 20;
+
+  if (isNaN(limit) || limit < 1 || limit > 100) {
+    res.status(400).json({ error: 'limit must be a number between 1 and 100' });
+    return;
+  }
 
   try {
-    let sql = `SELECT * FROM lifeos.recipes WHERE 1=1`;
-    const params: unknown[] = [];
+    const sql = search
+      ? `SELECT id, name, calories_per_serving, rating, times_cooked, prep_time_min, tags
+         FROM lifeos.recipes
+         WHERE name ILIKE '%' || $1 || '%'
+         ORDER BY rating DESC NULLS LAST, times_cooked DESC
+         LIMIT ${String(limit)}`
+      : `SELECT id, name, calories_per_serving, rating, times_cooked, prep_time_min, tags
+         FROM lifeos.recipes
+         ORDER BY rating DESC NULLS LAST, times_cooked DESC
+         LIMIT ${String(limit)}`;
 
-    if (search) {
-      params.push(`%${search}%`);
-      sql += ` AND name ILIKE $${params.length}`;
-    }
-    if (cuisine) {
-      params.push(cuisine);
-      sql += ` AND cuisine = $${params.length}`;
-    }
-
-    sql += ` ORDER BY name ASC`;
-
-    const rows = await query(sql, ...params);
+    const rows = search ? await query(sql, search) : await query(sql);
     res.json({ data: rows });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
@@ -102,7 +114,7 @@ mealsRouter.post('/recipes/:id/rate', async (req: Request, res: Response) => {
       rating,
       id,
     );
-    res.json({ success: true, id, rating });
+    res.json({ success: true });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     res.status(500).json({ error: message });

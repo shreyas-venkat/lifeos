@@ -26,14 +26,19 @@ describe('supplements routes', () => {
   });
 
   describe('GET /supplements/today', () => {
-    it('returns today supplements', async () => {
+    it('returns today supplements with JOIN data', async () => {
       mockQuery.mockResolvedValue([
         {
-          id: '1',
+          supplement_id: 's1',
           name: 'Vitamin D',
-          dosage: '5000 IU',
-          taken: false,
+          default_dosage: 5000,
+          unit: 'IU',
           time_of_day: 'morning',
+          log_id: null,
+          recommended_dosage: null,
+          reason: null,
+          taken: null,
+          log_date: null,
         },
       ]);
 
@@ -42,9 +47,13 @@ describe('supplements routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.data).toHaveLength(1);
       expect(res.body.data[0].name).toBe('Vitamin D');
+      expect(res.body.data[0].supplement_id).toBe('s1');
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('LEFT JOIN lifeos.supplement_log'),
+      );
     });
 
-    it('returns empty array when no supplements today', async () => {
+    it('returns empty array when no active supplements', async () => {
       mockQuery.mockResolvedValue([]);
 
       const res = await request(createApp()).get('/supplements/today');
@@ -63,7 +72,7 @@ describe('supplements routes', () => {
   });
 
   describe('POST /supplements/:id/taken', () => {
-    it('marks supplement as taken with default timestamp', async () => {
+    it('inserts a supplement log entry with parameterized query', async () => {
       mockQuery.mockResolvedValue([]);
 
       const res = await request(createApp())
@@ -72,20 +81,28 @@ describe('supplements routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.id).toBe('abc');
-      expect(res.body.taken_at).toBeDefined();
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO lifeos.supplement_log'),
+        expect.any(String),
+        'abc',
+        'morning',
+      );
     });
 
-    it('marks supplement as taken with custom timestamp', async () => {
+    it('accepts custom time_of_day', async () => {
       mockQuery.mockResolvedValue([]);
-      const timestamp = '2026-03-29T10:00:00Z';
 
       const res = await request(createApp())
         .post('/supplements/abc/taken')
-        .send({ taken_at: timestamp });
+        .send({ time_of_day: 'evening' });
 
       expect(res.status).toBe(200);
-      expect(res.body.taken_at).toBe(timestamp);
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO lifeos.supplement_log'),
+        expect.any(String),
+        'abc',
+        'evening',
+      );
     });
 
     it('returns 500 on database error', async () => {

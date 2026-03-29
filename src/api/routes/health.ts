@@ -12,34 +12,63 @@ healthRouter.get('/today', async (_req: Request, res: Response) => {
        ORDER BY recorded_at DESC`,
     );
     res.json({ data: rows });
-  } catch (_err: unknown) {
-    res.json({ data: [] });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
   }
 });
 
-healthRouter.get('/trends', async (req: Request, res: Response) => {
+const VALID_METRICS = new Set([
+  'steps',
+  'heart_rate',
+  'hrv',
+  'spo2',
+  'weight',
+  'sleep_duration',
+  'all',
+]);
+
+healthRouter.get('/history', async (req: Request, res: Response) => {
   const daysParam = req.query.days;
-  const days = daysParam ? Number(daysParam) : 30;
+  const days = daysParam ? Number(daysParam) : 7;
+  const metric = (req.query.metric as string) || 'all';
 
   if (isNaN(days) || days < 1 || days > 365) {
     res.status(400).json({ error: 'days must be a number between 1 and 365' });
     return;
   }
 
+  if (!VALID_METRICS.has(metric)) {
+    res.status(400).json({
+      error: `metric must be one of: ${[...VALID_METRICS].join(', ')}`,
+    });
+    return;
+  }
+
   try {
-    const rows = await query(
-      `SELECT
-         metric_type,
-         CAST(recorded_at AS DATE) AS date,
-         AVG(value) AS avg_value,
-         COUNT(*) AS entries
-       FROM lifeos.health_metrics
-       WHERE recorded_at >= CURRENT_DATE - INTERVAL '${days}' DAY
-       GROUP BY metric_type, CAST(recorded_at AS DATE)
-       ORDER BY date ASC`,
-    );
+    const sql =
+      metric === 'all'
+        ? `SELECT CAST(recorded_at AS DATE) AS date, metric_type,
+                  AVG(value) AS avg_value, MIN(value) AS min_value,
+                  MAX(value) AS max_value, COUNT(*) AS readings
+           FROM lifeos.health_metrics
+           WHERE recorded_at >= CURRENT_DATE - INTERVAL '${String(days)}' DAY
+           GROUP BY CAST(recorded_at AS DATE), metric_type
+           ORDER BY date ASC, metric_type`
+        : `SELECT CAST(recorded_at AS DATE) AS date, metric_type,
+                  AVG(value) AS avg_value, MIN(value) AS min_value,
+                  MAX(value) AS max_value, COUNT(*) AS readings
+           FROM lifeos.health_metrics
+           WHERE recorded_at >= CURRENT_DATE - INTERVAL '${String(days)}' DAY
+             AND metric_type = $1
+           GROUP BY CAST(recorded_at AS DATE), metric_type
+           ORDER BY date ASC, metric_type`;
+
+    const rows =
+      metric === 'all' ? await query(sql) : await query(sql, metric);
     res.json({ data: rows, days });
-  } catch (_err: unknown) {
-    res.json({ data: [], days });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message, days });
   }
 });

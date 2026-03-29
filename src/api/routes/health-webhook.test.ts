@@ -1,67 +1,147 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
+import express from 'express';
 import request from 'supertest';
-import { createApiServer } from '../server.js';
-import type express from 'express';
 
-// --- Our format (metrics array) ---
+const { mockQuery } = vi.hoisted(() => ({
+  mockQuery: vi.fn(),
+}));
+
+vi.mock('../db.js', () => ({
+  query: mockQuery,
+  getDb: vi.fn(),
+}));
+
+import { healthWebhookRouter } from './health-webhook.js';
+
+function createApp(apiSecret?: string) {
+  const app = express();
+  app.use(express.json({ limit: '1mb' }));
+
+  // Replicate server auth middleware
+  app.use(
+    '/api/health-webhook',
+    (req, res, next) => {
+      const apiKey = req.headers['x-api-key'] || req.query.key;
+      if (apiSecret && apiKey !== apiSecret) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+      next();
+    },
+    healthWebhookRouter,
+  );
+
+  return app;
+}
 
 describe('POST /api/health-webhook (our format)', () => {
-  let app: express.Express;
-
-  beforeAll(() => {
-    delete process.env.VPS_API_SECRET;
-    app = createApiServer();
+  beforeEach(() => {
+    mockQuery.mockReset();
+    mockQuery.mockResolvedValue([]);
   });
 
-  it('accepts a single valid metric', async () => {
+  it('accepts a single valid metric and writes to DB', async () => {
+    const app = createApp();
     const res = await request(app)
       .post('/api/health-webhook')
       .send({
         metrics: [
-          { metric_type: 'steps', value: 5000, recorded_at: '2024-01-15T10:30:00Z' },
+          {
+            metric_type: 'steps',
+            value: 5000,
+            recorded_at: '2024-01-15T10:30:00Z',
+          },
         ],
       });
 
     expect(res.status).toBe(200);
     expect(res.body.accepted).toBe(1);
     expect(res.body.rejected).toBe(0);
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO lifeos.health_metrics'),
+      expect.any(String),
+      'steps',
+      5000,
+      null,
+      '2024-01-15T10:30:00Z',
+      'health_connect',
+    );
   });
 
   it('accepts multiple valid metrics', async () => {
+    const app = createApp();
     const res = await request(app)
       .post('/api/health-webhook')
       .send({
         metrics: [
-          { metric_type: 'steps', value: 5000, recorded_at: '2024-01-15T10:30:00Z' },
-          { metric_type: 'heart_rate', value: 72, recorded_at: '2024-01-15T10:30:00Z' },
-          { metric_type: 'weight', value: 75.5, recorded_at: '2024-01-15T10:30:00Z' },
+          {
+            metric_type: 'steps',
+            value: 5000,
+            recorded_at: '2024-01-15T10:30:00Z',
+          },
+          {
+            metric_type: 'heart_rate',
+            value: 72,
+            recorded_at: '2024-01-15T10:30:00Z',
+          },
+          {
+            metric_type: 'weight',
+            value: 75.5,
+            recorded_at: '2024-01-15T10:30:00Z',
+          },
         ],
       });
 
     expect(res.status).toBe(200);
     expect(res.body.accepted).toBe(3);
+    expect(mockQuery).toHaveBeenCalledTimes(3);
+  });
+
+  it('counts rejected metrics when DB write fails', async () => {
+    mockQuery.mockRejectedValue(new Error('DB write failed'));
+    const app = createApp();
+    const res = await request(app)
+      .post('/api/health-webhook')
+      .send({
+        metrics: [
+          {
+            metric_type: 'steps',
+            value: 5000,
+            recorded_at: '2024-01-15T10:30:00Z',
+          },
+        ],
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.accepted).toBe(0);
+    expect(res.body.rejected).toBe(1);
   });
 });
 
-// --- Health Connect Webhook app format ---
-
 describe('POST /api/health-webhook (Health Connect format)', () => {
-  let app: express.Express;
-
-  beforeAll(() => {
-    delete process.env.VPS_API_SECRET;
-    app = createApiServer();
+  beforeEach(() => {
+    mockQuery.mockReset();
+    mockQuery.mockResolvedValue([]);
   });
 
   it('accepts steps data from Health Connect', async () => {
+    const app = createApp();
     const res = await request(app)
       .post('/api/health-webhook')
       .send({
         timestamp: '2026-03-29T22:20:34Z',
         app_version: '1.0',
         steps: [
-          { count: 840, start_time: '2026-03-27T06:00:00Z', end_time: '2026-03-28T06:00:00Z' },
-          { count: 3496, start_time: '2026-03-28T06:00:00Z', end_time: '2026-03-29T06:00:00Z' },
+          {
+            count: 840,
+            start_time: '2026-03-27T06:00:00Z',
+            end_time: '2026-03-28T06:00:00Z',
+          },
+          {
+            count: 3496,
+            start_time: '2026-03-28T06:00:00Z',
+            end_time: '2026-03-29T06:00:00Z',
+          },
         ],
       });
 
@@ -70,6 +150,7 @@ describe('POST /api/health-webhook (Health Connect format)', () => {
   });
 
   it('accepts heart rate data from Health Connect', async () => {
+    const app = createApp();
     const res = await request(app)
       .post('/api/health-webhook')
       .send({
@@ -85,13 +166,18 @@ describe('POST /api/health-webhook (Health Connect format)', () => {
   });
 
   it('accepts mixed Health Connect data (steps + heart_rate)', async () => {
+    const app = createApp();
     const res = await request(app)
       .post('/api/health-webhook')
       .send({
         timestamp: '2026-03-29T22:20:34Z',
         app_version: '1.0',
         steps: [
-          { count: 840, start_time: '2026-03-27T06:00:00Z', end_time: '2026-03-28T06:00:00Z' },
+          {
+            count: 840,
+            start_time: '2026-03-27T06:00:00Z',
+            end_time: '2026-03-28T06:00:00Z',
+          },
         ],
         heart_rate: [
           { bpm: 91, time: '2026-03-27T22:30:29Z' },
@@ -104,11 +190,16 @@ describe('POST /api/health-webhook (Health Connect format)', () => {
   });
 
   it('accepts sleep data', async () => {
+    const app = createApp();
     const res = await request(app)
       .post('/api/health-webhook')
       .send({
         sleep: [
-          { duration_hours: 7.5, start_time: '2026-03-28T23:00:00Z', end_time: '2026-03-29T06:30:00Z' },
+          {
+            duration_hours: 7.5,
+            start_time: '2026-03-28T23:00:00Z',
+            end_time: '2026-03-29T06:30:00Z',
+          },
         ],
       });
 
@@ -117,6 +208,7 @@ describe('POST /api/health-webhook (Health Connect format)', () => {
   });
 
   it('accepts weight data', async () => {
+    const app = createApp();
     const res = await request(app)
       .post('/api/health-webhook')
       .send({
@@ -128,6 +220,7 @@ describe('POST /api/health-webhook (Health Connect format)', () => {
   });
 
   it('returns 400 when body has no recognizable data', async () => {
+    const app = createApp();
     const res = await request(app)
       .post('/api/health-webhook')
       .send({ timestamp: '2026-03-29T22:20:34Z', app_version: '1.0' });
@@ -137,6 +230,7 @@ describe('POST /api/health-webhook (Health Connect format)', () => {
   });
 
   it('handles unknown metric types generically', async () => {
+    const app = createApp();
     const res = await request(app)
       .post('/api/health-webhook')
       .send({
@@ -148,17 +242,9 @@ describe('POST /api/health-webhook (Health Connect format)', () => {
   });
 });
 
-// --- GET /api/health-webhook/metrics ---
-
 describe('GET /api/health-webhook/metrics', () => {
-  let app: express.Express;
-
-  beforeAll(() => {
-    delete process.env.VPS_API_SECRET;
-    app = createApiServer();
-  });
-
   it('returns list of valid metric types', async () => {
+    const app = createApp();
     const res = await request(app).get('/api/health-webhook/metrics');
 
     expect(res.status).toBe(200);
@@ -168,56 +254,87 @@ describe('GET /api/health-webhook/metrics', () => {
   });
 });
 
-// --- API key middleware ---
-
 describe('API key middleware', () => {
+  beforeEach(() => {
+    mockQuery.mockReset();
+    mockQuery.mockResolvedValue([]);
+  });
+
   afterAll(() => {
     delete process.env.VPS_API_SECRET;
   });
 
-  it('returns 401 when VPS_API_SECRET is set and no key provided', async () => {
-    process.env.VPS_API_SECRET = 'test-secret-key';
-    const app = createApiServer();
+  it('returns 401 when apiSecret is set and no key provided', async () => {
+    const app = createApp('test-secret-key');
 
     const res = await request(app)
       .post('/api/health-webhook')
-      .send({ metrics: [{ metric_type: 'steps', value: 100, recorded_at: '2024-01-01T00:00:00Z' }] });
+      .send({
+        metrics: [
+          {
+            metric_type: 'steps',
+            value: 100,
+            recorded_at: '2024-01-01T00:00:00Z',
+          },
+        ],
+      });
 
     expect(res.status).toBe(401);
   });
 
   it('returns 401 when wrong key provided', async () => {
-    process.env.VPS_API_SECRET = 'test-secret-key';
-    const app = createApiServer();
+    const app = createApp('test-secret-key');
 
     const res = await request(app)
       .post('/api/health-webhook')
       .set('x-api-key', 'wrong-key')
-      .send({ metrics: [{ metric_type: 'steps', value: 100, recorded_at: '2024-01-01T00:00:00Z' }] });
+      .send({
+        metrics: [
+          {
+            metric_type: 'steps',
+            value: 100,
+            recorded_at: '2024-01-01T00:00:00Z',
+          },
+        ],
+      });
 
     expect(res.status).toBe(401);
   });
 
   it('passes with correct key via header', async () => {
-    process.env.VPS_API_SECRET = 'test-secret-key';
-    const app = createApiServer();
+    const app = createApp('test-secret-key');
 
     const res = await request(app)
       .post('/api/health-webhook')
       .set('x-api-key', 'test-secret-key')
-      .send({ metrics: [{ metric_type: 'steps', value: 100, recorded_at: '2024-01-01T00:00:00Z' }] });
+      .send({
+        metrics: [
+          {
+            metric_type: 'steps',
+            value: 100,
+            recorded_at: '2024-01-01T00:00:00Z',
+          },
+        ],
+      });
 
     expect(res.status).toBe(200);
     expect(res.body.accepted).toBe(1);
   });
 
-  it('does not require key when VPS_API_SECRET is not set', async () => {
-    delete process.env.VPS_API_SECRET;
-    const app = createApiServer();
+  it('does not require key when no apiSecret set', async () => {
+    const app = createApp();
 
     const res = await request(app)
       .post('/api/health-webhook')
-      .send({ metrics: [{ metric_type: 'steps', value: 100, recorded_at: '2024-01-01T00:00:00Z' }] });
+      .send({
+        metrics: [
+          {
+            metric_type: 'steps',
+            value: 100,
+            recorded_at: '2024-01-01T00:00:00Z',
+          },
+        ],
+      });
 
     expect(res.status).toBe(200);
   });
