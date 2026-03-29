@@ -12,112 +12,172 @@ async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
 	});
 	if (!res.ok) throw new Error(`API error: ${res.status}`);
 	const json = await res.json();
-	// API routes wrap results in { data: [...] } — unwrap if present
+	// API routes wrap results in { data: [...] } -- unwrap if present
 	if (json && typeof json === 'object' && 'data' in json) {
 		return json.data as T;
 	}
 	return json as T;
 }
 
-export interface HealthToday {
-	steps: number;
-	heart_rate: number;
-	hrv: number;
-	spo2: number;
-	weight: number;
-	sleep_hours: number;
+/** Safe wrapper: returns fallback on any error */
+async function fetchSafe<T>(path: string, fallback: T, options?: RequestInit): Promise<T> {
+	try {
+		const result = await fetchApi<T>(path, options);
+		if (result === null || result === undefined) return fallback;
+		return result;
+	} catch {
+		return fallback;
+	}
 }
 
-export interface HealthTrend {
+// --- TypeScript interfaces matching actual MotherDuck columns ---
+
+export interface HealthMetric {
+	metric_type: string;
+	value: number;
+	unit: string | null;
+	recorded_at: string;
+}
+
+export interface HealthHistoryPoint {
 	date: string;
-	steps: number;
-	heart_rate: number;
-	hrv: number;
-	weight: number;
-	sleep_hours: number;
+	metric_type: string;
+	avg_value: number;
+	min_value: number;
+	max_value: number;
+	readings: number;
 }
 
-export interface MealPlanDay {
-	date: string;
-	meals: { id: string; name: string; type: string; status: string; calories: number }[];
+export interface MealPlanRecord {
+	id: string;
+	week_start: string;
+	day_of_week: number;
+	meal_type: string;
+	status: string;
+	notes: string | null;
+	servings: number;
+	recipe_name: string | null;
+	calories_per_serving: number | null;
+	prep_time_min: number | null;
+	cook_time_min: number | null;
 }
 
-export interface Recipe {
+export interface RecipeSummary {
 	id: string;
 	name: string;
-	description: string;
-	rating: number;
-	calories: number;
+	calories_per_serving: number | null;
+	rating: number | null;
+	times_cooked: number;
+	prep_time_min: number | null;
+	tags: string[] | null;
 }
 
 export interface CalorieEntry {
-	total: number;
-	target: number;
-	meals: { name: string; calories: number; time: string }[];
+	id: string;
+	meal_type: string;
+	description: string | null;
+	source: string;
+	calories: number | null;
+	protein_g: number | null;
+	carbs_g: number | null;
+	fat_g: number | null;
+	fiber_g: number | null;
+	created_at: string;
+}
+
+export interface DailyCalorieSummary {
+	log_date: string;
+	calories: number;
+	protein_g: number;
+	carbs_g: number;
+	fat_g: number;
+	entries: number;
 }
 
 export interface PantryItem {
 	id: string;
-	name: string;
-	category: string;
-	quantity: string;
-	expiry: string;
+	item: string;
+	quantity: number | null;
+	unit: string | null;
+	category: string | null;
+	expiry_date: string | null;
+	updated_at: string;
 }
 
-export interface Supplement {
-	id: string;
+export interface SupplementWithStatus {
+	supplement_id: string;
 	name: string;
-	dosage: string;
+	default_dosage: number;
+	unit: string;
+	time_of_day: string;
+	log_id: string | null;
+	recommended_dosage: number | null;
+	reason: string | null;
 	taken: boolean;
-	time: string;
+	log_date: string | null;
 }
 
-export interface Preferences {
-	dietary: string;
-	notifications: boolean;
-	supplements: string[];
+export interface PreferenceRow {
+	key: string;
+	value: string;
+	skill: string;
 }
 
 export const api = {
 	health: {
-		today: () => fetchApi<HealthToday>('/health/today'),
-		trends: (days = 30) => fetchApi<HealthTrend[]>(`/health/trends?days=${days}`),
+		today: () => fetchSafe<HealthMetric[]>('/health/today', []),
+		history: (days = 30, metric = 'all') =>
+			fetchSafe<HealthHistoryPoint[]>(
+				`/health/history?days=${encodeURIComponent(days)}&metric=${encodeURIComponent(metric)}`,
+				[]
+			),
 	},
 	meals: {
-		plan: (week = 'current') => fetchApi<MealPlanDay[]>(`/meals/plan?week=${week}`),
+		plan: (week = 'current') =>
+			fetchSafe<MealPlanRecord[]>(
+				`/meals/plan?week=${encodeURIComponent(week)}`,
+				[]
+			),
 		updateStatus: (id: string, status: string) =>
-			fetchApi(`/meals/plan/${id}/status`, {
+			fetchApi<void>(`/meals/plan/${encodeURIComponent(id)}/status`, {
 				method: 'POST',
 				body: JSON.stringify({ status }),
 			}),
-		recipes: () => fetchApi<Recipe[]>('/meals/recipes'),
-		rateRecipe: (id: string, rating: number) =>
-			fetchApi(`/meals/recipes/${id}/rate`, {
-				method: 'POST',
-				body: JSON.stringify({ rating }),
-			}),
+		recipes: (search = '') =>
+			fetchSafe<RecipeSummary[]>(
+				search
+					? `/meals/recipes?search=${encodeURIComponent(search)}`
+					: '/meals/recipes',
+				[]
+			),
 	},
 	pantry: {
-		list: () => fetchApi<PantryItem[]>('/pantry'),
+		list: () => fetchSafe<PantryItem[]>('/pantry', []),
 		uploadPhoto: (base64: string) =>
-			fetchApi('/pantry/photo', {
+			fetchApi<void>('/pantry/photo', {
 				method: 'POST',
 				body: JSON.stringify({ image: base64 }),
 			}),
 	},
 	supplements: {
-		today: () => fetchApi<Supplement[]>('/supplements/today'),
+		today: () => fetchSafe<SupplementWithStatus[]>('/supplements/today', []),
 		markTaken: (id: string) =>
-			fetchApi(`/supplements/${id}/taken`, { method: 'POST' }),
+			fetchApi<void>(`/supplements/${encodeURIComponent(id)}/taken`, {
+				method: 'POST',
+			}),
 	},
 	calories: {
-		today: () => fetchApi<CalorieEntry>('/calories/today'),
-		week: () => fetchApi<CalorieEntry[]>('/calories/week'),
+		today: () => fetchSafe<CalorieEntry[]>('/calories/today', []),
+		history: (days = 30) =>
+			fetchSafe<DailyCalorieSummary[]>(
+				`/calories/history?days=${encodeURIComponent(days)}`,
+				[]
+			),
 	},
 	preferences: {
-		get: () => fetchApi<Preferences>('/preferences'),
+		get: () => fetchSafe<PreferenceRow[]>('/preferences', []),
 		update: (prefs: Record<string, string>) =>
-			fetchApi('/preferences', {
+			fetchApi<void>('/preferences', {
 				method: 'PUT',
 				body: JSON.stringify(prefs),
 			}),

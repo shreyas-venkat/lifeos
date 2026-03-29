@@ -5,38 +5,58 @@
 
 	let items = $state<PantryItem[]>([]);
 	let loading = $state(true);
-	let error = $state('');
 	let uploading = $state(false);
 
-	const threeDays = 3 * 24 * 60 * 60 * 1000;
+	const sevenDays = 7 * 24 * 60 * 60 * 1000;
 
-	const categories = $derived(() => {
+	// Group items by category
+	const grouped = $derived(() => {
 		const groups: Record<string, PantryItem[]> = {};
 		for (const item of items) {
-			const cat = item.category || 'Other';
+			const cat = item.category ?? 'Other';
 			if (!groups[cat]) groups[cat] = [];
 			groups[cat].push(item);
 		}
 		return groups;
 	});
 
-	function isExpiringSoon(expiry: string): boolean {
-		return new Date(expiry).getTime() - Date.now() < threeDays;
+	const expiringSoonCount = $derived(
+		items.filter((i) => {
+			if (!i.expiry_date) return false;
+			const diff = new Date(i.expiry_date).getTime() - Date.now();
+			return diff > 0 && diff < sevenDays;
+		}).length
+	);
+
+	const expiredCount = $derived(
+		items.filter((i) => {
+			if (!i.expiry_date) return false;
+			return new Date(i.expiry_date).getTime() < Date.now();
+		}).length
+	);
+
+	function expiryStatus(expiryDate: string | null): 'fresh' | 'warning' | 'expired' | 'none' {
+		if (!expiryDate) return 'none';
+		const diff = new Date(expiryDate).getTime() - Date.now();
+		if (diff < 0) return 'expired';
+		if (diff < sevenDays) return 'warning';
+		return 'fresh';
 	}
 
-	function isExpired(expiry: string): boolean {
-		return new Date(expiry).getTime() < Date.now();
+	function formatExpiry(expiryDate: string | null): string {
+		if (!expiryDate) return '';
+		const d = new Date(expiryDate);
+		const diff = d.getTime() - Date.now();
+		const days = Math.ceil(diff / (24 * 60 * 60 * 1000));
+		if (days < 0) return `${Math.abs(days)}d ago`;
+		if (days === 0) return 'Today';
+		if (days === 1) return 'Tomorrow';
+		return `${days}d`;
 	}
 
 	onMount(async () => {
-		try {
-			const result = await api.pantry.list();
-			items = Array.isArray(result) ? result : [];
-		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load pantry';
-		} finally {
-			loading = false;
-		}
+		items = await api.pantry.list();
+		loading = false;
 	});
 
 	async function handlePhotoUpload(event: Event) {
@@ -55,7 +75,7 @@
 			await api.pantry.uploadPhoto(base64);
 			items = await api.pantry.list();
 		} catch {
-			// Upload failed silently
+			// Upload failed
 		} finally {
 			uploading = false;
 		}
@@ -67,151 +87,262 @@
 </svelte:head>
 
 <div class="page">
-	<div class="header">
-		<h1>Pantry</h1>
-		<label class="upload-btn">
-			{uploading ? 'Uploading...' : 'Scan'}
-			<input
-				type="file"
-				accept="image/*"
-				capture="environment"
-				onchange={handlePhotoUpload}
-				hidden
-			/>
-		</label>
-	</div>
+	<h1>Pantry</h1>
 
 	{#if loading}
-		<p class="loading">Loading pantry...</p>
-	{:else if error}
-		<p class="error">{error}</p>
+		<div class="skeleton" style="height: 60px; margin-bottom: 1rem;"></div>
+		{#each Array(3) as _}
+			<div class="skeleton" style="height: 50px; margin-bottom: 0.5rem;"></div>
+		{/each}
+	{:else if items.length === 0}
+		<div class="empty-state fade-in">
+			<p>Pantry is empty.</p>
+			<p class="empty-hint">Add items via Discord or snap a photo.</p>
+		</div>
 	{:else}
-		{#each Object.entries(categories()) as [category, categoryItems]}
-			<section class="category">
+		<!-- Summary bar -->
+		<div class="summary-bar fade-in">
+			<span class="summary-stat">{items.length} items</span>
+			{#if expiringSoonCount > 0}
+				<span class="summary-badge warning-badge">{expiringSoonCount} expiring</span>
+			{/if}
+			{#if expiredCount > 0}
+				<span class="summary-badge danger-badge">{expiredCount} expired</span>
+			{/if}
+		</div>
+
+		<!-- Grouped items -->
+		{#each Object.entries(grouped()) as [category, categoryItems]}
+			<section class="category-section fade-in">
 				<h2>{category}</h2>
 				<div class="item-list">
 					{#each categoryItems as item}
-						<div
-							class="item"
-							class:expiring={isExpiringSoon(item.expiry) && !isExpired(item.expiry)}
-							class:expired={isExpired(item.expiry)}
-						>
-							<div class="item-info">
-								<span class="item-name">{item.name}</span>
-								<span class="item-qty">{item.quantity}</span>
+						{@const status = expiryStatus(item.expiry_date)}
+						<div class="item-row" class:item-warning={status === 'warning'} class:item-expired={status === 'expired'}>
+							<div class="item-left">
+								<span class="item-name">{item.item}</span>
+								<span class="item-qty">
+									{#if item.quantity !== null}
+										{item.quantity}{item.unit ? ` ${item.unit}` : ''}
+									{/if}
+								</span>
 							</div>
-							<div class="item-expiry">
-								{#if isExpired(item.expiry)}
-									<span class="badge expired-badge">Expired</span>
-								{:else if isExpiringSoon(item.expiry)}
-									<span class="badge expiring-badge">Expiring</span>
+							<div class="item-right">
+								{#if status === 'expired'}
+									<span class="expiry-badge danger">Expired</span>
+								{:else if status === 'warning'}
+									<span class="expiry-badge warning">{formatExpiry(item.expiry_date)}</span>
+								{:else if status === 'fresh'}
+									<span class="expiry-badge fresh">{formatExpiry(item.expiry_date)}</span>
 								{/if}
-								<span class="expiry-date">{new Date(item.expiry).toLocaleDateString()}</span>
 							</div>
 						</div>
 					{/each}
 				</div>
 			</section>
 		{/each}
-		{#if items.length === 0}
-			<p class="no-data">Pantry is empty. Scan a receipt to add items.</p>
-		{/if}
 	{/if}
+
+	<!-- FAB for photo upload -->
+	<label class="fab" class:uploading>
+		{#if uploading}
+			<span class="fab-spinner"></span>
+		{:else}
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+				<circle cx="12" cy="13" r="4"/>
+			</svg>
+		{/if}
+		<input
+			type="file"
+			accept="image/*"
+			capture="environment"
+			onchange={handlePhotoUpload}
+			hidden
+			disabled={uploading}
+		/>
+	</label>
 </div>
 
 <style>
-	.header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 1rem;
-	}
-	.header h1 {
+	h1 {
 		font-size: 1.5rem;
+		font-weight: 600;
+		margin-bottom: 1.25rem;
 	}
-	.upload-btn {
-		background: var(--accent);
-		color: var(--text-primary);
-		border: none;
-		border-radius: 0.5rem;
-		padding: 0.5rem 1rem;
-		font-size: 0.85rem;
-		cursor: pointer;
+
+	.summary-bar {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		margin-bottom: 1.25rem;
+		padding: 10px 14px;
+		background: var(--bg-card);
+		border-radius: 12px;
+		border: 1px solid var(--border);
 	}
-	.category {
-		margin-bottom: 1.5rem;
+
+	.summary-stat {
+		font-size: 0.9rem;
+		font-weight: 600;
 	}
-	.category h2 {
-		font-size: 0.85rem;
+
+	.summary-badge {
+		font-size: 0.7rem;
+		font-weight: 600;
+		padding: 3px 8px;
+		border-radius: 6px;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+
+	.warning-badge {
+		background: rgba(245, 158, 11, 0.15);
+		color: var(--warning);
+	}
+
+	.danger-badge {
+		background: rgba(239, 68, 68, 0.15);
+		color: var(--danger);
+	}
+
+	.category-section {
+		margin-bottom: 1.25rem;
+	}
+
+	.category-section h2 {
+		font-size: 0.75rem;
 		color: var(--text-secondary);
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		margin-bottom: 0.5rem;
+		letter-spacing: 0.06em;
+		font-weight: 600;
+		margin-bottom: 8px;
+		padding-left: 4px;
 	}
+
 	.item-list {
 		display: flex;
 		flex-direction: column;
-		gap: 0.35rem;
+		gap: 4px;
 	}
-	.item {
-		background: var(--bg-card);
-		border-radius: 0.5rem;
-		padding: 0.6rem 0.75rem;
+
+	.item-row {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
+		background: var(--bg-card);
+		border-radius: 10px;
+		padding: 10px 14px;
+		border: 1px solid var(--border);
+		transition: border-color 0.2s;
 	}
-	.item.expiring {
+
+	.item-row.item-warning {
 		border-left: 3px solid var(--warning);
 	}
-	.item.expired {
+
+	.item-row.item-expired {
 		border-left: 3px solid var(--danger);
 		opacity: 0.7;
 	}
-	.item-info {
+
+	.item-left {
 		display: flex;
 		flex-direction: column;
-		gap: 0.1rem;
+		gap: 2px;
 	}
+
 	.item-name {
 		font-size: 0.9rem;
+		font-weight: 500;
 	}
+
 	.item-qty {
 		font-size: 0.75rem;
 		color: var(--text-secondary);
 	}
-	.item-expiry {
+
+	.item-right {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
-		font-size: 0.75rem;
 	}
-	.expiry-date {
-		color: var(--text-secondary);
-	}
-	.badge {
-		padding: 0.15rem 0.4rem;
-		border-radius: 0.25rem;
-		font-size: 0.65rem;
+
+	.expiry-badge {
+		font-size: 0.7rem;
 		font-weight: 600;
-		text-transform: uppercase;
+		padding: 3px 8px;
+		border-radius: 6px;
 	}
-	.expiring-badge {
-		background: rgba(255, 152, 0, 0.2);
+
+	.expiry-badge.fresh {
+		background: rgba(34, 197, 94, 0.12);
+		color: var(--success);
+	}
+
+	.expiry-badge.warning {
+		background: rgba(245, 158, 11, 0.12);
 		color: var(--warning);
 	}
-	.expired-badge {
-		background: rgba(244, 67, 54, 0.2);
+
+	.expiry-badge.danger {
+		background: rgba(239, 68, 68, 0.12);
 		color: var(--danger);
 	}
-	.loading,
-	.error,
-	.no-data {
+
+	.fab {
+		position: fixed;
+		bottom: 72px;
+		right: 20px;
+		width: 52px;
+		height: 52px;
+		background: var(--accent);
+		border-radius: 16px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+		transition: transform 0.2s, opacity 0.2s;
+		z-index: 50;
+	}
+
+	.fab:hover {
+		transform: scale(1.05);
+	}
+
+	.fab.uploading {
+		opacity: 0.7;
+		pointer-events: none;
+	}
+
+	.fab svg {
+		width: 22px;
+		height: 22px;
+		color: white;
+	}
+
+	.fab-spinner {
+		width: 20px;
+		height: 20px;
+		border: 2px solid rgba(255, 255, 255, 0.3);
+		border-top-color: white;
+		border-radius: 50%;
+		animation: spin 0.6s linear infinite;
+	}
+
+	@keyframes spin {
+		to { transform: rotate(360deg); }
+	}
+
+	.empty-state {
 		text-align: center;
-		padding: 2rem;
+		padding: 3rem 1rem;
 		color: var(--text-secondary);
 	}
-	.error {
-		color: var(--danger);
+
+	.empty-hint {
+		font-size: 0.85rem;
+		margin-top: 0.5rem;
+		opacity: 0.7;
 	}
 </style>
