@@ -126,6 +126,10 @@ jobs:
               loginctl enable-linger $USER
             fi
 
+            # Ensure session dirs are writable by container user (node, uid 1000)
+            mkdir -p data/sessions
+            chown -R 1000:1000 data/sessions
+
             # Build TypeScript
             npm run build 2>/dev/null || true
 
