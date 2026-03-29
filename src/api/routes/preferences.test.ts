@@ -26,16 +26,29 @@ describe('preferences routes', () => {
   });
 
   describe('GET /preferences', () => {
-    it('returns all preferences', async () => {
+    it('returns all preferences ordered by skill and key', async () => {
       mockQuery.mockResolvedValue([
-        { key: 'dietary_restrictions', value: 'vegetarian' },
-        { key: 'timezone', value: 'America/Edmonton' },
+        {
+          key: 'dietary_restrictions',
+          value: 'vegetarian',
+          skill: 'meals',
+          updated_at: '2026-03-29T10:00:00Z',
+        },
+        {
+          key: 'timezone',
+          value: 'America/Edmonton',
+          skill: 'general',
+          updated_at: '2026-03-29T10:00:00Z',
+        },
       ]);
 
       const res = await request(createApp()).get('/preferences');
 
       expect(res.status).toBe(200);
       expect(res.body.data).toHaveLength(2);
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('ORDER BY skill, key'),
+      );
     });
 
     it('returns empty array when no preferences', async () => {
@@ -57,14 +70,14 @@ describe('preferences routes', () => {
   });
 
   describe('PUT /preferences', () => {
-    it('upserts preferences', async () => {
+    it('upserts preferences with skill column', async () => {
       mockQuery.mockResolvedValue([]);
 
       const res = await request(createApp())
         .put('/preferences')
         .send({
           preferences: [
-            { key: 'timezone', value: 'America/Edmonton' },
+            { key: 'timezone', value: 'America/Edmonton', skill: 'general' },
             { key: 'theme', value: 'dark' },
           ],
         });
@@ -73,6 +86,18 @@ describe('preferences routes', () => {
       expect(res.body.success).toBe(true);
       expect(res.body.updated).toBe(2);
       expect(mockQuery).toHaveBeenCalledTimes(2);
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('ON CONFLICT (key, skill)'),
+        'timezone',
+        'America/Edmonton',
+        'general',
+      );
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('ON CONFLICT (key, skill)'),
+        'theme',
+        'dark',
+        'general',
+      );
     });
 
     it('returns 400 when preferences is missing', async () => {

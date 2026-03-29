@@ -26,16 +26,37 @@ describe('pantry routes', () => {
   });
 
   describe('GET /pantry', () => {
-    it('returns current inventory', async () => {
+    it('returns current inventory with correct columns', async () => {
       mockQuery.mockResolvedValue([
-        { id: '1', name: 'Rice', category: 'grains', quantity: 2 },
-        { id: '2', name: 'Chicken', category: 'protein', quantity: 1 },
+        {
+          id: '1',
+          item: 'Rice',
+          category: 'grains',
+          quantity: 2,
+          unit: 'kg',
+          expiry_date: '2026-06-01',
+          updated_at: '2026-03-29T10:00:00Z',
+        },
+        {
+          id: '2',
+          item: 'Chicken',
+          category: 'protein',
+          quantity: 1,
+          unit: 'kg',
+          expiry_date: null,
+          updated_at: '2026-03-29T10:00:00Z',
+        },
       ]);
 
       const res = await request(createApp()).get('/pantry');
 
       expect(res.status).toBe(200);
       expect(res.body.data).toHaveLength(2);
+      expect(res.body.data[0].item).toBe('Rice');
+      expect(res.body.data[0].expiry_date).toBe('2026-06-01');
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('item'),
+      );
     });
 
     it('returns empty array when pantry is empty', async () => {

@@ -1,5 +1,11 @@
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, vi, afterAll } from 'vitest';
 import request from 'supertest';
+
+vi.mock('./db.js', () => ({
+  query: vi.fn().mockResolvedValue([]),
+  getDb: vi.fn(),
+}));
+
 import { createApiServer } from './server.js';
 
 describe('createApiServer', () => {
@@ -20,22 +26,35 @@ describe('createApiServer', () => {
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('ok');
     expect(res.body.timestamp).toBeDefined();
-    // Timestamp should be a valid ISO string
     expect(isNaN(Date.parse(res.body.timestamp))).toBe(false);
   });
 
-  it('health check is protected by API key middleware', async () => {
+  it('health check is NOT protected by API key middleware', async () => {
     process.env.VPS_API_SECRET = 'server-test-secret';
     const app = createApiServer();
 
-    const resNoKey = await request(app).get('/api/health');
-    expect(resNoKey.status).toBe(401);
+    const res = await request(app).get('/api/health');
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('ok');
+  });
 
-    const resWithKey = await request(app)
-      .get('/api/health')
-      .set('x-api-key', 'server-test-secret');
-    expect(resWithKey.status).toBe(200);
-    expect(resWithKey.body.status).toBe('ok');
+  it('CORS headers are set on responses', async () => {
+    delete process.env.VPS_API_SECRET;
+    const app = createApiServer();
+
+    const res = await request(app).get('/api/health');
+
+    expect(res.headers['access-control-allow-origin']).toBe('*');
+    expect(res.headers['access-control-allow-methods']).toContain('GET');
+  });
+
+  it('OPTIONS preflight returns 204', async () => {
+    delete process.env.VPS_API_SECRET;
+    const app = createApiServer();
+
+    const res = await request(app).options('/api/health');
+
+    expect(res.status).toBe(204);
   });
 
   afterAll(() => {

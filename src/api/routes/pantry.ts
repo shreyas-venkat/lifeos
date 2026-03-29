@@ -6,11 +6,14 @@ export const pantryRouter = Router();
 pantryRouter.get('/', async (_req: Request, res: Response) => {
   try {
     const rows = await query(
-      `SELECT * FROM lifeos.pantry ORDER BY category, item ASC`,
+      `SELECT id, item, quantity, unit, category, expiry_date, updated_at
+       FROM lifeos.pantry
+       ORDER BY category, item ASC`,
     );
     res.json({ data: rows });
-  } catch (_err: unknown) {
-    res.json({ data: [] });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
   }
 });
 
@@ -31,7 +34,6 @@ pantryRouter.post('/photo', async (req: Request, res: Response) => {
 
   res.status(202).json({
     status: 'accepted',
-    message: 'Photo received. Analysis will be processed asynchronously.',
     image_size: image.length,
   });
 });

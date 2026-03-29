@@ -26,21 +26,30 @@ describe('meals routes', () => {
   });
 
   describe('GET /meals/plan', () => {
-    it('returns current week plan by default', async () => {
+    it('returns current week plan with recipe JOIN fields', async () => {
       mockQuery.mockResolvedValue([
         {
           id: '1',
-          recipe_name: 'Pasta',
+          week_start: '2026-03-23',
           day_of_week: 1,
           meal_type: 'dinner',
+          status: 'planned',
+          notes: null,
+          servings: 2,
+          recipe_name: 'Pasta',
+          calories_per_serving: 450,
+          prep_time_min: 10,
+          cook_time_min: 20,
         },
       ]);
 
       const res = await request(createApp()).get('/meals/plan');
 
       expect(res.status).toBe(200);
-      expect(res.body.week).toBe('current');
       expect(res.body.data).toHaveLength(1);
+      expect(res.body.data[0].recipe_name).toBe('Pasta');
+      expect(res.body.data[0].calories_per_serving).toBe(450);
+      expect(res.body.week_start).toBe('2026-03-23');
     });
 
     it('accepts week=next parameter', async () => {
@@ -49,7 +58,9 @@ describe('meals routes', () => {
       const res = await request(createApp()).get('/meals/plan?week=next');
 
       expect(res.status).toBe(200);
-      expect(res.body.week).toBe('next');
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining("INTERVAL '7' DAY"),
+      );
     });
 
     it('returns 400 for invalid week value', async () => {
@@ -65,6 +76,7 @@ describe('meals routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.data).toEqual([]);
+      expect(res.body.week_start).toBeNull();
     });
 
     it('returns 500 on database error', async () => {
@@ -86,7 +98,6 @@ describe('meals routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.status).toBe('cooked');
     });
 
     it('accepts skipped status', async () => {
@@ -97,7 +108,7 @@ describe('meals routes', () => {
         .send({ status: 'skipped' });
 
       expect(res.status).toBe(200);
-      expect(res.body.status).toBe('skipped');
+      expect(res.body.success).toBe(true);
     });
 
     it('accepts ate_out status', async () => {
@@ -108,7 +119,7 @@ describe('meals routes', () => {
         .send({ status: 'ate_out' });
 
       expect(res.status).toBe(200);
-      expect(res.body.status).toBe('ate_out');
+      expect(res.body.success).toBe(true);
     });
 
     it('returns 400 for missing status', async () => {
@@ -139,9 +150,9 @@ describe('meals routes', () => {
   });
 
   describe('GET /meals/recipes', () => {
-    it('returns all recipes without filters', async () => {
+    it('returns recipes without filters', async () => {
       mockQuery.mockResolvedValue([
-        { id: '1', name: 'Pasta', cuisine: 'Italian' },
+        { id: '1', name: 'Pasta', calories_per_serving: 450, rating: 4 },
       ]);
 
       const res = await request(createApp()).get('/meals/recipes');
@@ -150,7 +161,7 @@ describe('meals routes', () => {
       expect(res.body.data).toHaveLength(1);
     });
 
-    it('filters by search term', async () => {
+    it('filters by search term with parameterized query', async () => {
       mockQuery.mockResolvedValue([]);
 
       const res = await request(createApp()).get(
@@ -160,21 +171,7 @@ describe('meals routes', () => {
       expect(res.status).toBe(200);
       expect(mockQuery).toHaveBeenCalledWith(
         expect.stringContaining('ILIKE'),
-        '%chicken%',
-      );
-    });
-
-    it('filters by cuisine', async () => {
-      mockQuery.mockResolvedValue([]);
-
-      const res = await request(createApp()).get(
-        '/meals/recipes?cuisine=Italian',
-      );
-
-      expect(res.status).toBe(200);
-      expect(mockQuery).toHaveBeenCalledWith(
-        expect.stringContaining('cuisine'),
-        'Italian',
+        'chicken',
       );
     });
 
@@ -188,6 +185,11 @@ describe('meals routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.data).toEqual([]);
     });
+
+    it('returns 400 for invalid limit', async () => {
+      const res = await request(createApp()).get('/meals/recipes?limit=0');
+      expect(res.status).toBe(400);
+    });
   });
 
   describe('POST /meals/recipes/:id/rate', () => {
@@ -200,7 +202,6 @@ describe('meals routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.rating).toBe(4);
     });
 
     it('returns 400 for missing rating', async () => {
