@@ -85,7 +85,7 @@ EVERY time you generate, receive, or process data, you MUST store it using `mcp_
 - **Calendar events for cooking**: For EACH day in the meal plan, add a Google Calendar event at 6 PM with the recipe name (e.g., "🍳 Cook: Chicken Tikka Masala"). On Wed if violin is at 8 PM, set cook time to 5:30 PM. These are reminders to start cooking.
 - **Pantry items**: INSERT into `lifeos.pantry` when user mentions food
 - **Supplements**: INSERT into `lifeos.supplements` (see rules below)
-- **Calorie logs**: INSERT into `lifeos.calorie_log` when user logs a meal
+- **Calorie logs**: Before inserting, check if an entry already exists for the same `meal_type` + `log_date = CURRENT_DATE` (`SELECT id FROM lifeos.calorie_log WHERE meal_type = '...' AND log_date = CURRENT_DATE`). If it exists and the description is similar (same meal), UPDATE it instead of inserting a duplicate. If the user words it differently but it's clearly the same meal, still update. Only insert a new row if it's genuinely a different meal for that slot.
 - **Preferences**: INSERT into `lifeos.preferences` when user states a preference
 - **Calendar events**: Create Google Calendar events AND store in database
 

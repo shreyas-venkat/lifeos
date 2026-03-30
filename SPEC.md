@@ -1062,12 +1062,14 @@ The app MUST be installable on Android as a standalone app (no browser chrome).
   - Quick presets: "Ate out — estimate" button that just takes a description and rough calorie count
   - Submit → POST to new API endpoint `POST /api/calories/log`
 - **New API endpoint needed**: `POST /api/calories/log` — Insert into `lifeos.calorie_log` with `log_date = CURRENT_DATE`
+- **Calorie dedup**: Before inserting, check if an entry already exists for the same `meal_type` + `log_date = CURRENT_DATE`. If it does, UPSERT (update the existing row) instead of creating a duplicate. The API should handle this server-side — the PWA doesn't need to ask confirmation, just silently replace.
 - **Weekly meal plan**: Vertical day-by-day list (NOT horizontal scroll)
   - Each day is a card/row showing: day name (Mon, Tue...), date, recipe name, calories, servings, prep + cook time
   - Status DROPDOWN (not click-to-cycle): planned / cooked / skipped / ate out — user can go back to any status
   - When status changes to "cooked": auto-log calories for dinner AND next day's lunch (same recipe, same calories)
   - Status changes must PERSIST — after refresh, the updated status should still show. The PWA must call the API and re-fetch the plan after status change.
-  - Click the recipe name to expand/navigate to recipe detail
+  - **Tap a meal card to expand inline** → shows full recipe detail (ingredients, instructions, macros, cook time) fetched from `GET /api/meals/recipes/:id` using the meal's `recipe_id`. This is separate from the recipe browser — meal cards let you see "what am I cooking today" without searching.
+  - The API must include `recipe_id` in the meal plan response (add to SQL SELECT if not already)
   - Each card also shows the "packed lunch" note (e.g., "← Mon's leftovers")
   - Full width cards, stacked vertically, easy to read on mobile
   - Data from `meals/plan?week=current`
@@ -1146,6 +1148,7 @@ The app MUST be installable on Android as a standalone app (no browser chrome).
   - Active tab: accent color icon + label
   - Inactive: muted icon, no label on mobile
   - 56px height, glass-morphism background (blur + transparency)
+  - **No tap highlight**: All interactive elements must have `-webkit-tap-highlight-color: transparent` — no green/blue flash on mobile tap. Apply globally in `app.css`.
 - **Page transitions**: Fade/slide (200ms)
 - **Pull-to-refresh**: On all detail pages
 - **Loading states**: Skeleton placeholders (pulsing rectangles), never blank screens
