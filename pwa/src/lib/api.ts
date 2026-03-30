@@ -159,6 +159,32 @@ export interface StreakHistoryDay {
   completed: boolean;
 }
 
+export interface WeeklyReport {
+  week: string;
+  generated_at: string;
+  health: {
+    avg_steps: number | null;
+    avg_hr: number | null;
+    avg_sleep: number | null;
+    weight_change: number | null;
+  };
+  meals: {
+    cooked: number;
+    skipped: number;
+    ate_out: number;
+    avg_calories: number | null;
+  };
+  supplements: {
+    adherence_pct: number | null;
+    missed_days: string[];
+  };
+  exercise: {
+    sessions: number;
+    total_duration_min: number;
+  };
+  highlights: string[];
+}
+
 /** Exported for direct use in dashboard */
 export { fetchSafe };
 
@@ -291,5 +317,18 @@ export const api = {
         `/streaks/history?type=${encodeURIComponent(type)}&days=${encodeURIComponent(days)}`,
         [],
       ),
+  },
+  export: {
+    healthJson: () =>
+      fetchApi<Record<string, unknown>[]>('/export/health?format=json'),
+    healthCsvUrl: () => `${BASE}/export/health?format=csv`,
+    allJson: () =>
+      fetchApi<Record<string, unknown>>('/export/all?format=json'),
+  },
+  weeklyReport: {
+    current: () =>
+      fetchSafe<WeeklyReport | null>('/weekly-report/', null),
+    history: () =>
+      fetchSafe<WeeklyReport[]>('/weekly-report/history', []),
   },
 };

@@ -23,6 +23,8 @@ describe('mountRoutes', () => {
     expect(mockUse).toHaveBeenCalledWith('/calories', expect.anything());
     expect(mockUse).toHaveBeenCalledWith('/preferences', expect.anything());
     expect(mockUse).toHaveBeenCalledWith('/streaks', expect.anything());
-    expect(mockUse).toHaveBeenCalledTimes(8);
+    expect(mockUse).toHaveBeenCalledWith('/export', expect.anything());
+    expect(mockUse).toHaveBeenCalledWith('/weekly-report', expect.anything());
+    expect(mockUse).toHaveBeenCalledTimes(10);
   });
 });
