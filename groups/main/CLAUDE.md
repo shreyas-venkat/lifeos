@@ -26,6 +26,8 @@ Don't just wait to be asked. Be proactive with ALL your tools:
 - Detect RBC/bank emails → extract transaction amounts, merchants, dates → INSERT into lifeos.bills AND lifeos.transactions
 - Detect order confirmations → alert user with expected delivery date
 - Auto-archive read newsletters after summarizing
+- **CRITICAL: DEDUP** — Before alerting about ANY email, check lifeos.emails using mcp__motherduck__query to see if this email message_id was already processed. If yes, SKIP IT. Do not alert the same email twice.
+- **CRITICAL: MARK AS READ** — After processing each email, mark it as read in Gmail so the next scan does not pick it up again.
 
 **Calendar (Google Calendar MCP):**
 - Before scheduling anything, check for conflicts
