@@ -59,7 +59,7 @@ describe('meals routes', () => {
 
       expect(res.status).toBe(200);
       expect(mockQuery).toHaveBeenCalledWith(
-        expect.stringContaining("INTERVAL '7' DAY"),
+        expect.stringContaining("INTERVAL '13' DAY"),
       );
     });
 
@@ -189,6 +189,54 @@ describe('meals routes', () => {
     it('returns 400 for invalid limit', async () => {
       const res = await request(createApp()).get('/meals/recipes?limit=0');
       expect(res.status).toBe(400);
+    });
+  });
+
+  describe('GET /meals/recipes/:id', () => {
+    it('returns full recipe by id', async () => {
+      mockQuery.mockResolvedValue([
+        {
+          id: 'r1',
+          name: 'Butter Chicken',
+          calories_per_serving: 450,
+          ingredients: '["chicken", "butter", "tomato"]',
+          instructions: 'Cook it all together',
+          prep_time_min: 15,
+          cook_time_min: 30,
+          protein_g: 35,
+          carbs_g: 20,
+          fat_g: 25,
+        },
+      ]);
+
+      const res = await request(createApp()).get('/meals/recipes/r1');
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.id).toBe('r1');
+      expect(res.body.data.name).toBe('Butter Chicken');
+      expect(res.body.data.ingredients).toBeDefined();
+      expect(res.body.data.instructions).toBeDefined();
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('FROM lifeos.recipes'),
+        'r1',
+      );
+    });
+
+    it('returns 404 when recipe not found', async () => {
+      mockQuery.mockResolvedValue([]);
+
+      const res = await request(createApp()).get('/meals/recipes/nonexistent');
+
+      expect(res.status).toBe(404);
+      expect(res.body.error).toContain('Recipe not found');
+    });
+
+    it('returns 500 on database error', async () => {
+      mockQuery.mockRejectedValue(new Error('DB error'));
+
+      const res = await request(createApp()).get('/meals/recipes/r1');
+
+      expect(res.status).toBe(500);
     });
   });
 

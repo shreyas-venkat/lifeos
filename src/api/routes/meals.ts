@@ -31,9 +31,7 @@ mealsRouter.get('/plan', async (req: Request, res: Response) => {
     );
 
     const weekStart =
-      rows.length > 0
-        ? (rows[0] as Record<string, unknown>).week_start
-        : null;
+      rows.length > 0 ? (rows[0] as Record<string, unknown>).week_start : null;
 
     res.json({ data: rows, week_start: weekStart });
   } catch (err: unknown) {
@@ -90,6 +88,29 @@ mealsRouter.get('/recipes', async (req: Request, res: Response) => {
 
     const rows = search ? await query(sql, search) : await query(sql);
     res.json({ data: rows });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+mealsRouter.get('/recipes/:id', async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  try {
+    const rows = await query(
+      `SELECT *
+       FROM lifeos.recipes
+       WHERE id = $1`,
+      id,
+    );
+
+    if (rows.length === 0) {
+      res.status(404).json({ error: 'Recipe not found' });
+      return;
+    }
+
+    res.json({ data: rows[0] });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     res.status(500).json({ error: message });

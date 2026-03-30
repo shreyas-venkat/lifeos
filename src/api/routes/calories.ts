@@ -1,7 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { query } from '../db.js';
+import crypto from 'crypto';
 
 export const caloriesRouter = Router();
+
+function sanitize(val: unknown): string {
+  return String(val).replace(/'/g, "''");
+}
 
 interface CalorieRow {
   calories?: number | null;
@@ -23,8 +28,7 @@ function computeTotals(rows: CalorieRow[]): MacroTotals {
       calories:
         acc.calories + (typeof row.calories === 'number' ? row.calories : 0),
       protein_g:
-        acc.protein_g +
-        (typeof row.protein_g === 'number' ? row.protein_g : 0),
+        acc.protein_g + (typeof row.protein_g === 'number' ? row.protein_g : 0),
       carbs_g:
         acc.carbs_g + (typeof row.carbs_g === 'number' ? row.carbs_g : 0),
       fat_g: acc.fat_g + (typeof row.fat_g === 'number' ? row.fat_g : 0),
@@ -32,6 +36,40 @@ function computeTotals(rows: CalorieRow[]): MacroTotals {
     { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 },
   );
 }
+
+caloriesRouter.post('/log', async (req: Request, res: Response) => {
+  const { meal_type, description, calories, protein_g, carbs_g, fat_g } =
+    req.body as Record<string, unknown>;
+
+  if (!meal_type || typeof meal_type !== 'string') {
+    res
+      .status(400)
+      .json({ error: 'meal_type is required and must be a string' });
+    return;
+  }
+  if (!description || typeof description !== 'string') {
+    res
+      .status(400)
+      .json({ error: 'description is required and must be a string' });
+    return;
+  }
+
+  try {
+    const id = crypto.randomUUID();
+    const cal = calories !== undefined ? Number(calories) : 'NULL';
+    const pro = protein_g !== undefined ? Number(protein_g) : 'NULL';
+    const carb = carbs_g !== undefined ? Number(carbs_g) : 'NULL';
+    const fat = fat_g !== undefined ? Number(fat_g) : 'NULL';
+    await query(
+      `INSERT INTO lifeos.calorie_log (id, meal_type, description, calories, protein_g, carbs_g, fat_g, log_date, source)
+       VALUES ('${sanitize(id)}', '${sanitize(meal_type)}', '${sanitize(description)}', ${cal}, ${pro}, ${carb}, ${fat}, CURRENT_DATE, 'manual')`,
+    );
+    res.json({ success: true, id });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
 
 caloriesRouter.get('/today', async (_req: Request, res: Response) => {
   try {

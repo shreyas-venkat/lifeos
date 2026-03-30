@@ -54,9 +54,7 @@ describe('pantry routes', () => {
       expect(res.body.data).toHaveLength(2);
       expect(res.body.data[0].item).toBe('Rice');
       expect(res.body.data[0].expiry_date).toBe('2026-06-01');
-      expect(mockQuery).toHaveBeenCalledWith(
-        expect.stringContaining('item'),
-      );
+      expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('item'));
     });
 
     it('returns empty array when pantry is empty', async () => {
@@ -75,6 +73,119 @@ describe('pantry routes', () => {
 
       expect(res.status).toBe(500);
       expect(res.body.error).toBe('DB error');
+    });
+  });
+
+  describe('POST /pantry', () => {
+    it('inserts a new pantry item and returns id', async () => {
+      mockQuery.mockResolvedValue([]);
+
+      const res = await request(createApp()).post('/pantry').send({
+        item: 'Eggs',
+        quantity: 12,
+        unit: 'pcs',
+        category: 'protein',
+        expiry_date: '2026-04-15',
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.id).toBeDefined();
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO lifeos.pantry'),
+      );
+    });
+
+    it('inserts item without expiry_date (NULL)', async () => {
+      mockQuery.mockResolvedValue([]);
+
+      const res = await request(createApp()).post('/pantry').send({
+        item: 'Salt',
+        quantity: 1,
+        unit: 'kg',
+        category: 'spices',
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('NULL'));
+    });
+
+    it('returns 400 when item is missing', async () => {
+      const res = await request(createApp()).post('/pantry').send({
+        quantity: 1,
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('item is required');
+    });
+
+    it('returns 500 on database error', async () => {
+      mockQuery.mockRejectedValue(new Error('DB error'));
+
+      const res = await request(createApp()).post('/pantry').send({
+        item: 'Eggs',
+        quantity: 12,
+        unit: 'pcs',
+        category: 'protein',
+      });
+
+      expect(res.status).toBe(500);
+    });
+  });
+
+  describe('DELETE /pantry/:id', () => {
+    it('deletes a pantry item by id', async () => {
+      mockQuery.mockResolvedValue([]);
+
+      const res = await request(createApp()).delete('/pantry/abc-123');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('DELETE FROM lifeos.pantry'),
+      );
+    });
+
+    it('returns 500 on database error', async () => {
+      mockQuery.mockRejectedValue(new Error('DB error'));
+
+      const res = await request(createApp()).delete('/pantry/abc-123');
+
+      expect(res.status).toBe(500);
+    });
+  });
+
+  describe('PUT /pantry/:id', () => {
+    it('updates quantity and unit', async () => {
+      mockQuery.mockResolvedValue([]);
+
+      const res = await request(createApp())
+        .put('/pantry/abc-123')
+        .send({ quantity: 5, unit: 'lbs' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE lifeos.pantry'),
+      );
+    });
+
+    it('returns 400 when no fields provided', async () => {
+      const res = await request(createApp()).put('/pantry/abc-123').send({});
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('No fields to update');
+    });
+
+    it('returns 500 on database error', async () => {
+      mockQuery.mockRejectedValue(new Error('DB error'));
+
+      const res = await request(createApp())
+        .put('/pantry/abc-123')
+        .send({ quantity: 5 });
+
+      expect(res.status).toBe(500);
     });
   });
 
