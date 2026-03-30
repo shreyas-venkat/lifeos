@@ -555,8 +555,28 @@
 		}
 	}
 
+	// --- First-time user detection ---
+	async function checkOnboarding(): Promise<boolean> {
+		if (typeof localStorage === 'undefined') return false;
+		if (localStorage.getItem('lifeos_onboarded') === 'true') return false;
+		try {
+			const prefs = await api.preferences.get();
+			if (prefs.length === 0) {
+				goto(`${base}/onboarding`);
+				return true;
+			}
+			// Has preferences -- mark as onboarded so we don't check again
+			localStorage.setItem('lifeos_onboarded', 'true');
+		} catch {
+			// API error -- don't block the dashboard
+		}
+		return false;
+	}
+
 	// --- Lifecycle ---
 	onMount(async () => {
+		const redirected = await checkOnboarding();
+		if (redirected) return;
 		await fetchData();
 		loading = false;
 		requestAnimationFrame(() => buildGraph());
