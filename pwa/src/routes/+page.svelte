@@ -64,8 +64,12 @@
 	// --- Stat computation ---
 	function getStepCount(metrics: HealthMetric[]): { stat: string; hasData: boolean } {
 		const steps = metrics.find((m) => m.metric_type === 'steps');
-		if (!steps) return { stat: '\u2014', hasData: false };
-		return { stat: `${Math.round(steps.value).toLocaleString()} steps`, hasData: true };
+		const weight = metrics.find((m) => m.metric_type === 'weight');
+		const parts: string[] = [];
+		if (steps) parts.push(`${Math.round(steps.value).toLocaleString()} steps`);
+		if (weight) parts.push(`${weight.value.toFixed(1)} kg`);
+		if (parts.length === 0) return { stat: '\u2014', hasData: false };
+		return { stat: parts.join(' | '), hasData: true };
 	}
 
 	function getCalorieStat(entries: CalorieEntry[]): { stat: string; hasData: boolean } {

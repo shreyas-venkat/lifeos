@@ -146,35 +146,17 @@ export interface PreferenceRow {
   skill: string;
 }
 
-export interface ExerciseLogEntry {
-  id: string;
-  log_date: string;
-  exercise_type: string;
-  duration_min: number | null;
-  sets: number | null;
-  reps: number | null;
-  weight_kg: number | null;
-  distance_km: number | null;
-  calories_burned: number | null;
-  notes: string | null;
-  created_at: string;
+export interface BodyMetricLatest {
+  metric_type: string;
+  value: number;
+  unit: string | null;
+  recorded_at: string;
 }
 
-export interface ExerciseHistoryDay {
-  log_date: string;
-  exercise_count: number;
-  total_duration: number | null;
-  total_calories: number | null;
-}
-
-export interface ExerciseTemplate {
-  id: string;
-  name: string;
-  category: string;
-  default_sets: number | null;
-  default_reps: number | null;
-  muscles_targeted: string[] | null;
-  created_at: string;
+export interface BodyHistoryPoint {
+  date: string;
+  metric_type: string;
+  avg_value: number;
 }
 
 /** Exported for direct use in dashboard */
@@ -294,50 +276,31 @@ export const api = {
         body: JSON.stringify(entry),
       }),
   },
+  body: {
+    latest: () => fetchSafe<BodyMetricLatest[]>('/body/latest', []),
+    history: (days = 90) =>
+      fetchSafe<BodyHistoryPoint[]>(
+        `/body/history?days=${encodeURIComponent(days)}`,
+        [],
+      ),
+    log: (entry: {
+      weight_kg?: number;
+      body_fat_pct?: number;
+      muscle_mass_pct?: number;
+      body_water_pct?: number;
+      notes?: string;
+    }) =>
+      fetchApi<{ accepted: number }>('/body/log', {
+        method: 'POST',
+        body: JSON.stringify(entry),
+      }),
+  },
   preferences: {
     get: () => fetchSafe<PreferenceRow[]>('/preferences', []),
     update: (prefs: Record<string, string>) =>
       fetchApi<void>('/preferences', {
         method: 'PUT',
         body: JSON.stringify(prefs),
-      }),
-  },
-  exercise: {
-    today: () => fetchSafe<ExerciseLogEntry[]>('/exercise/today', []),
-    history: (days = 30) =>
-      fetchSafe<ExerciseHistoryDay[]>(
-        `/exercise/history?days=${encodeURIComponent(days)}`,
-        [],
-      ),
-    log: (entry: {
-      exercise_type: string;
-      duration_min?: number;
-      sets?: number;
-      reps?: number;
-      weight_kg?: number;
-      distance_km?: number;
-      calories_burned?: number;
-      notes?: string;
-    }) =>
-      fetchApi<{ success: boolean; id: string }>('/exercise/log', {
-        method: 'POST',
-        body: JSON.stringify(entry),
-      }),
-    remove: (id: string) =>
-      fetchApi<void>(`/exercise/${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-      }),
-    templates: () =>
-      fetchSafe<ExerciseTemplate[]>('/exercise/templates', []),
-    addTemplate: (template: {
-      name: string;
-      category: string;
-      default_sets?: number;
-      default_reps?: number;
-    }) =>
-      fetchApi<{ success: boolean; id: string }>('/exercise/templates', {
-        method: 'POST',
-        body: JSON.stringify(template),
       }),
   },
 };
