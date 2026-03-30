@@ -76,13 +76,11 @@ exportRouter.get('/all', async (req: Request, res: Response) => {
   try {
     const results: Record<string, unknown[]> = {};
 
-    // Query all tables in parallel
     const queries = TABLE_NAMES.map(async (table) => {
       try {
         const rows = await query(`SELECT * FROM lifeos.${table}`);
         return { table, rows };
       } catch {
-        // Table may not exist yet -- return empty array
         return { table, rows: [] };
       }
     });
