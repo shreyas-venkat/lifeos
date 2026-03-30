@@ -146,6 +146,35 @@ export interface PreferenceRow {
   skill: string;
 }
 
+export interface Transaction {
+  id: string;
+  amount: number;
+  merchant: string | null;
+  category: string | null;
+  description: string | null;
+  transaction_date: string;
+  source: string;
+  created_at: string;
+}
+
+export interface CategorySummary {
+  category: string;
+  total: number;
+  count: number;
+}
+
+export interface MonthlyTotal {
+  month: string;
+  total: number;
+}
+
+export interface BudgetInfo {
+  budget: number;
+  spent: number;
+  remaining: number;
+  percent_used: number;
+}
+
 /** Exported for direct use in dashboard */
 export { fetchSafe };
 
@@ -270,5 +299,35 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify(prefs),
       }),
+  },
+  spending: {
+    summary: (period = 'month') =>
+      fetchSafe<CategorySummary[]>(
+        `/spending/summary?period=${encodeURIComponent(period)}`,
+        [],
+      ),
+    history: (months = 6) =>
+      fetchSafe<MonthlyTotal[]>(
+        `/spending/history?months=${encodeURIComponent(months)}`,
+        [],
+      ),
+    recent: () => fetchSafe<Transaction[]>('/spending/recent', []),
+    log: (entry: {
+      amount: number;
+      merchant: string;
+      category: string;
+      description?: string;
+      date?: string;
+    }) =>
+      fetchApi<Transaction>('/spending/log', {
+        method: 'POST',
+        body: JSON.stringify(entry),
+      }),
+    remove: (id: string) =>
+      fetchApi<void>(`/spending/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      }),
+    budget: () =>
+      fetchSafe<BudgetInfo | null>('/spending/budget', null),
   },
 };

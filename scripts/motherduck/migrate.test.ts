@@ -27,6 +27,7 @@ const EXPECTED_TABLES = [
   'reminders',
   'supplement_log',
   'supplements',
+  'transactions',
 ];
 
 async function applyAllSchemas() {
@@ -52,6 +53,7 @@ describe('runMigrations', () => {
       '002_phase2_meals.sql',
       '003_phase3_health.sql',
       '004_phase5_bills.sql',
+      '008_spending.sql',
     ]);
   });
 
@@ -75,7 +77,7 @@ describe('runMigrations', () => {
 });
 
 describe('schema tables', () => {
-  it('creates all 17 expected tables in the lifeos schema', async () => {
+  it('creates all 18 expected tables in the lifeos schema', async () => {
     const { instance, conn } = await applyAllSchemas();
 
     const result = await conn.runAndReadAll(
@@ -161,6 +163,19 @@ describe('schema columns', () => {
     expect(names).toContain('taken');
     expect(names).toContain('log_date');
     expect(names).toContain('time_of_day');
+  });
+
+  it('transactions table has expected columns', async () => {
+    const cols = await getColumns('transactions');
+    const names = cols.map((c) => c.column_name);
+    expect(names).toContain('id');
+    expect(names).toContain('amount');
+    expect(names).toContain('merchant');
+    expect(names).toContain('category');
+    expect(names).toContain('description');
+    expect(names).toContain('transaction_date');
+    expect(names).toContain('source');
+    expect(names).toContain('created_at');
   });
 
   it('preferences table has composite primary key columns', async () => {
