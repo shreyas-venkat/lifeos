@@ -499,6 +499,86 @@
 			{/if}
 		</section>
 
+		<!-- Photo Calorie Log Form -->
+		{#if showPhotoForm}
+			<div class="form-overlay fade-in" role="dialog">
+				<div class="form-card">
+					<div class="form-header">
+						<h3>Log with Photo</h3>
+						<button class="form-close" onclick={closePhotoForm} aria-label="Close">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+						</button>
+					</div>
+
+					{#if photoPreview}
+						<div class="photo-preview">
+							<img src={photoPreview} alt="Captured meal" />
+						</div>
+					{/if}
+
+					<form onsubmit={(e) => { e.preventDefault(); submitPhotoLog(); }}>
+						<label class="form-field">
+							<span>What is this?</span>
+							<input type="text" bind:value={photoForm.description} placeholder="Describe your food..." />
+						</label>
+
+						<label class="form-field">
+							<span>Meal Type</span>
+							<select bind:value={photoForm.meal_type}>
+								<option value="breakfast">Breakfast</option>
+								<option value="lunch">Lunch</option>
+								<option value="dinner">Dinner</option>
+								<option value="snack">Snack</option>
+							</select>
+						</label>
+
+						<label class="form-field">
+							<span>Calories</span>
+							<input type="number" bind:value={photoForm.calories} min="0" />
+						</label>
+
+						<div class="quick-estimate-row">
+							<button type="button" class="quick-btn" class:quick-btn-active={photoForm.calories === 300} onclick={() => setQuickCalories(300)}>
+								Light ~300
+							</button>
+							<button type="button" class="quick-btn" class:quick-btn-active={photoForm.calories === 500} onclick={() => setQuickCalories(500)}>
+								Medium ~500
+							</button>
+							<button type="button" class="quick-btn" class:quick-btn-active={photoForm.calories === 800} onclick={() => setQuickCalories(800)}>
+								Heavy ~800
+							</button>
+						</div>
+
+						<button type="button" class="macro-toggle" onclick={() => (showPhotoMacros = !showPhotoMacros)}>
+							{showPhotoMacros ? 'Hide' : 'Show'} macros
+							<span class="macro-toggle-arrow" class:macro-toggle-open={showPhotoMacros}>&#9662;</span>
+						</button>
+
+						{#if showPhotoMacros}
+							<div class="form-row fade-in">
+								<label class="form-field">
+									<span>Protein (g)</span>
+									<input type="number" bind:value={photoForm.protein_g} min="0" />
+								</label>
+								<label class="form-field">
+									<span>Carbs (g)</span>
+									<input type="number" bind:value={photoForm.carbs_g} min="0" />
+								</label>
+								<label class="form-field">
+									<span>Fat (g)</span>
+									<input type="number" bind:value={photoForm.fat_g} min="0" />
+								</label>
+							</div>
+						{/if}
+
+						<button type="submit" class="form-submit" disabled={photoSubmitting || !photoForm.description || photoForm.calories <= 0}>
+							{photoSubmitting ? 'Logging...' : 'Log Meal'}
+						</button>
+					</form>
+				</div>
+			</div>
+		{/if}
+
 		<!-- Calorie Log Form -->
 		{#if showCalorieForm}
 			<div class="form-overlay fade-in" role="dialog">
@@ -548,6 +628,24 @@
 				</div>
 			</div>
 		{/if}
+
+		<!-- Camera FAB for photo logging -->
+		<button class="fab fab-camera" onclick={openPhotoCapture} aria-label="Log with photo">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+				<circle cx="12" cy="13" r="4"/>
+			</svg>
+		</button>
+
+		<!-- Hidden file input for camera capture -->
+		<input
+			type="file"
+			accept="image/*"
+			capture="environment"
+			onchange={handlePhotoCapture}
+			bind:this={photoFileInput}
+			hidden
+		/>
 
 		<!-- FAB to log calorie entry -->
 		<button class="fab" onclick={() => (showCalorieForm = true)} aria-label="Log meal">
@@ -1093,5 +1191,97 @@
 		border: 1px solid var(--border);
 		margin-bottom: 10px;
 		overflow: hidden;
+	}
+
+	/* Camera FAB */
+	.fab-camera {
+		bottom: 132px;
+		background: var(--bg-elevated);
+		border: 1px solid var(--border);
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+		width: 44px;
+		height: 44px;
+		border-radius: 14px;
+	}
+
+	.fab-camera svg {
+		width: 18px;
+		height: 18px;
+		color: var(--text-primary);
+	}
+
+	/* Photo preview */
+	.photo-preview {
+		border-radius: 10px;
+		overflow: hidden;
+		margin-bottom: 14px;
+		border: 1px solid var(--border);
+		max-height: 200px;
+	}
+
+	.photo-preview img {
+		width: 100%;
+		height: 100%;
+		max-height: 200px;
+		object-fit: cover;
+		display: block;
+	}
+
+	/* Quick estimate buttons */
+	.quick-estimate-row {
+		display: flex;
+		gap: 8px;
+		margin-bottom: 12px;
+	}
+
+	.quick-btn {
+		flex: 1;
+		padding: 8px 4px;
+		background: var(--bg-elevated);
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		color: var(--text-secondary);
+		font-size: 0.78rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition: border-color 0.2s, color 0.2s;
+	}
+
+	.quick-btn:hover {
+		border-color: var(--accent);
+		color: var(--text-primary);
+	}
+
+	.quick-btn-active {
+		border-color: var(--accent);
+		color: var(--accent);
+		background: rgba(99, 102, 241, 0.1);
+	}
+
+	/* Macro toggle */
+	.macro-toggle {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		background: none;
+		border: none;
+		color: var(--text-secondary);
+		font-size: 0.78rem;
+		cursor: pointer;
+		padding: 4px 0;
+		margin-bottom: 8px;
+	}
+
+	.macro-toggle:hover {
+		color: var(--text-primary);
+	}
+
+	.macro-toggle-arrow {
+		font-size: 0.7rem;
+		transition: transform 0.2s;
+	}
+
+	.macro-toggle-open {
+		transform: rotate(180deg);
 	}
 </style>

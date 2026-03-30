@@ -146,6 +146,96 @@ export interface PreferenceRow {
   skill: string;
 }
 
+export interface Transaction {
+  id: string;
+  amount: number;
+  merchant: string | null;
+  category: string | null;
+  description: string | null;
+  transaction_date: string;
+  source: string;
+  created_at: string;
+}
+
+export interface CategorySummary {
+  category: string;
+  total: number;
+  count: number;
+}
+
+export interface MonthlyTotal {
+  month: string;
+  total: number;
+}
+
+export interface BudgetInfo {
+  budget: number;
+  spent: number;
+  remaining: number;
+  percent_used: number;
+}
+
+export interface Streak {
+  type: string;
+  currentStreak: number;
+  longestStreak: number;
+  lastCompleted: string | null;
+  target: number | null;
+}
+
+export interface StreakHistoryDay {
+  date: string;
+  completed: boolean;
+}
+
+export interface Habit {
+  id: string;
+  name: string;
+  description: string | null;
+  frequency: string;
+  target_per_day: number;
+  color: string;
+  icon: string;
+  completed: number;
+  notes: string | null;
+}
+
+export interface HabitHistoryEntry {
+  id: string;
+  name: string;
+  color: string;
+  icon: string;
+  target_per_day: number;
+  log_date: string | null;
+  completed: number;
+}
+
+export interface WeeklyReport {
+  week: string;
+  generated_at: string;
+  health: {
+    avg_steps: number | null;
+    avg_hr: number | null;
+    avg_sleep: number | null;
+    weight_change: number | null;
+  };
+  meals: {
+    cooked: number;
+    skipped: number;
+    ate_out: number;
+    avg_calories: number | null;
+  };
+  supplements: {
+    adherence_pct: number | null;
+    missed_days: string[];
+  };
+  exercise: {
+    sessions: number;
+    total_duration_min: number;
+  };
+  highlights: string[];
+}
+
 /** Exported for direct use in dashboard */
 export { fetchSafe };
 
@@ -262,6 +352,22 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(entry),
       }),
+    photoLog: (entry: {
+      image?: string;
+      description: string;
+      meal_type: string;
+      calories: number;
+      protein_g?: number;
+      carbs_g?: number;
+      fat_g?: number;
+    }) =>
+      fetchApi<{ success: boolean; id: string; source: string; image_size: number }>(
+        '/calories/photo-log',
+        {
+          method: 'POST',
+          body: JSON.stringify(entry),
+        },
+      ),
   },
   preferences: {
     get: () => fetchSafe<PreferenceRow[]>('/preferences', []),
@@ -270,5 +376,83 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify(prefs),
       }),
+  },
+  streaks: {
+    list: () => fetchSafe<Streak[]>('/streaks', []),
+    history: (type: string, days = 30) =>
+      fetchSafe<StreakHistoryDay[]>(
+        `/streaks/history?type=${encodeURIComponent(type)}&days=${encodeURIComponent(days)}`,
+        [],
+      ),
+  },
+  spending: {
+    summary: (period = 'month') =>
+      fetchSafe<CategorySummary[]>(
+        `/spending/summary?period=${encodeURIComponent(period)}`,
+        [],
+      ),
+    history: (months = 6) =>
+      fetchSafe<MonthlyTotal[]>(
+        `/spending/history?months=${encodeURIComponent(months)}`,
+        [],
+      ),
+    recent: () => fetchSafe<Transaction[]>('/spending/recent', []),
+    log: (entry: {
+      amount: number;
+      merchant: string;
+      category: string;
+      description?: string;
+      date?: string;
+    }) =>
+      fetchApi<Transaction>('/spending/log', {
+        method: 'POST',
+        body: JSON.stringify(entry),
+      }),
+    remove: (id: string) =>
+      fetchApi<void>(`/spending/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      }),
+    budget: () =>
+      fetchSafe<BudgetInfo | null>('/spending/budget', null),
+  },
+  habits: {
+    list: () => fetchSafe<Habit[]>('/habits', []),
+    create: (habit: {
+      name: string;
+      description?: string;
+      frequency?: string;
+      target_per_day?: number;
+      color?: string;
+      icon?: string;
+    }) =>
+      fetchApi<Habit>('/habits', {
+        method: 'POST',
+        body: JSON.stringify(habit),
+      }),
+    complete: (id: string) =>
+      fetchApi<{ success: boolean; completed: number }>(
+        `/habits/${encodeURIComponent(id)}/complete`,
+        { method: 'POST' },
+      ),
+    remove: (id: string) =>
+      fetchApi<void>(`/habits/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      }),
+    history: (days = 30) =>
+      fetchSafe<HabitHistoryEntry[]>(
+        `/habits/history?days=${encodeURIComponent(days)}`,
+        [],
+      ),
+  },
+  export: {
+    healthJson: () => fetchApi<Record<string, unknown>[]>('/export/health?format=json'),
+    healthCsvUrl: () => `${BASE}/export/health?format=csv`,
+    allJson: () => fetchApi<Record<string, unknown>>('/export/all?format=json'),
+  },
+  weeklyReport: {
+    current: () =>
+      fetchSafe<WeeklyReport | null>('/weekly-report/', null),
+    history: () =>
+      fetchSafe<WeeklyReport[]>('/weekly-report/history', []),
   },
 };
