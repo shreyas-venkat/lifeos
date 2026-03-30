@@ -7,6 +7,7 @@ import { supplementsRouter } from './supplements.js';
 import { caloriesRouter } from './calories.js';
 import { preferencesRouter } from './preferences.js';
 import { spendingRouter } from './spending.js';
+import { notificationsRouter } from './notifications.js';
 
 export function mountRoutes(router: Router): void {
   router.use('/health/context', healthContextRouter);
@@ -17,4 +18,5 @@ export function mountRoutes(router: Router): void {
   router.use('/calories', caloriesRouter);
   router.use('/preferences', preferencesRouter);
   router.use('/spending', spendingRouter);
+  router.use('/notifications', notificationsRouter);
 }

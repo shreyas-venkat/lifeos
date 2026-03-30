@@ -175,6 +175,15 @@ export interface BudgetInfo {
   percent_used: number;
 }
 
+export interface Notification {
+  id: string;
+  title: string;
+  body: string;
+  type: string;
+  url: string | null;
+  created_at: string;
+}
+
 /** Exported for direct use in dashboard */
 export { fetchSafe };
 
@@ -329,5 +338,18 @@ export const api = {
       }),
     budget: () =>
       fetchSafe<BudgetInfo | null>('/spending/budget', null),
+  },
+  notifications: {
+    pending: () => fetchSafe<Notification[]>('/notifications/pending', []),
+    markSeen: (ids: string[]) =>
+      fetchApi<{ success: boolean; count: number }>('/notifications/mark-seen', {
+        method: 'POST',
+        body: JSON.stringify({ ids }),
+      }),
+    send: (notification: { title: string; body: string; type?: string; url?: string }) =>
+      fetchApi<{ success: boolean; id: string }>('/notifications/send', {
+        method: 'POST',
+        body: JSON.stringify(notification),
+      }),
   },
 };

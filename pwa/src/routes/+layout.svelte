@@ -2,8 +2,11 @@
 	import '../app.css';
 	import { page } from '$app/state';
 	import { base } from '$app/paths';
+	import { onMount, onDestroy } from 'svelte';
+	import { startPolling, stopPolling, onUnseenCountChange } from '$lib/notifications';
 
 	let { children } = $props();
+	let unseenCount = $state(0);
 
 	const tabs = [
 		{ href: '/', label: 'Home', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1' },
@@ -21,6 +24,17 @@
 		}
 		return path.startsWith(`${base}${href}`);
 	}
+
+	onMount(() => {
+		onUnseenCountChange((count) => {
+			unseenCount = count;
+		});
+		startPolling();
+	});
+
+	onDestroy(() => {
+		stopPolling();
+	});
 </script>
 
 <div class="app">
@@ -31,9 +45,14 @@
 	<nav class="bottom-nav">
 		{#each tabs as tab}
 			<a href="{base}{tab.href}" class:active={isActive(tab.href)}>
-				<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-					<path d={tab.icon} />
-				</svg>
+				<div class="nav-icon-wrapper">
+					<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+						<path d={tab.icon} />
+					</svg>
+					{#if tab.href === '/' && unseenCount > 0}
+						<span class="notif-badge">{unseenCount > 9 ? '9+' : unseenCount}</span>
+					{/if}
+				</div>
 				{#if isActive(tab.href)}
 					<span class="nav-label">{tab.label}</span>
 				{/if}
@@ -104,5 +123,29 @@
 		font-size: 0.65rem;
 		font-weight: 500;
 		letter-spacing: 0.02em;
+	}
+
+	.nav-icon-wrapper {
+		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.notif-badge {
+		position: absolute;
+		top: -6px;
+		right: -8px;
+		min-width: 16px;
+		height: 16px;
+		padding: 0 4px;
+		border-radius: 8px;
+		background: var(--danger);
+		color: #fff;
+		font-size: 0.6rem;
+		font-weight: 700;
+		line-height: 16px;
+		text-align: center;
+		pointer-events: none;
 	}
 </style>

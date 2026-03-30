@@ -3,6 +3,7 @@
 	import { base } from '$app/paths';
 	import { api } from '$lib/api';
 	import type { PreferenceRow } from '$lib/api';
+	import { requestPermission, getPermissionState } from '$lib/notifications';
 
 	// --------------- types & defaults ---------------
 
@@ -62,6 +63,13 @@
 	let editingRestrictions = $state(false);
 	let restrictionsInput = $state('');
 	let statusTimeout: ReturnType<typeof setTimeout> | undefined;
+	let notifPermission = $state<string>(getPermissionState());
+
+	async function toggleNotifications() {
+		if (notifPermission === 'granted') return;
+		const result = await requestPermission();
+		notifPermission = result;
+	}
 
 	// --------------- helpers ---------------
 
@@ -434,6 +442,33 @@
 			<h2>Notifications</h2>
 			<p class="section-note">Toggle state is saved to preferences. To actually pause/unpause scheduled tasks, use Discord: "pause task [task-name]".</p>
 			<div class="settings-card">
+				<div class="setting-row">
+					<div class="setting-label-group">
+						<span class="setting-label">Browser notifications</span>
+						<span class="setting-sub">
+							{#if notifPermission === 'granted'}
+								Enabled
+							{:else if notifPermission === 'denied'}
+								Blocked in browser settings
+							{:else if notifPermission === 'unsupported'}
+								Not supported
+							{:else}
+								Tap to enable
+							{/if}
+						</span>
+					</div>
+					<button
+						class="toggle"
+						class:on={notifPermission === 'granted'}
+						onclick={toggleNotifications}
+						role="switch"
+						aria-checked={notifPermission === 'granted'}
+						aria-label="Browser notifications"
+						disabled={notifPermission === 'granted' || notifPermission === 'denied' || notifPermission === 'unsupported'}
+					>
+						<span class="toggle-thumb"></span>
+					</button>
+				</div>
 				<div class="setting-row">
 					<div class="setting-label-group">
 						<span class="setting-label">Morning briefing</span>

@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS lifeos.notifications (
+    id VARCHAR PRIMARY KEY,
+    title VARCHAR NOT NULL,
+    body TEXT NOT NULL,
+    type VARCHAR DEFAULT 'info',
+    url VARCHAR,
+    seen BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
