@@ -586,10 +586,10 @@
 	.form-card {
 		background: var(--bg-card);
 		border-radius: 16px 16px 0 0;
-		padding: 20px;
+		padding: 20px 20px 80px;
 		width: 100%;
 		max-width: 500px;
-		max-height: 85vh;
+		max-height: 80vh;
 		overflow-y: auto;
 		border: 1px solid var(--border);
 		border-bottom: none;
