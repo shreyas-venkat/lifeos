@@ -649,7 +649,7 @@
 		transition: width 0.3s ease;
 	}
 
-	.macro-segment.protein { background: #3b82f6; }
+	.macro-segment.protein { background: #22c55e; }
 	.macro-segment.carbs { background: #f59e0b; }
 	.macro-segment.fat { background: #ef4444; }
 
@@ -660,7 +660,7 @@
 	}
 
 	.macro-label { color: var(--text-secondary); }
-	.protein-label { color: #3b82f6; }
+	.protein-label { color: #22c55e; }
 	.carbs-label { color: #f59e0b; }
 	.fat-label { color: #ef4444; }
 

@@ -5,6 +5,8 @@
 	import { api } from '$lib/api';
 	import type { HealthMetric, HealthHistoryPoint, WaterLog, MoodEntry } from '$lib/api';
 	import Chart from 'chart.js/auto';
+	import { createGradient, mergeOptions } from '$lib/charts';
+	import type { ChartOptions } from 'chart.js';
 
 	let todayMetrics = $state<HealthMetric[]>([]);
 	let history = $state<HealthHistoryPoint[]>([]);
@@ -199,10 +201,23 @@
 		const ctx = canvas.getContext('2d');
 		if (!ctx) return;
 
-		// Create gradient fill
-		const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-		gradient.addColorStop(0, config.color + '40');
-		gradient.addColorStop(1, config.color + '05');
+		const gradient = createGradient(ctx, config.color, canvas.height);
+
+		const chartOpts = mergeOptions({
+			plugins: {
+				legend: { display: false },
+				tooltip: {
+					borderColor: config.color,
+					displayColors: false,
+					callbacks: {
+						label: (tooltipCtx) => {
+							const val = tooltipCtx.parsed.y;
+							return `${formatValue(val, type)} ${config.unit}`.trim();
+						},
+					},
+				},
+			},
+		} as ChartOptions<'line'>);
 
 		metricCharts[type] = new Chart(canvas, {
 			type: 'line',
@@ -215,54 +230,12 @@
 						borderColor: config.color,
 						backgroundColor: gradient,
 						fill: true,
-						tension: 0.4,
-						pointRadius: 2,
-						pointHoverRadius: 6,
 						pointBackgroundColor: config.color,
 						pointBorderColor: config.color,
-						borderWidth: 2,
 					},
 				],
 			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				interaction: {
-					mode: 'index',
-					intersect: false,
-				},
-				plugins: {
-					legend: { display: false },
-					tooltip: {
-						backgroundColor: '#1a1a24',
-						titleColor: '#e8e8ed',
-						bodyColor: '#e8e8ed',
-						borderColor: config.color,
-						borderWidth: 1,
-						padding: 10,
-						cornerRadius: 8,
-						displayColors: false,
-						callbacks: {
-							label: (ctx) => {
-								const val = ctx.parsed.y;
-								return `${formatValue(val, type)} ${config.unit}`.trim();
-							},
-						},
-					},
-				},
-				scales: {
-					x: {
-						ticks: { color: '#8888a0', font: { family: 'Inter', size: 10 } },
-						grid: { display: false },
-						border: { display: false },
-					},
-					y: {
-						ticks: { color: '#8888a0', font: { family: 'Inter', size: 10 } },
-						grid: { display: false },
-						border: { display: false },
-					},
-				},
-			},
+			options: chartOpts,
 		});
 	}
 
@@ -319,9 +292,7 @@
 				const points = grouped[m];
 				const dateMap = new Map(points.map((p) => [p.date, p.avg_value]));
 
-				const gradient = ctx.createLinearGradient(0, 0, 0, overviewCanvas?.height ?? 220);
-				gradient.addColorStop(0, config.color + '30');
-				gradient.addColorStop(1, config.color + '05');
+				const gradient = createGradient(ctx, config.color, overviewCanvas?.height ?? 220);
 
 				return {
 					label: config.label,
@@ -329,13 +300,21 @@
 					borderColor: config.color,
 					backgroundColor: gradient,
 					fill: true,
-					tension: 0.4,
-					pointRadius: 2,
-					pointHoverRadius: 5,
-					borderWidth: 2,
 					yAxisID: m === 'steps' ? 'y' : 'y1',
 				};
 			});
+
+		const chartOpts = mergeOptions({
+			scales: {
+				y: { position: 'left' as const },
+				y1: {
+					position: 'right' as const,
+					grid: { color: '#2a2a3a20' },
+					ticks: { color: '#8888a0', font: { size: 10 } },
+					border: { display: false },
+				},
+			},
+		} as ChartOptions<'line'>);
 
 		overviewChart = new Chart(overviewCanvas, {
 			type: 'line',
@@ -343,52 +322,7 @@
 				labels: allDates.map((d) => d.slice(5)),
 				datasets,
 			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				interaction: {
-					mode: 'index',
-					intersect: false,
-				},
-				plugins: {
-					legend: {
-						labels: {
-							color: '#8888a0',
-							font: { family: 'Inter', size: 11 },
-							usePointStyle: true,
-							pointStyle: 'circle',
-						},
-					},
-					tooltip: {
-						backgroundColor: '#1a1a24',
-						titleColor: '#e8e8ed',
-						bodyColor: '#e8e8ed',
-						borderColor: '#2a2a3a',
-						borderWidth: 1,
-						padding: 10,
-						cornerRadius: 8,
-					},
-				},
-				scales: {
-					x: {
-						ticks: { color: '#8888a0', font: { family: 'Inter', size: 10 } },
-						grid: { display: false },
-						border: { display: false },
-					},
-					y: {
-						position: 'left',
-						ticks: { color: '#8888a0', font: { family: 'Inter', size: 10 } },
-						grid: { display: false },
-						border: { display: false },
-					},
-					y1: {
-						position: 'right',
-						ticks: { color: '#8888a0', font: { family: 'Inter', size: 10 } },
-						grid: { display: false },
-						border: { display: false },
-					},
-				},
-			},
+			options: chartOpts,
 		});
 	}
 
