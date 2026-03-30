@@ -175,6 +175,22 @@ export interface BudgetInfo {
   percent_used: number;
 }
 
+export interface ForecastCategoryProjection {
+  category: string;
+  total: number;
+  projected: number;
+}
+
+export interface SpendingForecast {
+  current_month_total: number;
+  days_elapsed: number;
+  daily_average: number;
+  projected_total: number;
+  last_month_total: number;
+  change_pct: number;
+  by_category: ForecastCategoryProjection[];
+}
+
 export interface Notification {
   id: string;
   title: string;
@@ -391,6 +407,8 @@ export const api = {
       }),
     budget: () =>
       fetchSafe<BudgetInfo | null>('/spending/budget', null),
+    forecast: () =>
+      fetchSafe<SpendingForecast | null>('/spending/forecast', null),
   },
   packages: {
     active: () => fetchSafe<Package[]>('/packages', []),
