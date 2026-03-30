@@ -81,7 +81,7 @@ You have a MotherDuck MCP tool called `mcp__motherduck__query`. USE IT for ALL d
 EVERY time you generate, receive, or process data, you MUST store it using `mcp__motherduck__query`. Never just display information in Discord without also saving it to the database. The PWA dashboard depends on this data.
 
 - **Meal plans**: INSERT into `lifeos.meal_plans` AND `lifeos.recipes` for every recipe
-- **Grocery list**: After generating a meal plan, create a grocery list (meal plan ingredients minus pantry items). INSERT into `lifeos.grocery_lists`. Post the list to #meals channel with item names, quantities, and estimated prices. Add a "Grocery shopping" calendar event for Sunday at 1 PM.
+- **Grocery list**: After generating a meal plan, create a grocery list (meal plan ingredients minus pantry items). INSERT into `lifeos.grocery_lists`. Post the list to #meals channel with item names, quantities, and estimated prices. Add a "Grocery shopping" calendar event for the Sunday BEFORE the meal plan starts (so you shop before you cook).
 - **Pantry items**: INSERT into `lifeos.pantry` when user mentions food
 - **Supplements**: INSERT into `lifeos.supplements` (see rules below)
 - **Calorie logs**: INSERT into `lifeos.calorie_log` when user logs a meal
