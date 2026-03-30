@@ -159,6 +159,88 @@ spendingRouter.delete('/:id', async (req: Request, res: Response) => {
   }
 });
 
+// GET /forecast — Spending forecast for current month
+spendingRouter.get('/forecast', async (_req: Request, res: Response) => {
+  try {
+    // Current month total spend
+    const currentMonthRows = await query(
+      `SELECT COALESCE(SUM(amount), 0) as total
+       FROM lifeos.transactions
+       WHERE transaction_date >= date_trunc('month', CURRENT_DATE)`,
+    );
+    const currentMonthTotal = Number(
+      (currentMonthRows[0] as Record<string, unknown>).total ?? 0,
+    );
+
+    // Days elapsed in current month (at least 1 to avoid division by zero)
+    const daysElapsedRows = await query(
+      `SELECT GREATEST(EXTRACT(DAY FROM CURRENT_DATE)::INTEGER, 1) as days_elapsed,
+              EXTRACT(DAY FROM LAST_DAY(CURRENT_DATE))::INTEGER as days_in_month`,
+    );
+    const daysElapsed = Number(
+      (daysElapsedRows[0] as Record<string, unknown>).days_elapsed,
+    );
+    const daysInMonth = Number(
+      (daysElapsedRows[0] as Record<string, unknown>).days_in_month,
+    );
+
+    const dailyAverage = currentMonthTotal / daysElapsed;
+    const projectedTotal = dailyAverage * daysInMonth;
+
+    // Last month total for comparison
+    const lastMonthRows = await query(
+      `SELECT COALESCE(SUM(amount), 0) as total
+       FROM lifeos.transactions
+       WHERE transaction_date >= date_trunc('month', CURRENT_DATE - INTERVAL '1' MONTH)
+         AND transaction_date < date_trunc('month', CURRENT_DATE)`,
+    );
+    const lastMonthTotal = Number(
+      (lastMonthRows[0] as Record<string, unknown>).total ?? 0,
+    );
+
+    const changePct =
+      lastMonthTotal > 0
+        ? Math.round(
+            ((projectedTotal - lastMonthTotal) / lastMonthTotal) * 1000,
+          ) / 10
+        : 0;
+
+    // By-category breakdown with projections
+    const categoryRows = await query(
+      `SELECT category, SUM(amount) as total
+       FROM lifeos.transactions
+       WHERE transaction_date >= date_trunc('month', CURRENT_DATE)
+       GROUP BY category
+       ORDER BY total DESC`,
+    );
+    const byCategory = categoryRows.map((row) => {
+      const r = row as Record<string, unknown>;
+      const catTotal = Number(r.total);
+      return {
+        category: r.category as string,
+        total: catTotal,
+        projected:
+          Math.round((catTotal / daysElapsed) * daysInMonth * 100) / 100,
+      };
+    });
+
+    res.json({
+      data: {
+        current_month_total: currentMonthTotal,
+        days_elapsed: daysElapsed,
+        daily_average: Math.round(dailyAverage * 100) / 100,
+        projected_total: Math.round(projectedTotal * 100) / 100,
+        last_month_total: lastMonthTotal,
+        change_pct: changePct,
+        by_category: byCategory,
+      },
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
 // GET /budget — Monthly budget from preferences
 spendingRouter.get('/budget', async (_req: Request, res: Response) => {
   try {
