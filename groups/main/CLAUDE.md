@@ -88,6 +88,7 @@ The vault is mounted at `/workspace/extra/vault/`. This is Shrey's personal Obsi
 - **Categorize all**: actionable, transactions, bank, life, github, and create new buckets as needed
 - **Safety**: log all deletions to lifeos.email_deletion_log with 7-day recovery window
 - **Digest**: post daily summary to #email-digest at 8 PM MT
+- **SILENT when empty**: If there are NO unread emails, produce NO output at all. Do not say "No unread emails" or "inbox is clear". Just output nothing — an empty response. Only speak when there are actual emails to report.
 
 ## Reminder Rules
 - Parse natural language: "remind me to X on Y" or "every Z"
