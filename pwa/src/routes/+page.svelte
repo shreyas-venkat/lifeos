@@ -293,7 +293,7 @@
 		// Zoom behavior
 		const zoomBehavior = d3
 			.zoom<SVGSVGElement, unknown>()
-			.scaleExtent([0.3, 3])
+			.scaleExtent([0.5, 2])
 			.on('zoom', (event: d3.D3ZoomEvent<SVGSVGElement, unknown>) => {
 				rootG.attr('transform', event.transform.toString());
 			});
@@ -504,6 +504,13 @@
 				)
 				.alphaTarget(0.02)
 				.on('tick', () => {
+					// Clamp node positions to viewport bounds
+					const pad = 20;
+					nodes.forEach((node) => {
+						const r = node.id === 'center' ? centerNodeR : satNodeR;
+						node.x = Math.max(r + pad, Math.min(width - r - pad, node.x!));
+						node.y = Math.max(r + pad, Math.min(height - r - pad, node.y!));
+					});
 					nodeGroups.attr('transform', (d) => `translate(${d.x ?? 0},${d.y ?? 0})`);
 					edgePaths.attr('d', (d) => edgePath(d.source as SimNode, d.target as SimNode));
 				});
@@ -530,8 +537,10 @@
 				})
 				.on('drag', (event: d3.D3DragEvent<SVGGElement, SimNode, SimNode>) => {
 					const d = event.subject;
-					d.fx = event.x;
-					d.fy = event.y;
+					const r = d.id === 'center' ? centerNodeR : satNodeR;
+					const pad = 20;
+					d.fx = Math.max(r + pad, Math.min(width - r - pad, event.x));
+					d.fy = Math.max(r + pad, Math.min(height - r - pad, event.y));
 				})
 				.on('end', (event: d3.D3DragEvent<SVGGElement, SimNode, SimNode>) => {
 					if (!event.active && simulation) simulation.alphaTarget(0.02);
