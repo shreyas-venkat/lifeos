@@ -29,7 +29,7 @@ const VALID_CONFIG: TaskConfig = {
   activityLogJid: 'dc:666666666666',
 };
 
-const EXPECTED_TASK_COUNT = 16;
+const EXPECTED_TASK_COUNT = 17;
 
 // Tasks that should reference a pre-check script
 const TASKS_WITH_SCRIPTS = [
@@ -104,6 +104,44 @@ describe('buildTaskDefinitions', () => {
     }
   });
 
+  it('every task has a model assignment', () => {
+    for (const task of tasks) {
+      expect(task.model).toBeTruthy();
+      expect(['haiku', 'sonnet']).toContain(task.model);
+    }
+  });
+
+  it('assigns haiku to simple tasks and sonnet to complex tasks', () => {
+    const haikuTasks = [
+      'lifeos-email-scan',
+      'lifeos-reminder-checker',
+      'lifeos-pantry-expiry',
+      'lifeos-bill-reminder',
+      'lifeos-step-monitoring',
+      'lifeos-morning-supplements',
+      'lifeos-daily-email-digest',
+      'lifeos-daily-calorie-summary',
+      'lifeos-weekly-weight-trend',
+      'lifeos-obsidian-sync',
+      'lifeos-monthly-spending',
+    ];
+    const sonnetTasks = [
+      'lifeos-evening-supplements',
+      'lifeos-morning-briefing',
+      'lifeos-cooking-checkin',
+      'lifeos-weekly-meal-plan',
+      'lifeos-daily-health-summary',
+    ];
+
+    for (const task of tasks) {
+      if (haikuTasks.includes(task.id)) {
+        expect(task.model).toBe('haiku');
+      } else if (sonnetTasks.includes(task.id)) {
+        expect(task.model).toBe('sonnet');
+      }
+    }
+  });
+
   it('all task IDs are unique', () => {
     const ids = tasks.map((t) => t.id);
     expect(new Set(ids).size).toBe(ids.length);
@@ -117,7 +155,9 @@ describe('buildTaskDefinitions', () => {
 
   it('every cron expression is valid', () => {
     for (const task of tasks) {
-      expect(() => CronExpressionParser.parse(task.schedule_value)).not.toThrow();
+      expect(() =>
+        CronExpressionParser.parse(task.schedule_value),
+      ).not.toThrow();
     }
   });
 
@@ -145,9 +185,7 @@ describe('buildTaskDefinitions', () => {
     )!;
     expect(emailDigestTask.chat_jid).toBe(VALID_CONFIG.emailDigestJid);
 
-    const mealPlanTask = tasks.find(
-      (t) => t.id === 'lifeos-weekly-meal-plan',
-    )!;
+    const mealPlanTask = tasks.find((t) => t.id === 'lifeos-weekly-meal-plan')!;
     expect(mealPlanTask.chat_jid).toBe(VALID_CONFIG.mealsChannelJid);
 
     const healthSummaryTask = tasks.find(
@@ -160,6 +198,14 @@ describe('buildTaskDefinitions', () => {
 
     const obsidianTask = tasks.find((t) => t.id === 'lifeos-obsidian-sync')!;
     expect(obsidianTask.chat_jid).toBe(VALID_CONFIG.activityLogJid);
+
+    const cookingSuggestionTask = tasks.find(
+      (t) => t.id === 'lifeos-cooking-suggestion',
+    )!;
+    expect(cookingSuggestionTask).toBeDefined();
+    expect(cookingSuggestionTask.chat_jid).toBe(VALID_CONFIG.mealsChannelJid);
+    expect(cookingSuggestionTask.schedule_value).toBe('0 17 * * *');
+    expect(cookingSuggestionTask.context_mode).toBe('group');
   });
 
   it('all tasks belong to main group folder', () => {
@@ -229,6 +275,37 @@ describe('buildIpcPayload', () => {
 
     const payload = buildIpcPayload(task);
     expect(payload.script).toBe('/path/to/check.sh');
+  });
+
+  it('includes model when task has a model', () => {
+    const task: TaskDefinition = {
+      id: 'model-task',
+      schedule_type: 'cron',
+      schedule_value: '0 9 * * *',
+      group_folder: 'main',
+      chat_jid: 'dc:789',
+      context_mode: 'group',
+      prompt: 'Model prompt',
+      model: 'haiku',
+    };
+
+    const payload = buildIpcPayload(task);
+    expect(payload.model).toBe('haiku');
+  });
+
+  it('omits model when task has no model', () => {
+    const task: TaskDefinition = {
+      id: 'no-model-task',
+      schedule_type: 'cron',
+      schedule_value: '0 9 * * *',
+      group_folder: 'main',
+      chat_jid: 'dc:789',
+      context_mode: 'group',
+      prompt: 'No model prompt',
+    };
+
+    const payload = buildIpcPayload(task);
+    expect(payload.model).toBeUndefined();
   });
 });
 

@@ -266,6 +266,7 @@ export async function processTaskIpc(
           chat_jid: outputJid,
           prompt: data.prompt,
           script: data.script || null,
+          model: data.model || null,
           schedule_type: scheduleType,
           schedule_value: data.schedule_value,
           context_mode: contextMode,

@@ -175,6 +175,22 @@ export interface BudgetInfo {
   percent_used: number;
 }
 
+export interface ForecastCategoryProjection {
+  category: string;
+  total: number;
+  projected: number;
+}
+
+export interface SpendingForecast {
+  current_month_total: number;
+  days_elapsed: number;
+  daily_average: number;
+  projected_total: number;
+  last_month_total: number;
+  change_pct: number;
+  by_category: ForecastCategoryProjection[];
+}
+
 export interface Notification {
   id: string;
   title: string;
@@ -182,6 +198,64 @@ export interface Notification {
   type: string;
   url: string | null;
   created_at: string;
+}
+
+export interface UsageSummary {
+  period: string;
+  totals: {
+    total_cost: number;
+    total_input_tokens: number;
+    total_output_tokens: number;
+    total_requests: number;
+  };
+  byTask: Array<{
+    task_id: string | null;
+    cost: number;
+    input_tokens: number;
+    output_tokens: number;
+    requests: number;
+  }>;
+  byModel: Array<{
+    model: string | null;
+    cost: number;
+    input_tokens: number;
+    output_tokens: number;
+    requests: number;
+  }>;
+  daily: Array<{
+    date: string;
+    cost: number;
+    input_tokens: number;
+    output_tokens: number;
+    requests: number;
+  }>;
+}
+
+export interface Package {
+  id: string;
+  merchant: string;
+  tracking_number: string;
+  carrier: string;
+  status: string;
+  expected_delivery: string | null;
+  actual_delivery: string | null;
+  created_at: string;
+}
+
+export interface Subscription {
+  id: string;
+  name: string;
+  amount: number;
+  frequency: string;
+  category: string;
+  active: boolean;
+  last_charged: string | null;
+  created_at: string;
+}
+
+export interface SubscriptionSummary {
+  monthly_total: number;
+  count: number;
 }
 
 export interface WeeklyReport {
@@ -364,6 +438,58 @@ export const api = {
       }),
     budget: () =>
       fetchSafe<BudgetInfo | null>('/spending/budget', null),
+    forecast: () =>
+      fetchSafe<SpendingForecast | null>('/spending/forecast', null),
+  },
+  packages: {
+    active: () => fetchSafe<Package[]>('/packages', []),
+    all: () => fetchSafe<Package[]>('/packages/all', []),
+    add: (pkg: {
+      merchant: string;
+      tracking_number?: string;
+      carrier?: string;
+      expected_delivery?: string;
+    }) =>
+      fetchApi<Package>('/packages', {
+        method: 'POST',
+        body: JSON.stringify(pkg),
+      }),
+    updateStatus: (id: string, status: string) =>
+      fetchApi<void>(`/packages/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
+      }),
+    remove: (id: string) =>
+      fetchApi<void>(`/packages/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      }),
+  },
+  subscriptions: {
+    active: () => fetchSafe<Subscription[]>('/subscriptions', []),
+    summary: () =>
+      fetchSafe<SubscriptionSummary>('/subscriptions/summary', {
+        monthly_total: 0,
+        count: 0,
+      }),
+    add: (sub: {
+      name: string;
+      amount: number;
+      frequency?: string;
+      category?: string;
+    }) =>
+      fetchApi<Subscription>('/subscriptions', {
+        method: 'POST',
+        body: JSON.stringify(sub),
+      }),
+    update: (id: string, data: Partial<Subscription>) =>
+      fetchApi<void>(`/subscriptions/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+    remove: (id: string) =>
+      fetchApi<void>(`/subscriptions/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      }),
   },
   notifications: {
     pending: () => fetchSafe<Notification[]>('/notifications/pending', []),
@@ -390,5 +516,12 @@ export const api = {
       fetchSafe<WeeklyReport | null>('/weekly-report/', null),
     history: () =>
       fetchSafe<WeeklyReport[]>('/weekly-report/history', []),
+  },
+  usage: {
+    summary: (period: 'today' | 'week' | 'month' = 'today') =>
+      fetchSafe<UsageSummary | null>(
+        `/usage/summary?period=${encodeURIComponent(period)}`,
+        null,
+      ),
   },
 };

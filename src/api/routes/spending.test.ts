@@ -358,6 +358,75 @@ describe('spending routes', () => {
     });
   });
 
+  describe('GET /spending/forecast', () => {
+    it('returns spending forecast with projections', async () => {
+      mockQuery
+        // current month total
+        .mockResolvedValueOnce([{ total: 847.5 }])
+        // days elapsed + days in month
+        .mockResolvedValueOnce([{ days_elapsed: 15, days_in_month: 30 }])
+        // last month total
+        .mockResolvedValueOnce([{ total: 1420.0 }])
+        // by-category breakdown
+        .mockResolvedValueOnce([
+          { category: 'food', total: 340.0 },
+          { category: 'transport', total: 200.0 },
+        ]);
+
+      const res = await request(createApp()).get('/spending/forecast');
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.current_month_total).toBe(847.5);
+      expect(res.body.data.days_elapsed).toBe(15);
+      expect(res.body.data.daily_average).toBe(56.5);
+      expect(res.body.data.projected_total).toBe(1695.0);
+      expect(res.body.data.last_month_total).toBe(1420.0);
+      expect(res.body.data.change_pct).toBe(19.4);
+      expect(res.body.data.by_category).toHaveLength(2);
+      expect(res.body.data.by_category[0].category).toBe('food');
+      expect(res.body.data.by_category[0].total).toBe(340.0);
+      expect(res.body.data.by_category[0].projected).toBe(680.0);
+    });
+
+    it('handles zero spending gracefully', async () => {
+      mockQuery
+        .mockResolvedValueOnce([{ total: 0 }])
+        .mockResolvedValueOnce([{ days_elapsed: 10, days_in_month: 31 }])
+        .mockResolvedValueOnce([{ total: 500 }])
+        .mockResolvedValueOnce([]);
+
+      const res = await request(createApp()).get('/spending/forecast');
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.current_month_total).toBe(0);
+      expect(res.body.data.daily_average).toBe(0);
+      expect(res.body.data.projected_total).toBe(0);
+      expect(res.body.data.change_pct).toBe(-100);
+      expect(res.body.data.by_category).toEqual([]);
+    });
+
+    it('handles zero last month total (no division by zero)', async () => {
+      mockQuery
+        .mockResolvedValueOnce([{ total: 200 }])
+        .mockResolvedValueOnce([{ days_elapsed: 5, days_in_month: 30 }])
+        .mockResolvedValueOnce([{ total: 0 }])
+        .mockResolvedValueOnce([{ category: 'groceries', total: 200 }]);
+
+      const res = await request(createApp()).get('/spending/forecast');
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.change_pct).toBe(0);
+    });
+
+    it('returns 500 on database error', async () => {
+      mockQuery.mockRejectedValue(new Error('DB error'));
+
+      const res = await request(createApp()).get('/spending/forecast');
+
+      expect(res.status).toBe(500);
+    });
+  });
+
   describe('GET /spending/budget', () => {
     it('returns budget with spending data', async () => {
       mockQuery

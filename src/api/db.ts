@@ -1,21 +1,22 @@
 import { DuckDBInstance, DuckDBConnection } from '@duckdb/node-api';
 import type { DuckDBValue } from '@duckdb/node-api';
 
-let instance: DuckDBInstance | null = null;
-let conn: DuckDBConnection | null = null;
+let connPromise: Promise<DuckDBConnection> | null = null;
 
 export async function getDb(): Promise<DuckDBConnection> {
-  if (conn) return conn;
-  const token = process.env.MOTHERDUCK_TOKEN;
-  const connStr = token ? `md:?motherduck_token=${token}` : ':memory:';
-  instance = await DuckDBInstance.create(connStr);
-  conn = await instance.connect();
-  // Set default database to my_db to avoid ambiguous schema reference
-  // (MotherDuck has both a "lifeos" database and "lifeos" schema in my_db)
-  if (token) {
-    await conn.run('USE my_db');
+  if (!connPromise) {
+    connPromise = (async () => {
+      const token = process.env.MOTHERDUCK_TOKEN;
+      const connStr = token ? `md:?motherduck_token=${token}` : ':memory:';
+      const instance = await DuckDBInstance.create(connStr);
+      const conn = await instance.connect();
+      if (token) {
+        await conn.run('USE my_db');
+      }
+      return conn;
+    })();
   }
-  return conn;
+  return connPromise;
 }
 
 export async function query<T = Record<string, unknown>>(
