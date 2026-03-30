@@ -165,6 +165,11 @@ export function transformHealthConnectPayload(
     }
   }
 
+  // Normalize metric type names to our standard
+  const metricNameMap: Record<string, string> = {
+    oxygen_saturation: 'spo2',
+  };
+
   // Generic handler for any other keys with array values
   const handled = new Set([
     'steps',
@@ -181,6 +186,7 @@ export function transformHealthConnectPayload(
   ]);
   for (const [key, val] of Object.entries(body)) {
     if (handled.has(key) || !Array.isArray(val)) continue;
+    const normalizedName = metricNameMap[key] ?? key;
     for (const entry of val) {
       const e = entry as Record<string, unknown>;
       const value = Number(e.value ?? e.count ?? e.bpm ?? e.percentage ?? 0);
@@ -189,7 +195,7 @@ export function transformHealthConnectPayload(
       );
       if (value && time) {
         metrics.push({
-          metric_type: key,
+          metric_type: normalizedName,
           value,
           recorded_at: time,
           source: 'health_connect',

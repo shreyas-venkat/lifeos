@@ -5,11 +5,45 @@ export const healthRouter = Router();
 
 healthRouter.get('/today', async (_req: Request, res: Response) => {
   try {
+    // Aggregate today's metrics intelligently per type:
+    // - steps: SUM (each reading is an interval, not cumulative)
+    // - sleep_duration: MAX (ignore 0s from failed inserts)
+    // - heart_rate, spo2, hrv: latest reading
+    // - weight: latest reading
+    // Also normalize oxygen_saturation → spo2
     const rows = await query(
-      `SELECT metric_type, value, unit, recorded_at
-       FROM lifeos.health_metrics
-       WHERE recorded_at >= CURRENT_DATE
-       ORDER BY recorded_at DESC`,
+      `WITH normalized AS (
+         SELECT
+           CASE WHEN metric_type = 'oxygen_saturation' THEN 'spo2' ELSE metric_type END AS metric_type,
+           value, unit, recorded_at
+         FROM lifeos.health_metrics
+         WHERE recorded_at >= CURRENT_DATE
+       ),
+       summed AS (
+         SELECT metric_type, SUM(value) AS value, MAX(unit) AS unit, MAX(recorded_at) AS recorded_at
+         FROM normalized
+         WHERE metric_type = 'steps'
+         GROUP BY metric_type
+       ),
+       maxed AS (
+         SELECT metric_type, MAX(value) AS value, MAX(unit) AS unit, MAX(recorded_at) AS recorded_at
+         FROM normalized
+         WHERE metric_type = 'sleep_duration' AND value > 0
+         GROUP BY metric_type
+       ),
+       ranked AS (
+         SELECT metric_type, value, unit, recorded_at,
+                ROW_NUMBER() OVER (PARTITION BY metric_type ORDER BY recorded_at DESC) AS rn
+         FROM normalized
+         WHERE metric_type NOT IN ('steps', 'sleep_duration')
+       ),
+       latest AS (
+         SELECT metric_type, value, unit, recorded_at
+         FROM ranked WHERE rn = 1
+       )
+       SELECT * FROM summed
+       UNION ALL SELECT * FROM maxed
+       UNION ALL SELECT * FROM latest`,
     );
     res.json({ data: rows });
   } catch (err: unknown) {
