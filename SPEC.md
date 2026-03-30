@@ -1191,39 +1191,33 @@ Deep Obsidian vault integration (read/write, personality learning), Wyze lamp cl
 ## Implementation Plan
 
 ### Step 22: Obsidian vault integration
-1. Clone `MyVault` repo to VPS: `git clone https://github.com/shreyas-venkat/MyVault.git ~/MyVault`
-2. Daily scan (cron `0 3 * * *`): read vault notes for context about user
-   - Extract preferences, interests, writing style
-   - Update `groups/main/CLAUDE.md` personality section with learned traits
+
+#### VPS Setup (one-time)
+1. Clone MyVault repo on VPS using GitHub token from `.env`:
+   ```bash
+   cd /root
+   git clone https://x-access-token:${GITHUB_TOKEN}@github.com/shreyas-venkat/MyVault.git ~/MyVault
+   cd ~/MyVault
+   git config user.email "lifeos@shreyas.dev"
+   git config user.name "LifeOS"
+   mkdir -p LifeOS/daily-summaries
+   ```
+2. Mount `~/MyVault` into the container as an additional directory so the agent can read/write vault notes:
+   - Register the main group with `containerConfig.additionalMounts` pointing to `~/MyVault`
+   - Or update `src/container-runner.ts` to mount `~/MyVault` at `/workspace/extra/vault` for the main group
+
+#### Daily sync (scheduled task: `lifeos-obsidian-sync`, cron `0 3 * * *`)
+1. Read vault notes for context about user (preferences, interests, writing style)
+2. Update `groups/discord_main/CLAUDE.md` personality section with learned traits
 3. Write to vault `LifeOS/` folder:
-   - `daily-summaries/YYYY-MM-DD.md` — health, meals, activity, bot actions
-   - `learned-preferences.md` — accumulated user preferences
-   - `health-insights.md` — notable health observations
+   - `daily-summaries/YYYY-MM-DD.md` — health metrics, meals, activity, bot actions for yesterday
+   - `learned-preferences.md` — accumulated user preferences discovered from conversations
+   - `health-insights.md` — notable health observations and trends
 4. After writing: `git add . && git commit -m "LifeOS daily update" && git push`
 5. Obsidian syncs via GitHub plugin on user's devices
 
-### Step 23: Wyze lamp clock integration
-1. Install `wyze-sdk` Python package on VPS
-2. Create wrapper script: `scripts/wyze-control.py`
-   - `set_brightness(level)`, `set_color_temp(temp)`, `turn_on()`, `turn_off()`
-3. Sleep-aware alarm (cron `0 5 * * 1-5` — runs at 5 AM to prepare):
-   - Query last night's sleep data from `lifeos.health_metrics`
-   - If restless night: gentler sunrise ramp (slower brightness increase)
-   - If deep sleep near alarm: delay sunrise slightly
-   - Alarm window: 6:00-7:00 AM MT weekdays
-4. Wyze credentials stored in Agent Vault
-5. Weekends: no alarm unless user requests
-
-### Step 24: Lefant M210 vacuum integration
-1. Register on Tuya IoT Developer Platform, get API keys
-2. Use `tinytuya` Python library for Tuya Cloud API
-3. Create wrapper script: `scripts/vacuum-control.py`
-   - `start_clean()`, `stop_clean()`, `return_home()`, `get_status()`
-4. Auto-clean trigger:
-   - Office days (Tue/Thu/Fri), triggered by morning briefing
-   - DM: "You're heading to the office — want me to run the vacuum?"
-   - If user confirms (or set to auto): trigger clean
-5. On-demand: user says "clean the house" in DM -> triggers vacuum
+### Step 23: Smart home integrations (deferred)
+Smart home device integrations (lamp, vacuum) are deferred until device APIs are confirmed compatible. The ecozy lamp uses a proprietary app (not Tuya) and the Lefant vacuum needs Tuya IoT developer registration. These can be added later when credentials are available.
 
 ### Step 25: Bill tracking from email
 1. Parse RBC bank email notifications (already categorized as "bank" in Phase 1)
