@@ -9,6 +9,7 @@ import { preferencesRouter } from './preferences.js';
 import { streaksRouter } from './streaks.js';
 import { exportRouter } from './export.js';
 import { weeklyReportRouter } from './weekly-report.js';
+import { habitsRouter } from './habits.js';
 
 export function mountRoutes(router: Router): void {
   router.use('/health/context', healthContextRouter);
@@ -21,4 +22,5 @@ export function mountRoutes(router: Router): void {
   router.use('/streaks', streaksRouter);
   router.use('/export', exportRouter);
   router.use('/weekly-report', weeklyReportRouter);
+  router.use('/habits', habitsRouter);
 }
