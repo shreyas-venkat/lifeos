@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
-	import type { MealPlanRecord, CalorieEntry, RecipeSummary } from '$lib/api';
+	import type { MealPlanRecord, CalorieEntry, RecipeSummary, RecipeDetail } from '$lib/api';
 
 	let plan = $state<MealPlanRecord[]>([]);
 	let todayCalories = $state<CalorieEntry[]>([]);
@@ -10,13 +10,38 @@
 	let loading = $state(true);
 	let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
+	// Calorie log form
+	let showCalorieForm = $state(false);
+	let calForm = $state({
+		meal_type: 'lunch' as string,
+		description: '',
+		calories: 0,
+		protein_g: 0,
+		carbs_g: 0,
+		fat_g: 0,
+	});
+	let calSubmitting = $state(false);
+
+	// Recipe detail expansion
+	let expandedRecipeId = $state<string | null>(null);
+	let recipeDetails = $state<Record<string, RecipeDetail | null>>({});
+	let recipeLoading = $state<Record<string, boolean>>({});
+
 	const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+	const statusOrder = ['planned', 'cooked', 'skipped', 'ate_out'];
 
 	const statusColors: Record<string, string> = {
 		planned: '#8888a0',
 		cooked: '#22c55e',
 		skipped: '#f59e0b',
 		ate_out: '#6366f1',
+	};
+
+	const statusLabels: Record<string, string> = {
+		planned: 'Planned',
+		cooked: 'Cooked',
+		skipped: 'Skipped',
+		ate_out: 'Ate Out',
 	};
 
 	// Compute daily calorie totals
@@ -34,7 +59,7 @@
 	);
 	const totalMacros = $derived(totalProtein + totalCarbs + totalFat);
 
-	// Group meal plan by day_of_week
+	// Group meal plan by day_of_week, compute date for each day
 	const planByDay = $derived(() => {
 		const grouped: Record<number, MealPlanRecord[]> = {};
 		for (const meal of plan) {
@@ -44,6 +69,15 @@
 		return grouped;
 	});
 
+	// Compute the date for each day_of_week based on week_start
+	function getDayDate(dayOfWeek: number): string {
+		if (plan.length === 0) return '';
+		const ws = new Date(plan[0].week_start);
+		const d = new Date(ws);
+		d.setDate(ws.getDate() + (dayOfWeek - 1));
+		return d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
+	}
+
 	function handleSearch() {
 		if (searchTimeout) clearTimeout(searchTimeout);
 		searchTimeout = setTimeout(async () => {
@@ -51,14 +85,54 @@
 		}, 300);
 	}
 
-	async function toggleStatus(meal: MealPlanRecord) {
-		const nextStatus = meal.status === 'cooked' ? 'planned' : 'cooked';
+	async function cycleStatus(meal: MealPlanRecord) {
+		const currentIdx = statusOrder.indexOf(meal.status);
+		const nextStatus = statusOrder[(currentIdx + 1) % statusOrder.length];
 		try {
 			await api.meals.updateStatus(meal.id, nextStatus);
 			meal.status = nextStatus;
 			plan = [...plan];
 		} catch {
 			// Keep current state
+		}
+	}
+
+	async function submitCalorieLog() {
+		if (calSubmitting) return;
+		calSubmitting = true;
+		try {
+			await api.calories.log({
+				meal_type: calForm.meal_type,
+				description: calForm.description,
+				calories: calForm.calories,
+				protein_g: calForm.protein_g || undefined,
+				carbs_g: calForm.carbs_g || undefined,
+				fat_g: calForm.fat_g || undefined,
+			});
+			todayCalories = await api.calories.today();
+			showCalorieForm = false;
+			calForm = { meal_type: 'lunch', description: '', calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 };
+		} catch {
+			// Submission failed
+		} finally {
+			calSubmitting = false;
+		}
+	}
+
+	async function toggleRecipeDetail(recipeId: string) {
+		if (expandedRecipeId === recipeId) {
+			expandedRecipeId = null;
+			return;
+		}
+		expandedRecipeId = recipeId;
+		if (!recipeDetails[recipeId] && !recipeLoading[recipeId]) {
+			recipeLoading[recipeId] = true;
+			recipeLoading = { ...recipeLoading };
+			const detail = await api.meals.recipeDetail(recipeId);
+			recipeDetails[recipeId] = detail;
+			recipeDetails = { ...recipeDetails };
+			recipeLoading[recipeId] = false;
+			recipeLoading = { ...recipeLoading };
 		}
 	}
 
@@ -128,31 +202,46 @@
 			{/if}
 		</section>
 
-		<!-- Weekly Meal Plan -->
+		<!-- Weekly Meal Plan - Vertical day-by-day -->
 		<section class="section fade-in">
 			<h2>Weekly Plan</h2>
 			{#if plan.length > 0}
-				<div class="week-grid">
+				<div class="day-list">
 					{#each Array(7) as _, dayIdx}
 						{@const dayMeals = planByDay()[dayIdx + 1] ?? []}
-						<div class="day-column">
-							<span class="day-label">{dayNames[dayIdx]}</span>
-							{#each dayMeals as meal}
-								<button
-									class="meal-chip"
-									style="border-left: 3px solid {statusColors[meal.status] ?? '#8888a0'}"
-									onclick={() => toggleStatus(meal)}
-								>
-									<span class="meal-name">{meal.recipe_name ?? meal.meal_type}</span>
-									{#if meal.calories_per_serving}
-										<span class="meal-cal">{meal.calories_per_serving} kcal</span>
-									{/if}
-								</button>
-							{/each}
-							{#if dayMeals.length === 0}
-								<span class="no-meal">--</span>
-							{/if}
-						</div>
+						{#if dayMeals.length > 0}
+							<div class="day-card">
+								<div class="day-card-header">
+									<span class="day-name">{dayNames[dayIdx]}</span>
+									<span class="day-date">{getDayDate(dayIdx + 1)}</span>
+								</div>
+								{#each dayMeals as meal}
+									<div class="meal-row">
+										<div class="meal-info">
+											<span class="meal-name">{meal.recipe_name ?? meal.meal_type}</span>
+											<div class="meal-meta">
+												{#if meal.calories_per_serving}
+													<span>{meal.calories_per_serving} kcal</span>
+												{/if}
+												{#if meal.prep_time_min}
+													<span>{meal.prep_time_min} min prep</span>
+												{/if}
+											</div>
+											{#if meal.notes}
+												<span class="meal-notes">{meal.notes}</span>
+											{/if}
+										</div>
+										<button
+											class="status-badge"
+											style="background: {statusColors[meal.status] ?? '#8888a0'}20; color: {statusColors[meal.status] ?? '#8888a0'}; border: 1px solid {statusColors[meal.status] ?? '#8888a0'}40"
+											onclick={() => cycleStatus(meal)}
+										>
+											{statusLabels[meal.status] ?? meal.status}
+										</button>
+									</div>
+								{/each}
+							</div>
+						{/if}
 					{/each}
 				</div>
 			{:else}
@@ -172,7 +261,11 @@
 			/>
 			<div class="recipe-list">
 				{#each recipes as recipe}
-					<div class="recipe-card">
+					<button
+						class="recipe-card"
+						class:recipe-expanded={expandedRecipeId === recipe.id}
+						onclick={() => toggleRecipeDetail(recipe.id)}
+					>
 						<div class="recipe-header">
 							<span class="recipe-name">{recipe.name}</span>
 							{#if recipe.rating !== null}
@@ -197,13 +290,119 @@
 								{/each}
 							</div>
 						{/if}
-					</div>
+
+						<!-- Expanded detail -->
+						{#if expandedRecipeId === recipe.id}
+							<div class="recipe-detail">
+								{#if recipeLoading[recipe.id]}
+									<div class="skeleton" style="height: 80px;"></div>
+								{:else if recipeDetails[recipe.id]}
+									{@const d = recipeDetails[recipe.id]}
+									{#if d}
+										{#if d.ingredients && d.ingredients.length > 0}
+											<div class="detail-section">
+												<h4>Ingredients</h4>
+												<ul class="ingredient-list">
+													{#each d.ingredients as ing}
+														<li>{ing}</li>
+													{/each}
+												</ul>
+											</div>
+										{/if}
+										{#if d.instructions}
+											<div class="detail-section">
+												<h4>Instructions</h4>
+												<p class="instructions-text">{d.instructions}</p>
+											</div>
+										{/if}
+										<div class="detail-macros">
+											{#if d.calories_per_serving !== null}
+												<span>{d.calories_per_serving} kcal</span>
+											{/if}
+											{#if d.protein_g !== null}
+												<span>P: {d.protein_g}g</span>
+											{/if}
+											{#if d.carbs_g !== null}
+												<span>C: {d.carbs_g}g</span>
+											{/if}
+											{#if d.fat_g !== null}
+												<span>F: {d.fat_g}g</span>
+											{/if}
+											{#if d.cook_time_min !== null}
+												<span>{d.cook_time_min} min cook</span>
+											{/if}
+										</div>
+									{/if}
+								{:else}
+									<p class="detail-error">Details not available</p>
+								{/if}
+							</div>
+						{/if}
+					</button>
 				{/each}
 				{#if recipes.length === 0}
 					<p class="empty-text">No recipes found</p>
 				{/if}
 			</div>
 		</section>
+
+		<!-- Calorie Log Form -->
+		{#if showCalorieForm}
+			<div class="form-overlay fade-in" role="dialog">
+				<div class="form-card">
+					<div class="form-header">
+						<h3>Log Meal</h3>
+						<button class="form-close" onclick={() => (showCalorieForm = false)} aria-label="Close">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+						</button>
+					</div>
+					<form onsubmit={(e) => { e.preventDefault(); submitCalorieLog(); }}>
+						<label class="form-field">
+							<span>Meal Type</span>
+							<select bind:value={calForm.meal_type}>
+								<option value="breakfast">Breakfast</option>
+								<option value="lunch">Lunch</option>
+								<option value="dinner">Dinner</option>
+								<option value="snack">Snack</option>
+							</select>
+						</label>
+						<label class="form-field">
+							<span>Description</span>
+							<input type="text" bind:value={calForm.description} placeholder="What did you eat?" />
+						</label>
+						<label class="form-field">
+							<span>Calories</span>
+							<input type="number" bind:value={calForm.calories} min="0" />
+						</label>
+						<div class="form-row">
+							<label class="form-field">
+								<span>Protein (g)</span>
+								<input type="number" bind:value={calForm.protein_g} min="0" />
+							</label>
+							<label class="form-field">
+								<span>Carbs (g)</span>
+								<input type="number" bind:value={calForm.carbs_g} min="0" />
+							</label>
+							<label class="form-field">
+								<span>Fat (g)</span>
+								<input type="number" bind:value={calForm.fat_g} min="0" />
+							</label>
+						</div>
+						<button type="submit" class="form-submit" disabled={calSubmitting}>
+							{calSubmitting ? 'Logging...' : 'Log Meal'}
+						</button>
+					</form>
+				</div>
+			</div>
+		{/if}
+
+		<!-- FAB to log calorie entry -->
+		<button class="fab" onclick={() => (showCalorieForm = true)} aria-label="Log meal">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+				<line x1="12" y1="5" x2="12" y2="19" />
+				<line x1="5" y1="12" x2="19" y2="12" />
+			</svg>
+		</button>
 	{/if}
 </div>
 
@@ -282,69 +481,91 @@
 	.carbs-label { color: #f59e0b; }
 	.fat-label { color: #ef4444; }
 
-	.week-grid {
-		display: grid;
-		grid-template-columns: repeat(7, 1fr);
-		gap: 6px;
-	}
-
-	@media (max-width: 500px) {
-		.week-grid {
-			grid-template-columns: repeat(4, 1fr);
-		}
-	}
-
-	.day-column {
+	/* Vertical day-by-day list */
+	.day-list {
 		display: flex;
 		flex-direction: column;
-		gap: 4px;
+		gap: 10px;
 	}
 
-	.day-label {
-		font-size: 0.7rem;
-		color: var(--text-secondary);
-		text-transform: uppercase;
-		font-weight: 600;
-		text-align: center;
-		margin-bottom: 2px;
-	}
-
-	.meal-chip {
+	.day-card {
 		background: var(--bg-card);
+		border-radius: 12px;
 		border: 1px solid var(--border);
-		border-radius: 8px;
-		padding: 6px 8px;
+		overflow: hidden;
+	}
+
+	.day-card-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 10px 14px;
+		background: var(--bg-elevated);
+		border-bottom: 1px solid var(--border);
+	}
+
+	.day-name {
+		font-weight: 600;
+		font-size: 0.9rem;
+	}
+
+	.day-date {
+		font-size: 0.75rem;
+		color: var(--text-secondary);
+	}
+
+	.meal-row {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 10px 14px;
+		border-bottom: 1px solid var(--border);
+	}
+
+	.meal-row:last-child {
+		border-bottom: none;
+	}
+
+	.meal-info {
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
-		cursor: pointer;
-		text-align: left;
-		color: var(--text-primary);
-		transition: border-color 0.2s;
+		flex: 1;
+		min-width: 0;
 	}
 
-	.meal-chip:hover {
-		border-color: var(--accent);
-	}
-
-	.meal-chip .meal-name {
-		font-size: 0.7rem;
+	.meal-name {
+		font-size: 0.9rem;
 		font-weight: 500;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
 	}
 
-	.meal-chip .meal-cal {
-		font-size: 0.6rem;
+	.meal-meta {
+		display: flex;
+		gap: 10px;
+		font-size: 0.72rem;
 		color: var(--text-secondary);
 	}
 
-	.no-meal {
-		font-size: 0.7rem;
+	.meal-notes {
+		font-size: 0.72rem;
 		color: var(--text-secondary);
-		text-align: center;
-		padding: 6px;
+		font-style: italic;
+	}
+
+	.status-badge {
+		font-size: 0.68rem;
+		font-weight: 600;
+		padding: 4px 10px;
+		border-radius: 8px;
+		cursor: pointer;
+		flex-shrink: 0;
+		margin-left: 10px;
+		text-transform: capitalize;
+		transition: opacity 0.2s;
+	}
+
+	.status-badge:hover {
+		opacity: 0.8;
 	}
 
 	.search-input {
@@ -379,6 +600,20 @@
 		border-radius: 12px;
 		padding: 12px;
 		border: 1px solid var(--border);
+		cursor: pointer;
+		transition: border-color 0.2s;
+		text-align: left;
+		width: 100%;
+		color: var(--text-primary);
+		display: block;
+	}
+
+	.recipe-card:hover {
+		border-color: var(--accent);
+	}
+
+	.recipe-expanded {
+		border-color: var(--accent);
 	}
 
 	.recipe-header {
@@ -419,6 +654,206 @@
 		border-radius: 6px;
 		font-size: 0.65rem;
 		font-weight: 500;
+	}
+
+	/* Recipe detail expansion */
+	.recipe-detail {
+		margin-top: 10px;
+		padding-top: 10px;
+		border-top: 1px solid var(--border);
+	}
+
+	.detail-section {
+		margin-bottom: 10px;
+	}
+
+	.detail-section h4 {
+		font-size: 0.75rem;
+		font-weight: 600;
+		color: var(--text-secondary);
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		margin-bottom: 4px;
+	}
+
+	.ingredient-list {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		font-size: 0.82rem;
+		color: var(--text-primary);
+	}
+
+	.ingredient-list li {
+		padding: 2px 0;
+	}
+
+	.ingredient-list li::before {
+		content: '\2022 ';
+		color: var(--text-secondary);
+	}
+
+	.instructions-text {
+		font-size: 0.82rem;
+		line-height: 1.5;
+		color: var(--text-primary);
+		white-space: pre-wrap;
+	}
+
+	.detail-macros {
+		display: flex;
+		gap: 12px;
+		font-size: 0.72rem;
+		color: var(--text-secondary);
+		flex-wrap: wrap;
+	}
+
+	.detail-error {
+		font-size: 0.82rem;
+		color: var(--text-secondary);
+		font-style: italic;
+		padding: 8px 0;
+	}
+
+	/* Calorie log form overlay */
+	.form-overlay {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.6);
+		display: flex;
+		align-items: flex-end;
+		justify-content: center;
+		z-index: 100;
+		padding: 0 0 env(safe-area-inset-bottom, 0);
+	}
+
+	.form-card {
+		background: var(--bg-card);
+		border-radius: 16px 16px 0 0;
+		padding: 20px;
+		width: 100%;
+		max-width: 500px;
+		max-height: 85vh;
+		overflow-y: auto;
+		border: 1px solid var(--border);
+		border-bottom: none;
+	}
+
+	.form-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 16px;
+	}
+
+	.form-header h3 {
+		font-size: 1.1rem;
+		font-weight: 600;
+	}
+
+	.form-close {
+		width: 32px;
+		height: 32px;
+		border-radius: 50%;
+		background: var(--bg-elevated);
+		border: none;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		color: var(--text-secondary);
+	}
+
+	.form-close svg {
+		width: 16px;
+		height: 16px;
+	}
+
+	.form-field {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		margin-bottom: 12px;
+		flex: 1;
+	}
+
+	.form-field span {
+		font-size: 0.75rem;
+		color: var(--text-secondary);
+		font-weight: 500;
+	}
+
+	.form-field input,
+	.form-field select {
+		background: var(--bg-elevated);
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		padding: 8px 12px;
+		color: var(--text-primary);
+		font-size: 0.9rem;
+	}
+
+	.form-field input:focus,
+	.form-field select:focus {
+		outline: none;
+		border-color: var(--accent);
+	}
+
+	.form-row {
+		display: flex;
+		gap: 10px;
+	}
+
+	.form-submit {
+		width: 100%;
+		background: var(--accent);
+		color: white;
+		border: none;
+		border-radius: 10px;
+		padding: 12px;
+		font-size: 0.9rem;
+		font-weight: 600;
+		cursor: pointer;
+		margin-top: 4px;
+		transition: opacity 0.2s;
+	}
+
+	.form-submit:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
+
+	.form-submit:hover:not(:disabled) {
+		opacity: 0.9;
+	}
+
+	/* FAB */
+	.fab {
+		position: fixed;
+		bottom: 72px;
+		right: 20px;
+		width: 52px;
+		height: 52px;
+		background: var(--accent);
+		border-radius: 16px;
+		border: none;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+		transition: transform 0.2s;
+		z-index: 50;
+	}
+
+	.fab:hover {
+		transform: scale(1.05);
+	}
+
+	.fab svg {
+		width: 22px;
+		height: 22px;
+		color: white;
 	}
 
 	.empty-text {
