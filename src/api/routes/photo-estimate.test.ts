@@ -47,9 +47,14 @@ describe('photo-estimate routes', () => {
       expect(res.body.image_size).toBeGreaterThan(0);
       expect(mockQuery).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO lifeos.calorie_log'),
-      );
-      expect(mockQuery).toHaveBeenCalledWith(
-        expect.stringContaining("'photo'"),
+        expect.any(String),
+        'lunch',
+        'Grilled chicken salad',
+        450,
+        35,
+        20,
+        15,
+        'photo',
       );
     });
 
@@ -148,7 +153,17 @@ describe('photo-estimate routes', () => {
       });
 
       expect(res.status).toBe(200);
-      expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('NULL'));
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO lifeos.calorie_log'),
+        expect.any(String),
+        'dinner',
+        'Rice bowl',
+        600,
+        null,
+        null,
+        null,
+        'manual',
+      );
     });
 
     it('returns 500 on database error', async () => {

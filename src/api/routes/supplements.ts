@@ -4,10 +4,6 @@ import crypto from 'crypto';
 
 export const supplementsRouter = Router();
 
-function sanitize(val: unknown): string {
-  return String(val).replace(/'/g, "''");
-}
-
 supplementsRouter.post('/add', async (req: Request, res: Response) => {
   const { name, default_dosage, unit, time_of_day, max_safe_dosage } =
     req.body as Record<string, unknown>;
@@ -19,11 +15,15 @@ supplementsRouter.post('/add', async (req: Request, res: Response) => {
 
   try {
     const id = crypto.randomUUID();
-    const maxSafeClause =
-      max_safe_dosage !== undefined ? Number(max_safe_dosage) : 'NULL';
     await query(
       `INSERT INTO lifeos.supplements (id, name, default_dosage, unit, time_of_day, max_safe_dosage, active)
-       VALUES ('${sanitize(id)}', '${sanitize(name)}', ${Number(default_dosage) || 0}, '${sanitize(unit || '')}', '${sanitize(time_of_day || 'morning')}', ${maxSafeClause}, true)`,
+       VALUES ($1, $2, $3, $4, $5, $6, true)`,
+      id,
+      name,
+      Number(default_dosage) || 0,
+      String(unit || ''),
+      String(time_of_day || 'morning'),
+      max_safe_dosage !== undefined ? Number(max_safe_dosage) : null,
     );
     res.json({ success: true, id });
   } catch (err: unknown) {
@@ -36,7 +36,7 @@ supplementsRouter.delete('/:id', async (req: Request, res: Response) => {
   const { id } = req.params;
 
   try {
-    await query(`DELETE FROM lifeos.supplements WHERE id = '${sanitize(id)}'`);
+    await query(`DELETE FROM lifeos.supplements WHERE id = $1`, id);
     res.json({ success: true });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
@@ -51,23 +51,38 @@ supplementsRouter.put('/:id', async (req: Request, res: Response) => {
     unknown
   >;
 
-  const setClauses: string[] = [];
-  if (default_dosage !== undefined)
-    setClauses.push(`default_dosage = ${Number(default_dosage)}`);
-  if (unit !== undefined) setClauses.push(`unit = '${sanitize(unit)}'`);
-  if (time_of_day !== undefined)
-    setClauses.push(`time_of_day = '${sanitize(time_of_day)}'`);
-  if (active !== undefined)
-    setClauses.push(`active = ${active ? 'true' : 'false'}`);
+  const sets: string[] = [];
+  const params: unknown[] = [];
+  let idx = 1;
 
-  if (setClauses.length === 0) {
+  if (default_dosage !== undefined) {
+    sets.push(`default_dosage = $${idx++}`);
+    params.push(Number(default_dosage));
+  }
+  if (unit !== undefined) {
+    sets.push(`unit = $${idx++}`);
+    params.push(String(unit));
+  }
+  if (time_of_day !== undefined) {
+    sets.push(`time_of_day = $${idx++}`);
+    params.push(String(time_of_day));
+  }
+  if (active !== undefined) {
+    sets.push(`active = $${idx++}`);
+    params.push(!!active);
+  }
+
+  if (sets.length === 0) {
     res.status(400).json({ error: 'No fields to update' });
     return;
   }
 
+  params.push(id);
+
   try {
     await query(
-      `UPDATE lifeos.supplements SET ${setClauses.join(', ')} WHERE id = '${sanitize(id)}'`,
+      `UPDATE lifeos.supplements SET ${sets.join(', ')} WHERE id = $${idx}`,
+      ...params,
     );
     res.json({ success: true });
   } catch (err: unknown) {

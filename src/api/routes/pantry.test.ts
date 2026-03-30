@@ -93,6 +93,12 @@ describe('pantry routes', () => {
       expect(res.body.id).toBeDefined();
       expect(mockQuery).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO lifeos.pantry'),
+        expect.any(String),
+        'Eggs',
+        12,
+        'pcs',
+        'protein',
+        '2026-04-15',
       );
     });
 
@@ -108,7 +114,15 @@ describe('pantry routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('NULL'));
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO lifeos.pantry'),
+        expect.any(String),
+        'Salt',
+        1,
+        'kg',
+        'spices',
+        null,
+      );
     });
 
     it('returns 400 when item is missing', async () => {
@@ -144,6 +158,7 @@ describe('pantry routes', () => {
       expect(res.body.success).toBe(true);
       expect(mockQuery).toHaveBeenCalledWith(
         expect.stringContaining('DELETE FROM lifeos.pantry'),
+        'abc-123',
       );
     });
 
@@ -168,6 +183,9 @@ describe('pantry routes', () => {
       expect(res.body.success).toBe(true);
       expect(mockQuery).toHaveBeenCalledWith(
         expect.stringContaining('UPDATE lifeos.pantry'),
+        5,
+        'lbs',
+        'abc-123',
       );
     });
 

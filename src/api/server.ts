@@ -1,4 +1,5 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import { healthWebhookRouter } from './routes/health-webhook.js';
 import { mountRoutes } from './routes/index.js';
 import { logger } from '../logger.js';
@@ -9,6 +10,14 @@ import { logger } from '../logger.js';
   return Number(this);
 };
 
+const webhookLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, try again later' },
+});
+
 export function createApiServer(_port = 3100): express.Express {
   const app = express();
 
@@ -16,9 +25,17 @@ export function createApiServer(_port = 3100): express.Express {
   app.use(express.text({ limit: '1mb', type: 'text/*' }));
   app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
-  // CORS for PWA
+  // CORS — restrict to Tailscale and localhost origins
   app.use((_req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
+    const origin = _req.headers.origin;
+    const allowed =
+      !origin ||
+      origin.includes('.ts.net') ||
+      origin.includes('localhost') ||
+      origin.includes('127.0.0.1');
+    if (allowed) {
+      res.header('Access-Control-Allow-Origin', origin || '*');
+    }
     res.header('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
     if (_req.method === 'OPTIONS') {
@@ -28,12 +45,12 @@ export function createApiServer(_port = 3100): express.Express {
     next();
   });
 
-  // API key auth only on health webhook (called from phone over Tailscale)
-  // Data routes don't need auth — everything is behind Tailscale
+  // API key auth on health webhook — header only (not query param)
   app.use(
     '/api/health-webhook',
+    webhookLimiter,
     (req, res, next) => {
-      const apiKey = req.headers['x-api-key'] || req.query.key;
+      const apiKey = req.headers['x-api-key'];
       const expectedKey = process.env.VPS_API_SECRET;
       if (expectedKey && apiKey !== expectedKey) {
         res.status(401).json({ error: 'Unauthorized' });

@@ -43,9 +43,13 @@ describe('calories routes', () => {
       expect(res.body.id).toBeDefined();
       expect(mockQuery).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO lifeos.calorie_log'),
-      );
-      expect(mockQuery).toHaveBeenCalledWith(
-        expect.stringContaining("'manual'"),
+        expect.any(String),
+        'lunch',
+        'Chicken sandwich',
+        500,
+        30,
+        40,
+        15,
       );
     });
 
@@ -59,7 +63,16 @@ describe('calories routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('NULL'));
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO lifeos.calorie_log'),
+        expect.any(String),
+        'snack',
+        'Apple',
+        null,
+        null,
+        null,
+        null,
+      );
     });
 
     it('returns 400 when meal_type is missing', async () => {

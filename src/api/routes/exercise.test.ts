@@ -152,6 +152,15 @@ describe('exercise routes', () => {
       expect(res.body.id).toBeDefined();
       expect(mockQuery).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO lifeos.exercise_log'),
+        expect.any(String),
+        'Running',
+        30,
+        null,
+        null,
+        null,
+        5.0,
+        300,
+        'Morning run',
       );
     });
 
@@ -179,7 +188,18 @@ describe('exercise routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('NULL'));
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO lifeos.exercise_log'),
+        expect.any(String),
+        'Yoga',
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+      );
     });
 
     it('returns 400 when exercise_type is missing', async () => {
@@ -220,7 +240,8 @@ describe('exercise routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(mockQuery).toHaveBeenCalledWith(
-        expect.stringContaining("WHERE id = 'abc-123'"),
+        expect.stringContaining('DELETE FROM lifeos.exercise_log'),
+        'abc-123',
       );
     });
 
@@ -296,6 +317,11 @@ describe('exercise routes', () => {
       expect(res.body.id).toBeDefined();
       expect(mockQuery).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO lifeos.exercise_templates'),
+        expect.any(String),
+        'Running',
+        'cardio',
+        null,
+        null,
       );
     });
 
