@@ -30,17 +30,8 @@ RUN apt-get update && apt-get install -y \
 ENV AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Install agent-browser, claude-code, and MCP servers globally
-RUN npm install -g agent-browser @anthropic-ai/claude-code @gongrzhe/server-gmail-autoauth-mcp googleapis @modelcontextprotocol/sdk
-
-# Install Python + uv for MotherDuck MCP server
-# Install as root, then symlink to /usr/local/bin so node user can access it
-RUN apt-get update && apt-get install -y python3 python3-pip python3-venv \
-    && pip3 install --break-system-packages uv \
-    && uv tool install mcp-server-motherduck \
-    && cp /root/.local/bin/mcp-server-motherduck /usr/local/bin/mcp-server-motherduck \
-    && chmod 755 /usr/local/bin/mcp-server-motherduck \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+# Install agent-browser, claude-code, and Gmail MCP server globally
+RUN npm install -g agent-browser @anthropic-ai/claude-code @gongrzhe/server-gmail-autoauth-mcp
 
 # Create app directory
 WORKDIR /app
@@ -53,7 +44,7 @@ RUN npm install
 
 # Copy MCP servers and install their dependencies
 COPY mcp-servers/ /app/mcp-servers/
-RUN cd /app/mcp-servers && npm init -y > /dev/null 2>&1 && npm install googleapis @modelcontextprotocol/sdk zod
+RUN cd /app/mcp-servers && npm init -y > /dev/null 2>&1 && npm install googleapis @modelcontextprotocol/sdk zod @duckdb/node-api
 
 # Copy source code
 COPY agent-runner/ ./

@@ -434,10 +434,10 @@ async function runQuery(
           env: {},
         },
         motherduck: {
-          command: 'mcp-server-motherduck',
-          args: ['--read-write'],
+          command: 'node',
+          args: ['/app/mcp-servers/motherduck.mjs'],
           env: {
-            motherduck_token: process.env.MOTHERDUCK_TOKEN || '',
+            MOTHERDUCK_TOKEN: process.env.MOTHERDUCK_TOKEN || '',
           },
         },
         google_calendar: {
