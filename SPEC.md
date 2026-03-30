@@ -1080,9 +1080,11 @@ The app MUST be installable on Android as a standalone app (no browser chrome).
   - Total calories per serving
   - Recipes should use proper cook times — NOT generic "5 min" for everything
 - **Calendar integration**: When a meal plan is generated, a Google Calendar event is created for each cooking day at 6 PM (e.g., "🍳 Cook: Chicken Tikka Masala"). If the user has a conflicting event (like violin at 8 PM), the cook event is set earlier (5:30 PM). A "Grocery shopping" event is added for the Sunday BEFORE the meal plan starts.
-- **Recipe browser**: Searchable list below meal plan
-  - Search input with debounce
-  - Recipe cards: name, calories per serving, servings count, prep + cook time (e.g., "2 servings · 15 min prep · 20 min cook"), rating stars
+- **Recipe browser**: Collapsible section below meal plan
+  - **Collapsed by default**: Shows header "Recipes (12)" with expand arrow. Recipes list only visible when expanded or when user types in search.
+  - Search input with debounce — typing auto-expands the list
+  - Recipe cards: compact, name + calories + cook time on one line
+  - Limit visible to 5, with "Show all X recipes" button to expand
   - Click a recipe card → expands or navigates to detail view showing:
     - Full ingredients list (from `ingredients` JSON column)
     - Step-by-step instructions
