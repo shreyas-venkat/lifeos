@@ -1057,6 +1057,11 @@ The app MUST be installable on Android as a standalone app (no browser chrome).
 - **Calorie summary card**: Today's total calories + macro breakdown (protein/carbs/fat as colored bar segments)
   - Data from `calories/today`
   - If empty: "No meals logged today"
+- **Log meal button**: "+" button opens form to log a meal:
+  - Fields: meal type (breakfast/lunch/dinner/snack), description, calories, protein_g, carbs_g, fat_g (all optional except description)
+  - Quick presets: "Ate out — estimate" button that just takes a description and rough calorie count
+  - Submit → POST to new API endpoint `POST /api/calories/log`
+- **New API endpoint needed**: `POST /api/calories/log` — Insert into `lifeos.calorie_log` with `log_date = CURRENT_DATE`
 - **Weekly meal plan**: Vertical day-by-day list (NOT horizontal scroll)
   - Each day is a card/row showing: day name (Mon, Tue...), date, recipe name, calories, prep time
   - Status badge on each card: planned (gray), cooked (green), skipped (amber), ate_out (blue)
@@ -1091,21 +1096,36 @@ The app MUST be installable on Android as a standalone app (no browser chrome).
   - Each item: name (`item` column), quantity + unit, expiry badge
   - Expiry badge colors: green (>7 days), amber (1-7 days), red (expired)
   - If `expiry_date` is null: no badge
-- **Photo upload**: Camera button (FAB in bottom-right)
-  - Opens camera via `navigator.mediaDevices.getUserMedia()`
-  - Captures photo, converts to base64, sends to `POST /pantry/photo`
-- **Empty state**: "Pantry is empty. Add items via Discord or snap a photo."
+  - Swipe left or tap delete icon to remove item (DELETE via API)
+  - Tap item to edit quantity/expiry inline
+- **Add item form**: FAB "+" button opens a bottom sheet or inline form:
+  - Fields: item name, quantity, unit (dropdown: g, kg, ml, L, pcs), category (dropdown or free text), expiry date (date picker)
+  - Submit → POST to new API endpoint `POST /api/pantry/add`
+- **Photo upload**: Camera button for bulk add via photo analysis
+- **Empty state**: "Pantry is empty. Tap + to add items."
+- **New API endpoints needed**:
+  - `POST /api/pantry/add` — Insert item into `lifeos.pantry`
+  - `DELETE /api/pantry/:id` — Remove item from `lifeos.pantry`
+  - `PUT /api/pantry/:id` — Update item quantity/expiry
 
 #### `/app/supplements` — Supplement Tracker
 
 - **Progress ring**: Large SVG ring showing taken/total ratio
   - Fill color transitions from accent to success as progress increases
 - **Supplement list**: Sorted by time_of_day (morning first)
-  - Each entry: supplement name, dosage, time of day, reason (if any)
+  - Each entry: supplement name, dosage (in tablets with mg in brackets), time of day, reason (if any)
   - Toggle button: untaken (outline) → taken (filled green with checkmark)
   - Click toggles via `POST /supplements/:id/taken`
   - Data from `supplements/today` (JOIN query)
-- **Empty state**: "No supplements configured. Tell LifeOS about your supplement stack via Discord."
+- **Add supplement form**: FAB "+" button opens form:
+  - Fields: name, dosage (number), unit (mg/IU/g), time of day (morning/evening), max safe dosage (optional)
+  - Submit → POST to new API endpoint `POST /api/supplements/add`
+- **Delete/edit**: Long press or swipe to delete/edit a supplement
+- **New API endpoints needed**:
+  - `POST /api/supplements/add` — Insert into `lifeos.supplements`
+  - `DELETE /api/supplements/:id` — Remove from `lifeos.supplements`
+  - `PUT /api/supplements/:id` — Update dosage/timing
+- **Empty state**: "No supplements configured. Tap + to add your stack."
 
 #### `/app/preferences` — Settings
 
