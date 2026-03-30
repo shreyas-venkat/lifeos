@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { base } from '$app/paths';
 	import { api } from '$lib/api';
 	import type { HealthMetric, HealthHistoryPoint } from '$lib/api';
 	import Chart from 'chart.js/auto';
@@ -113,6 +115,15 @@
 		if (direction > 0) return '\u2191';
 		if (direction < 0) return '\u2193';
 		return '';
+	}
+
+	/** Handle card tap: navigate to sleep page for sleep_duration, expand otherwise */
+	function handleCardTap(type: string) {
+		if (type === 'sleep_duration') {
+			goto(`${base}/sleep`);
+			return;
+		}
+		toggleMetric(type);
 	}
 
 	/** Toggle card expansion */
@@ -438,15 +449,19 @@
 					class="vital-card"
 					class:expanded={isExpanded}
 					style={isExpanded ? `border-color: ${config.color}40` : ''}
-					onclick={() => selectedDays > 0 ? toggleMetric(type) : null}
-					onkeydown={(e) => e.key === 'Enter' && selectedDays > 0 ? toggleMetric(type) : null}
+					onclick={() => selectedDays > 0 ? handleCardTap(type) : null}
+					onkeydown={(e) => e.key === 'Enter' && selectedDays > 0 ? handleCardTap(type) : null}
 					role={selectedDays > 0 ? 'button' : undefined}
 					tabindex={selectedDays > 0 ? 0 : undefined}
 				>
 					<div class="vital-header">
 						<span class="vital-label" style={isExpanded ? `color: ${config.color}` : ''}>{config.label}</span>
 						{#if selectedDays > 0}
-							<span class="expand-hint">{isExpanded ? '\u25B2' : '\u25BC'}</span>
+							{#if type === 'sleep_duration'}
+								<span class="expand-hint" title="Open sleep analysis">&rarr;</span>
+							{:else}
+								<span class="expand-hint">{isExpanded ? '\u25B2' : '\u25BC'}</span>
+							{/if}
 						{/if}
 					</div>
 					<div class="vital-row">
