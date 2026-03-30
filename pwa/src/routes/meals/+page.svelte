@@ -102,8 +102,7 @@
 				});
 				todayCalories = await api.calories.today();
 			}
-			meal.status = newStatus;
-			plan = [...plan];
+			plan = await api.meals.plan();
 		} catch {
 			// Keep current state
 		}
@@ -235,8 +234,14 @@
 												{#if meal.calories_per_serving}
 													<span>{meal.calories_per_serving} kcal</span>
 												{/if}
+												{#if meal.servings}
+													<span>{meal.servings} servings</span>
+												{/if}
 												{#if meal.prep_time_min}
 													<span>{meal.prep_time_min} min prep</span>
+												{/if}
+												{#if meal.cook_time_min}
+													<span>{meal.cook_time_min} min cook</span>
 												{/if}
 											</div>
 											{#if meal.notes}
@@ -291,8 +296,14 @@
 							{#if recipe.calories_per_serving !== null}
 								<span>{recipe.calories_per_serving} kcal</span>
 							{/if}
+							{#if recipe.servings !== null}
+								<span>{recipe.servings} servings</span>
+							{/if}
 							{#if recipe.prep_time_min !== null}
-								<span>{recipe.prep_time_min} min</span>
+								<span>{recipe.prep_time_min} min prep</span>
+							{/if}
+							{#if recipe.cook_time_min !== null}
+								<span>{recipe.cook_time_min} min cook</span>
 							{/if}
 							{#if recipe.times_cooked > 0}
 								<span>Cooked {recipe.times_cooked}x</span>
@@ -337,6 +348,9 @@
 											{#if d.calories_per_serving !== null}
 												<span>{d.calories_per_serving} kcal</span>
 											{/if}
+											{#if d.servings !== null}
+												<span>{d.servings} servings</span>
+											{/if}
 											{#if d.protein_g !== null}
 												<span>P: {d.protein_g}g</span>
 											{/if}
@@ -345,6 +359,9 @@
 											{/if}
 											{#if d.fat_g !== null}
 												<span>F: {d.fat_g}g</span>
+											{/if}
+											{#if d.prep_time_min !== null}
+												<span>{d.prep_time_min} min prep</span>
 											{/if}
 											{#if d.cook_time_min !== null}
 												<span>{d.cook_time_min} min cook</span>
@@ -579,22 +596,6 @@
 		cursor: pointer;
 		text-transform: capitalize;
 		flex-shrink: 0;
-	}
-
-	.status-badge {
-		font-size: 0.68rem;
-		font-weight: 600;
-		padding: 4px 10px;
-		border-radius: 8px;
-		cursor: pointer;
-		flex-shrink: 0;
-		margin-left: 10px;
-		text-transform: capitalize;
-		transition: opacity 0.2s;
-	}
-
-	.status-badge:hover {
-		opacity: 0.8;
 	}
 
 	.search-input {

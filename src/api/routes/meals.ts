@@ -44,10 +44,10 @@ mealsRouter.post('/plan/:id/status', async (req: Request, res: Response) => {
   const { id } = req.params;
   const { status } = req.body as { status?: string };
 
-  if (!status || !['cooked', 'skipped', 'ate_out'].includes(status)) {
+  if (!status || !['planned', 'cooked', 'skipped', 'ate_out'].includes(status)) {
     res
       .status(400)
-      .json({ error: 'status must be one of: cooked, skipped, ate_out' });
+      .json({ error: 'status must be one of: planned, cooked, skipped, ate_out' });
     return;
   }
 
@@ -76,12 +76,12 @@ mealsRouter.get('/recipes', async (req: Request, res: Response) => {
 
   try {
     const sql = search
-      ? `SELECT id, name, calories_per_serving, rating, times_cooked, prep_time_min, tags
+      ? `SELECT id, name, calories_per_serving, rating, times_cooked, prep_time_min, cook_time_min, servings, tags
          FROM lifeos.recipes
          WHERE name ILIKE '%' || $1 || '%'
          ORDER BY rating DESC NULLS LAST, times_cooked DESC
          LIMIT ${String(limit)}`
-      : `SELECT id, name, calories_per_serving, rating, times_cooked, prep_time_min, tags
+      : `SELECT id, name, calories_per_serving, rating, times_cooked, prep_time_min, cook_time_min, servings, tags
          FROM lifeos.recipes
          ORDER BY rating DESC NULLS LAST, times_cooked DESC
          LIMIT ${String(limit)}`;

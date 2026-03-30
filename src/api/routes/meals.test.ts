@@ -111,6 +111,17 @@ describe('meals routes', () => {
       expect(res.body.success).toBe(true);
     });
 
+    it('accepts planned status', async () => {
+      mockQuery.mockResolvedValue([]);
+
+      const res = await request(createApp())
+        .post('/meals/plan/123/status')
+        .send({ status: 'planned' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+    });
+
     it('accepts ate_out status', async () => {
       mockQuery.mockResolvedValue([]);
 
