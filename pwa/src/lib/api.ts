@@ -265,10 +265,15 @@ export const api = {
   },
   preferences: {
     get: () => fetchSafe<PreferenceRow[]>('/preferences', []),
-    update: (prefs: Record<string, string>) =>
+    update: (prefs: Array<{ key: string; value: string; skill?: string }>) =>
       fetchApi<void>('/preferences', {
         method: 'PUT',
-        body: JSON.stringify(prefs),
+        body: JSON.stringify({ preferences: prefs }),
+      }),
+    toggleNotification: (taskId: string, enabled: boolean) =>
+      fetchApi<void>('/preferences/notifications/toggle', {
+        method: 'POST',
+        body: JSON.stringify({ task_id: taskId, enabled }),
       }),
   },
 };
