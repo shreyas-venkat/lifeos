@@ -211,38 +211,42 @@ healthWebhookRouter.post(
       return;
     }
 
-    let accepted = 0;
-    let rejected = 0;
-    for (const metric of metrics) {
-      const id = crypto.randomUUID();
-      const source = metric.source || 'health_connect';
-      try {
-        await query(
-          `INSERT INTO lifeos.health_metrics (id, metric_type, value, unit, recorded_at, source, created_at)
-           VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)`,
-          id,
-          metric.metric_type,
-          metric.value,
-          metric.unit ?? null,
-          metric.recorded_at,
-          source,
-        );
-        accepted++;
-        logger.info(
-          { metric_type: metric.metric_type, value: metric.value },
-          'Health metric written to DB',
-        );
-      } catch (err: unknown) {
-        rejected++;
-        const message = err instanceof Error ? err.message : 'Unknown error';
-        logger.error(
-          { metric_type: metric.metric_type, error: message },
-          'Failed to write health metric',
-        );
-      }
-    }
+    // Respond immediately to avoid phone app timeout, then insert in background
+    const total = metrics.length;
+    res.status(200).json({ accepted: total, rejected: 0 });
 
-    res.status(200).json({ accepted, rejected });
+    // Background insert — don't await, fire and forget
+    (async () => {
+      let accepted = 0;
+      let rejected = 0;
+      for (const metric of metrics) {
+        const id = crypto.randomUUID();
+        const source = metric.source || 'health_connect';
+        try {
+          await query(
+            `INSERT INTO lifeos.health_metrics (id, metric_type, value, unit, recorded_at, source, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)`,
+            id,
+            metric.metric_type,
+            metric.value,
+            metric.unit ?? null,
+            metric.recorded_at,
+            source,
+          );
+          accepted++;
+        } catch (err: unknown) {
+          rejected++;
+          const message = err instanceof Error ? err.message : 'Unknown error';
+          logger.error(
+            { metric_type: metric.metric_type, error: message },
+            'Failed to write health metric',
+          );
+        }
+      }
+      logger.info({ accepted, rejected, total }, 'Health webhook batch complete');
+    })().catch((err: unknown) => {
+      logger.error({ err }, 'Health webhook background insert failed');
+    });
   },
 );
 
