@@ -4,10 +4,6 @@ import crypto from 'crypto';
 
 export const caloriesRouter = Router();
 
-function sanitize(val: unknown): string {
-  return String(val).replace(/'/g, "''");
-}
-
 interface CalorieRow {
   calories?: number | null;
   protein_g?: number | null;
@@ -55,31 +51,45 @@ caloriesRouter.post('/log', async (req: Request, res: Response) => {
   }
 
   try {
-    const cal = calories !== undefined ? Number(calories) : 'NULL';
-    const pro = protein_g !== undefined ? Number(protein_g) : 'NULL';
-    const carb = carbs_g !== undefined ? Number(carbs_g) : 'NULL';
-    const fat = fat_g !== undefined ? Number(fat_g) : 'NULL';
+    const cal = calories !== undefined ? Number(calories) : null;
+    const pro = protein_g !== undefined ? Number(protein_g) : null;
+    const carb = carbs_g !== undefined ? Number(carbs_g) : null;
+    const fat = fat_g !== undefined ? Number(fat_g) : null;
 
     // Check for existing entry with same meal_type on the same day (upsert)
     const existing = await query(
       `SELECT id FROM lifeos.calorie_log
-       WHERE meal_type = '${sanitize(meal_type as string)}' AND log_date = CURRENT_DATE
+       WHERE meal_type = $1 AND log_date = CURRENT_DATE
        LIMIT 1`,
+      meal_type,
     );
 
     if (existing.length > 0) {
       const existingId = (existing[0] as Record<string, unknown>).id as string;
       await query(
         `UPDATE lifeos.calorie_log
-         SET description = '${sanitize(description)}', calories = ${cal}, protein_g = ${pro}, carbs_g = ${carb}, fat_g = ${fat}, source = 'manual'
-         WHERE id = '${sanitize(existingId)}'`,
+         SET description = $1, calories = $2, protein_g = $3, carbs_g = $4, fat_g = $5, source = 'manual'
+         WHERE id = $6`,
+        description,
+        cal,
+        pro,
+        carb,
+        fat,
+        existingId,
       );
       res.json({ success: true, id: existingId, updated: true });
     } else {
       const id = crypto.randomUUID();
       await query(
         `INSERT INTO lifeos.calorie_log (id, meal_type, description, calories, protein_g, carbs_g, fat_g, log_date, source)
-         VALUES ('${sanitize(id)}', '${sanitize(meal_type as string)}', '${sanitize(description as string)}', ${cal}, ${pro}, ${carb}, ${fat}, CURRENT_DATE, 'manual')`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_DATE, 'manual')`,
+        id,
+        meal_type,
+        description,
+        cal,
+        pro,
+        carb,
+        fat,
       );
       res.json({ success: true, id });
     }

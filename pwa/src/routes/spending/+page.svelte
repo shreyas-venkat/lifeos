@@ -411,7 +411,6 @@
 </div>
 
 <style>
-<<<<<<< HEAD
 	h1 {
 		font-size: 1.5rem;
 		font-weight: 600;
@@ -970,80 +969,4 @@
 		height: 22px;
 		color: white;
 	}
-=======
-	h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 1.25rem; }
-	.budget-card { display: flex; flex-direction: column; align-items: center; gap: 16px; margin-bottom: 1.5rem; }
-	.ring-container { position: relative; display: flex; align-items: center; justify-content: center; }
-	.ring-placeholder { display: flex; justify-content: center; margin-bottom: 1.5rem; }
-	.ring-label { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; }
-	.ring-count { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-	.ring-text { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.08em; }
-	.budget-details { width: 100%; display: flex; flex-direction: column; gap: 6px; }
-	.budget-row { display: flex; justify-content: space-between; padding: 0 4px; }
-	.budget-row.remaining { border-top: 1px solid var(--border); padding-top: 6px; margin-top: 2px; }
-	.budget-label { font-size: 0.85rem; color: var(--text-secondary); }
-	.budget-value { font-size: 0.85rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-	.total-card { display: flex; flex-direction: column; align-items: center; margin-bottom: 1.5rem; padding: 20px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; }
-	.total-label { font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
-	.total-amount { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-	.section-header { display: flex; align-items: center; gap: 10px; margin-top: 1.25rem; margin-bottom: 0.5rem; }
-	.section-label { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
-	.section-divider { flex: 1; height: 1px; background: var(--border); }
-	.category-list { display: flex; flex-direction: column; gap: 10px; }
-	.category-item { display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); border-radius: 12px; padding: 12px 14px; border: 1px solid var(--border); }
-	.category-left { display: flex; align-items: center; gap: 10px; }
-	.category-emoji { font-size: 1.3rem; }
-	.category-info { display: flex; flex-direction: column; gap: 1px; }
-	.category-name { font-size: 0.9rem; font-weight: 600; text-transform: capitalize; }
-	.category-count { font-size: 0.72rem; color: var(--text-secondary); }
-	.category-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; min-width: 100px; }
-	.category-amount { font-size: 0.9rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-	.category-bar-track { width: 100%; height: 4px; background: var(--bg-elevated); border-radius: 2px; overflow: hidden; }
-	.category-bar-fill { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
-	.chart-container { padding: 16px 0; }
-	.bar-chart { display: flex; align-items: flex-end; gap: 8px; height: 160px; }
-	.bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; }
-	.bar-value { font-size: 0.65rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; margin-bottom: 4px; white-space: nowrap; }
-	.bar-track { flex: 1; width: 100%; max-width: 36px; display: flex; flex-direction: column; justify-content: flex-end; background: var(--bg-elevated); border-radius: 6px 6px 0 0; overflow: hidden; }
-	.bar-fill { width: 100%; background: var(--accent); border-radius: 6px 6px 0 0; transition: height 0.6s ease; min-height: 2px; }
-	.bar-label { font-size: 0.7rem; color: var(--text-secondary); margin-top: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
-	.tx-list { display: flex; flex-direction: column; gap: 6px; }
-	.tx-item { display: flex; position: relative; overflow: hidden; border-radius: 12px; }
-	.tx-main { flex: 1; display: flex; align-items: center; gap: 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; cursor: pointer; text-align: left; color: inherit; font-family: inherit; transition: transform 0.2s ease; }
-	.tx-item.swiped .tx-main { transform: translateX(-56px); }
-	.tx-emoji { font-size: 1.1rem; flex-shrink: 0; }
-	.tx-info { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-	.tx-merchant { font-size: 0.9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-	.tx-meta { display: flex; align-items: center; gap: 8px; }
-	.tx-category-tag { font-size: 0.68rem; font-weight: 600; padding: 1px 6px; border-radius: 4px; text-transform: capitalize; }
-	.tx-date { font-size: 0.72rem; color: var(--text-secondary); }
-	.tx-amount { font-size: 0.9rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--danger, #ef4444); flex-shrink: 0; }
-	.tx-delete { position: absolute; right: 0; top: 0; bottom: 0; width: 56px; background: var(--danger, #ef4444); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 0 12px 12px 0; }
-	.tx-delete svg { width: 18px; height: 18px; color: white; }
-	.empty-state { text-align: center; padding: 3rem 1rem; color: var(--text-secondary); }
-	.empty-icon { font-size: 3rem; margin-bottom: 0.75rem; }
-	.empty-hint { font-size: 0.85rem; margin-top: 0.5rem; opacity: 0.7; max-width: 280px; margin-left: auto; margin-right: auto; }
-	.skeleton-item { display: flex; align-items: center; background: var(--bg-card); border-radius: 12px; padding: 14px; border: 1px solid var(--border); margin-bottom: 8px; }
-	.form-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); display: flex; align-items: flex-end; justify-content: center; z-index: 100; padding: 0 0 env(safe-area-inset-bottom, 0); }
-	.form-card { background: var(--bg-card); border-radius: 16px 16px 0 0; padding: 20px 20px 80px; width: 100%; max-width: 500px; max-height: 80vh; overflow-y: auto; border: 1px solid var(--border); border-bottom: none; }
-	.form-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-	.form-header h3 { font-size: 1.1rem; font-weight: 600; }
-	.form-close { width: 32px; height: 32px; border-radius: 50%; background: var(--bg-elevated); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-secondary); }
-	.form-close svg { width: 16px; height: 16px; }
-	.form-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
-	.form-field span { font-size: 0.75rem; color: var(--text-secondary); font-weight: 500; }
-	.form-field input, .form-field select { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; color: var(--text-primary); font-size: 0.9rem; }
-	.form-field input:focus, .form-field select:focus { outline: none; border-color: var(--accent); }
-	.amount-input-wrap { display: flex; align-items: center; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-	.amount-input-wrap:focus-within { border-color: var(--accent); }
-	.amount-prefix { padding: 8px 0 8px 12px; color: var(--text-secondary); font-size: 0.9rem; font-weight: 600; }
-	.amount-input-wrap input { border: none; background: transparent; padding-left: 4px; }
-	.amount-input-wrap input:focus { outline: none; border-color: transparent; }
-	.form-submit { width: 100%; background: var(--accent); color: white; border: none; border-radius: 10px; padding: 12px; font-size: 0.9rem; font-weight: 600; cursor: pointer; margin-top: 4px; transition: opacity 0.2s; }
-	.form-submit:disabled { opacity: 0.6; cursor: not-allowed; }
-	.form-submit:hover:not(:disabled) { opacity: 0.9; }
-	.fab { position: fixed; bottom: 72px; right: 20px; width: 52px; height: 52px; background: var(--accent); border-radius: 16px; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3); transition: transform 0.2s; z-index: 50; }
-	.fab:hover { transform: scale(1.05); }
-	.fab svg { width: 22px; height: 22px; color: white; }
->>>>>>> origin/feat/spending-analytics
 </style>

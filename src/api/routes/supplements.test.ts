@@ -41,6 +41,12 @@ describe('supplements routes', () => {
       expect(res.body.id).toBeDefined();
       expect(mockQuery).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO lifeos.supplements'),
+        expect.any(String),
+        'Vitamin D',
+        5000,
+        'IU',
+        'morning',
+        null,
       );
     });
 
@@ -93,6 +99,7 @@ describe('supplements routes', () => {
       expect(res.body.success).toBe(true);
       expect(mockQuery).toHaveBeenCalledWith(
         expect.stringContaining('DELETE FROM lifeos.supplements'),
+        'abc-123',
       );
     });
 
@@ -117,6 +124,9 @@ describe('supplements routes', () => {
       expect(res.body.success).toBe(true);
       expect(mockQuery).toHaveBeenCalledWith(
         expect.stringContaining('UPDATE lifeos.supplements'),
+        10000,
+        'evening',
+        'abc-123',
       );
     });
 
@@ -130,7 +140,9 @@ describe('supplements routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(mockQuery).toHaveBeenCalledWith(
-        expect.stringContaining('active = false'),
+        expect.stringContaining('UPDATE lifeos.supplements'),
+        false,
+        'abc-123',
       );
     });
 

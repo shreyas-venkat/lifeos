@@ -4,10 +4,6 @@ import crypto from 'crypto';
 
 export const pantryRouter = Router();
 
-function sanitize(val: unknown): string {
-  return String(val).replace(/'/g, "''");
-}
-
 pantryRouter.get('/', async (_req: Request, res: Response) => {
   try {
     const rows = await query(
@@ -35,10 +31,15 @@ pantryRouter.post('/', async (req: Request, res: Response) => {
 
   try {
     const id = crypto.randomUUID();
-    const expiryClause = expiry_date ? `'${sanitize(expiry_date)}'` : 'NULL';
     await query(
       `INSERT INTO lifeos.pantry (id, item, quantity, unit, category, expiry_date)
-       VALUES ('${sanitize(id)}', '${sanitize(item)}', ${Number(quantity) || 0}, '${sanitize(unit || '')}', '${sanitize(category || '')}', ${expiryClause})`,
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      id,
+      String(item),
+      Number(quantity) || 0,
+      String(unit || ''),
+      String(category || ''),
+      expiry_date ? String(expiry_date) : null,
     );
     res.json({ success: true, id });
   } catch (err: unknown) {
@@ -51,7 +52,7 @@ pantryRouter.delete('/:id', async (req: Request, res: Response) => {
   const { id } = req.params;
 
   try {
-    await query(`DELETE FROM lifeos.pantry WHERE id = '${sanitize(id)}'`);
+    await query(`DELETE FROM lifeos.pantry WHERE id = $1`, id);
     res.json({ success: true });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
@@ -61,31 +62,48 @@ pantryRouter.delete('/:id', async (req: Request, res: Response) => {
 
 pantryRouter.put('/:id', async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { quantity, unit, category, expiry_date } = req.body as Record<
+  const { item, quantity, unit, category, expiry_date } = req.body as Record<
     string,
     unknown
   >;
 
-  const setClauses: string[] = [];
-  if (quantity !== undefined) setClauses.push(`quantity = ${Number(quantity)}`);
-  if (unit !== undefined) setClauses.push(`unit = '${sanitize(unit)}'`);
-  if (category !== undefined)
-    setClauses.push(`category = '${sanitize(category)}'`);
-  if (expiry_date !== undefined)
-    setClauses.push(
-      expiry_date === null
-        ? 'expiry_date = NULL'
-        : `expiry_date = '${sanitize(expiry_date)}'`,
-    );
+  // Build SET clause with positional params
+  const sets: string[] = [];
+  const params: unknown[] = [];
+  let idx = 1;
 
-  if (setClauses.length === 0) {
+  if (item !== undefined) {
+    sets.push(`item = $${idx++}`);
+    params.push(String(item));
+  }
+  if (quantity !== undefined) {
+    sets.push(`quantity = $${idx++}`);
+    params.push(Number(quantity));
+  }
+  if (unit !== undefined) {
+    sets.push(`unit = $${idx++}`);
+    params.push(String(unit));
+  }
+  if (category !== undefined) {
+    sets.push(`category = $${idx++}`);
+    params.push(String(category));
+  }
+  if (expiry_date !== undefined) {
+    sets.push(`expiry_date = $${idx++}`);
+    params.push(expiry_date === null ? null : String(expiry_date));
+  }
+
+  if (sets.length === 0) {
     res.status(400).json({ error: 'No fields to update' });
     return;
   }
 
+  params.push(id);
+
   try {
     await query(
-      `UPDATE lifeos.pantry SET ${setClauses.join(', ')} WHERE id = '${sanitize(id)}'`,
+      `UPDATE lifeos.pantry SET ${sets.join(', ')} WHERE id = $${idx}`,
+      ...params,
     );
     res.json({ success: true });
   } catch (err: unknown) {
