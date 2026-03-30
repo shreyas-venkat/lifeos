@@ -21,7 +21,7 @@ mealsRouter.get('/plan', async (req: Request, res: Response) => {
 
     const rows = await query(
       `SELECT mp.id, mp.week_start, mp.day_of_week, mp.meal_type, mp.status,
-              mp.notes, mp.servings,
+              mp.notes, mp.servings, mp.recipe_id,
               r.name AS recipe_name, r.calories_per_serving,
               r.prep_time_min, r.cook_time_min
        FROM lifeos.meal_plans mp
@@ -44,10 +44,15 @@ mealsRouter.post('/plan/:id/status', async (req: Request, res: Response) => {
   const { id } = req.params;
   const { status } = req.body as { status?: string };
 
-  if (!status || !['planned', 'cooked', 'skipped', 'ate_out'].includes(status)) {
+  if (
+    !status ||
+    !['planned', 'cooked', 'skipped', 'ate_out'].includes(status)
+  ) {
     res
       .status(400)
-      .json({ error: 'status must be one of: planned, cooked, skipped, ate_out' });
+      .json({
+        error: 'status must be one of: planned, cooked, skipped, ate_out',
+      });
     return;
   }
 

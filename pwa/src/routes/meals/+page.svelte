@@ -22,10 +22,15 @@
 	});
 	let calSubmitting = $state(false);
 
-	// Recipe detail expansion
+	// Recipe detail expansion (recipe browser)
 	let expandedRecipeId = $state<string | null>(null);
 	let recipeDetails = $state<Record<string, RecipeDetail | null>>({});
 	let recipeLoading = $state<Record<string, boolean>>({});
+
+	// Meal card expansion (meal plan section)
+	let expandedMealId = $state<string | null>(null);
+	let mealRecipeDetails = $state<Record<string, RecipeDetail | null>>({});
+	let mealRecipeLoading = $state<Record<string, boolean>>({});
 
 	const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 	const statusOrder = ['planned', 'cooked', 'skipped', 'ate_out'];
@@ -147,6 +152,25 @@
 		}
 	}
 
+	async function toggleMealDetail(meal: MealPlanRecord) {
+		if (!meal.recipe_id) return;
+		const rid = meal.recipe_id;
+		if (expandedMealId === meal.id) {
+			expandedMealId = null;
+			return;
+		}
+		expandedMealId = meal.id;
+		if (!mealRecipeDetails[rid] && !mealRecipeLoading[rid]) {
+			mealRecipeLoading[rid] = true;
+			mealRecipeLoading = { ...mealRecipeLoading };
+			const detail = await api.meals.recipeDetail(rid);
+			mealRecipeDetails[rid] = detail;
+			mealRecipeDetails = { ...mealRecipeDetails };
+			mealRecipeLoading[rid] = false;
+			mealRecipeLoading = { ...mealRecipeLoading };
+		}
+	}
+
 	function renderStars(rating: number | null): string {
 		if (rating === null) return '';
 		const full = Math.round(rating);
@@ -227,7 +251,12 @@
 									<span class="day-date">{getDayDate(dayIdx + 1)}</span>
 								</div>
 								{#each dayMeals as meal}
-									<div class="meal-row">
+									<button
+										class="meal-row"
+										class:meal-row-expandable={!!meal.recipe_id}
+										class:meal-row-expanded={expandedMealId === meal.id}
+										onclick={() => toggleMealDetail(meal)}
+									>
 										<div class="meal-info">
 											<span class="meal-name">{meal.recipe_name ?? meal.meal_type}</span>
 											<div class="meal-meta">
@@ -252,13 +281,68 @@
 											class="status-select"
 											style="color: {statusColors[meal.status] ?? '#8888a0'}; border-color: {statusColors[meal.status] ?? '#8888a0'}40"
 											value={meal.status}
-											onchange={(e) => setStatus(meal, (e.target as HTMLSelectElement).value)}
+											onchange={(e) => { e.stopPropagation(); setStatus(meal, (e.target as HTMLSelectElement).value); }}
 										>
 											{#each statusOrder as opt}
 												<option value={opt}>{statusLabels[opt] ?? opt}</option>
 											{/each}
 										</select>
-									</div>
+									</button>
+									{#if expandedMealId === meal.id && meal.recipe_id}
+										<div class="recipe-detail meal-detail fade-in">
+											{#if mealRecipeLoading[meal.recipe_id]}
+												<div class="skeleton" style="height: 80px;"></div>
+											{:else if mealRecipeDetails[meal.recipe_id]}
+												{@const d = mealRecipeDetails[meal.recipe_id]}
+												{#if d}
+													{#if d.ingredients}
+														{@const parsed = typeof d.ingredients === 'string' ? (() => { try { return JSON.parse(d.ingredients); } catch { return [d.ingredients]; } })() : Array.isArray(d.ingredients) ? d.ingredients : []}
+														{#if parsed.length > 0}
+															<div class="detail-section">
+																<h4>Ingredients</h4>
+																<ul class="ingredient-list">
+																	{#each parsed as ing}
+																		<li>{typeof ing === 'object' ? `${ing.name || ing.item || ''}${ing.qty ? ' — ' + ing.qty : ''}${ing.quantity ? ' — ' + ing.quantity + (ing.unit ? ' ' + ing.unit : '') : ''}` : ing}</li>
+																	{/each}
+																</ul>
+															</div>
+														{/if}
+													{/if}
+													{#if d.instructions}
+														<div class="detail-section">
+															<h4>Instructions</h4>
+															<p class="instructions-text">{d.instructions}</p>
+														</div>
+													{/if}
+													<div class="detail-macros">
+														{#if d.calories_per_serving !== null}
+															<span>{d.calories_per_serving} kcal</span>
+														{/if}
+														{#if d.servings !== null}
+															<span>{d.servings} servings</span>
+														{/if}
+														{#if d.protein_g !== null}
+															<span>P: {d.protein_g}g</span>
+														{/if}
+														{#if d.carbs_g !== null}
+															<span>C: {d.carbs_g}g</span>
+														{/if}
+														{#if d.fat_g !== null}
+															<span>F: {d.fat_g}g</span>
+														{/if}
+														{#if d.prep_time_min !== null}
+															<span>{d.prep_time_min} min prep</span>
+														{/if}
+														{#if d.cook_time_min !== null}
+															<span>{d.cook_time_min} min cook</span>
+														{/if}
+													</div>
+												{/if}
+											{:else}
+												<p class="detail-error">Recipe details not available</p>
+											{/if}
+										</div>
+									{/if}
 								{/each}
 							</div>
 						{/if}
@@ -555,9 +639,40 @@
 		align-items: center;
 		padding: 10px 14px;
 		border-bottom: 1px solid var(--border);
+		width: 100%;
+		background: none;
+		border-left: none;
+		border-right: none;
+		border-top: none;
+		color: var(--text-primary);
+		text-align: left;
+		font-family: inherit;
+		font-size: inherit;
+		cursor: default;
 	}
 
-	.meal-row:last-child {
+	.meal-row-expandable {
+		cursor: pointer;
+	}
+
+	.meal-row-expandable:hover {
+		background: var(--bg-elevated);
+	}
+
+	.meal-row-expanded {
+		background: var(--bg-elevated);
+	}
+
+	.meal-row:last-of-type {
+		border-bottom: none;
+	}
+
+	.meal-detail {
+		padding: 10px 14px;
+		border-bottom: 1px solid var(--border);
+	}
+
+	.meal-detail:last-child {
 		border-bottom: none;
 	}
 

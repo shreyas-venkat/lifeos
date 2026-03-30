@@ -60,6 +60,7 @@ export interface MealPlanRecord {
   status: string;
   notes: string | null;
   servings: number;
+  recipe_id: string | null;
   recipe_name: string | null;
   calories_per_serving: number | null;
   prep_time_min: number | null;
