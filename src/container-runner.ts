@@ -209,6 +209,16 @@ function buildVolumeMounts(
     });
   }
 
+  // Obsidian vault (read-write for daily summaries and insights)
+  const vaultDir = path.join(os.homedir(), 'MyVault');
+  if (fs.existsSync(vaultDir)) {
+    mounts.push({
+      hostPath: vaultDir,
+      containerPath: '/workspace/extra/vault',
+      readonly: false,
+    });
+  }
+
   // Copy agent-runner source into a per-group writable location so agents
   // can customize it (add tools, change behavior) without affecting other
   // groups. Recompiled on container startup via entrypoint.sh.
