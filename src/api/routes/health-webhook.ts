@@ -53,16 +53,29 @@ export function transformHealthConnectPayload(
     }
   }
 
-  // Sleep: {duration_hours, start_time, end_time} or {duration, ...}
+  // Sleep: various formats from Health Connect
   if (Array.isArray(body.sleep)) {
     for (const entry of body.sleep) {
       const e = entry as Record<string, unknown>;
-      const duration = Number(e.duration_hours ?? e.duration ?? 0);
+      logger.info({ sleepEntry: e }, 'Sleep data received');
+      // Try multiple field name conventions
+      const duration = Number(
+        e.duration_hours ?? e.duration ?? e.totalSleepDuration ?? e.value ?? 0,
+      );
+      const timestamp = String(
+        e.end_time ??
+          e.endTime ??
+          e.start_time ??
+          e.startTime ??
+          e.time ??
+          e.date ??
+          new Date().toISOString(),
+      );
       metrics.push({
         metric_type: 'sleep_duration',
         value: duration,
         unit: 'hours',
-        recorded_at: String(e.end_time ?? e.start_time ?? ''),
+        recorded_at: timestamp,
         source: 'health_connect',
       });
     }
@@ -224,45 +237,51 @@ healthWebhookRouter.post('/', async (req: Request, res: Response) => {
       return;
     }
 
-  // Respond immediately to avoid phone app timeout, then insert in background
-  const total = metrics.length;
-  res.status(200).json({ accepted: total, rejected: 0 });
+    // Respond immediately to avoid phone app timeout, then insert in background
+    const total = metrics.length;
+    res.status(200).json({ accepted: total, rejected: 0 });
 
-  // Background insert — don't await, fire and forget
-  (async () => {
-    let accepted = 0;
-    let rejected = 0;
-    for (const metric of metrics) {
-      const id = crypto.randomUUID();
-      const source = metric.source || 'health_connect';
-      try {
-        await query(
-          `INSERT INTO lifeos.health_metrics (id, metric_type, value, unit, recorded_at, source, created_at)
+    // Background insert — don't await, fire and forget
+    (async () => {
+      let accepted = 0;
+      let rejected = 0;
+      for (const metric of metrics) {
+        const id = crypto.randomUUID();
+        const source = metric.source || 'health_connect';
+        try {
+          await query(
+            `INSERT INTO lifeos.health_metrics (id, metric_type, value, unit, recorded_at, source, created_at)
              VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)`,
-          id,
-          metric.metric_type,
-          metric.value,
-          metric.unit ?? null,
-          metric.recorded_at,
-          source,
-        );
-        accepted++;
-      } catch (err: unknown) {
-        rejected++;
-        const message = err instanceof Error ? err.message : 'Unknown error';
-        logger.error(
-          { metric_type: metric.metric_type, error: message },
-          'Failed to write health metric',
-        );
+            id,
+            metric.metric_type,
+            metric.value,
+            metric.unit ?? null,
+            metric.recorded_at,
+            source,
+          );
+          accepted++;
+        } catch (err: unknown) {
+          rejected++;
+          const message = err instanceof Error ? err.message : 'Unknown error';
+          logger.error(
+            { metric_type: metric.metric_type, error: message },
+            'Failed to write health metric',
+          );
+        }
       }
-    }
-    logger.info({ accepted, rejected, total }, 'Health webhook batch complete');
-  })().catch((err: unknown) => {
-    logger.error({ err }, 'Health webhook background insert failed');
-  });
+      logger.info(
+        { accepted, rejected, total },
+        'Health webhook batch complete',
+      );
+    })().catch((err: unknown) => {
+      logger.error({ err }, 'Health webhook background insert failed');
+    });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
-    logger.error({ err: message, body: req.body }, 'Health webhook handler error');
+    logger.error(
+      { err: message, body: req.body },
+      'Health webhook handler error',
+    );
     if (!res.headersSent) {
       res.status(500).json({ error: message });
     }
