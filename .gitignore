@@ -74,3 +74,4 @@ __pycache__/
 .claude/settings.local.json
 
 agents-sdk-docs
+.claude/worktrees/
