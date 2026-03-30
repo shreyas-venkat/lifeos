@@ -161,6 +161,14 @@ How to make:
   - Low activity / low steps → skip Taurine (not needed)
 - NEVER exceed 2x the default dosage for any supplement
 - Log adjusted dosages in `lifeos.supplement_log` with `recommended_dosage` and `reason`
+- **IMPORTANT**: The evening supplement task MUST write tomorrow's morning recommendations to `lifeos.supplement_log` using `mcp__motherduck__query`. For EACH active supplement, INSERT a row:
+  ```sql
+  INSERT INTO lifeos.supplement_log (id, supplement_id, recommended_dosage, reason, taken, log_date, time_of_day)
+  VALUES (gen_random_uuid(), '<supplement_id>', <adjusted_dosage>, '<reason>', false, CURRENT_DATE + INTERVAL '1' DAY, '<time_of_day>')
+  ```
+  The morning task does the same for that evening's supplements.
+- This ensures the PWA supplements page shows today's adjusted recommendations with mark-as-taken buttons
+- Without these log entries, the PWA just shows the default doses with no personalization
 
 ### Display format
 - Always show supplements as TABLETS, not raw mg
