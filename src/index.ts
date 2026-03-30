@@ -1,7 +1,9 @@
+import { randomUUID } from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
 import { OneCLI } from '@onecli-sh/sdk';
+import { query as mdQuery } from './api/db.js';
 
 import {
   ASSISTANT_NAME,
@@ -295,6 +297,7 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
 
   let hadError = false;
   let outputSentToUser = false;
+  let lastUsageOutput: ContainerOutput | null = null;
 
   const output = await runAgent(group, prompt, chatJid, async (result) => {
     // Streaming output callback — called for each agent result
@@ -314,6 +317,10 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
       resetIdleTimer();
     }
 
+    if (result.costUsd !== undefined) {
+      lastUsageOutput = result;
+    }
+
     if (result.status === 'success') {
       queue.notifyIdle(chatJid);
     }
@@ -325,6 +332,27 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
 
   await channel.setTyping?.(chatJid, false);
   if (idleTimer) clearTimeout(idleTimer);
+
+  // Log usage to MotherDuck (best-effort, don't crash on failure)
+  if (lastUsageOutput?.costUsd !== undefined) {
+    try {
+      await mdQuery(
+        `INSERT INTO lifeos.api_usage (id, task_id, chat_jid, model, input_tokens, output_tokens, cost_usd, duration_ms, num_turns, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)`,
+        randomUUID(),
+        null,
+        chatJid,
+        lastUsageOutput.model || null,
+        lastUsageOutput.inputTokens || 0,
+        lastUsageOutput.outputTokens || 0,
+        lastUsageOutput.costUsd,
+        lastUsageOutput.durationMs || 0,
+        lastUsageOutput.numTurns || 0,
+      );
+    } catch (err) {
+      logger.warn({ chatJid, err }, 'Failed to log usage to MotherDuck');
+    }
+  }
 
   if (output === 'error' || hadError) {
     // If we already sent output to the user, don't roll back the cursor —

@@ -46,7 +46,9 @@ export function validateConfig(config: unknown): TaskConfig {
   const obj = config as Record<string, unknown>;
   for (const key of REQUIRED_CHANNEL_KEYS) {
     if (typeof obj[key] !== 'string' || (obj[key] as string).trim() === '') {
-      throw new Error(`TaskConfig.${key} is required and must be a non-empty string`);
+      throw new Error(
+        `TaskConfig.${key} is required and must be a non-empty string`,
+      );
     }
   }
   return obj as unknown as TaskConfig;
@@ -65,6 +67,7 @@ export interface TaskDefinition {
   context_mode: 'group' | 'isolated';
   prompt: string;
   script?: string;
+  model?: string;
 }
 
 export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
@@ -82,6 +85,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       group_folder: 'main',
       chat_jid: config.emailDigestJid,
       context_mode: 'group',
+      model: 'haiku',
       prompt:
         'Check Gmail inbox for new unread emails. For each: categorize it (actionable, transactions, bank, life, github, spam_promotions, newsletters). Trash spam/promotions. For actionable or bank emails, use the send_message MCP tool to alert the user via Discord immediately. Log all processed emails to MotherDuck lifeos.emails table.',
     },
@@ -94,6 +98,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       group_folder: 'main',
       chat_jid: config.emailDigestJid,
       context_mode: 'group',
+      model: 'haiku',
       prompt:
         'Generate daily email digest. Query lifeos.emails for all emails processed today. Summarize by category with counts. Use the send_message MCP tool to post the digest.',
     },
@@ -106,8 +111,9 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       group_folder: 'main',
       chat_jid: config.mainChannelJid,
       context_mode: 'group',
+      model: 'sonnet',
       prompt:
-        'Good morning briefing. Check: 1) Today\'s Google Calendar events using the google_calendar MCP tools, 2) Any important emails since last evening via Gmail MCP, 3) Reminders due today from lifeos.reminders. Format as a concise morning briefing and use the send_message MCP tool to send it.',
+        "Good morning briefing. Check: 1) Today's Google Calendar events using the google_calendar MCP tools, 2) Any important emails since last evening via Gmail MCP, 3) Reminders due today from lifeos.reminders. Format as a concise morning briefing and use the send_message MCP tool to send it.",
     },
 
     // 4. Reminder checker (every 5 min, with pre-check script) → #reminders
@@ -118,6 +124,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       group_folder: 'main',
       chat_jid: config.remindersChannelJid,
       context_mode: 'group',
+      model: 'haiku',
       prompt:
         "Check lifeos.reminders for reminders where due_at <= now() and status = 'active'. For each due reminder: use the send_message MCP tool to send the reminder text to the user via Discord. For recurring reminders, calculate next due_at from recurring_cron and update. For one-time reminders, set status to 'completed'.",
       script: path.join(scriptsDir, 'reminder-check.sh'),
@@ -131,6 +138,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       group_folder: 'main',
       chat_jid: config.mealsChannelJid,
       context_mode: 'group',
+      model: 'sonnet',
       prompt:
         'Generate weekly meal plan. Read dietary preferences from lifeos.dietary_preferences and current pantry from lifeos.pantry. Plan 7 dinners (2 portions each). Office days (Tue/Thu/Fri) need packable lunches. Use the send_message MCP tool to post the plan and ask for approval.',
     },
@@ -143,6 +151,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       group_folder: 'main',
       chat_jid: config.mealsChannelJid,
       context_mode: 'group',
+      model: 'sonnet',
       prompt:
         "Check today's meal plan from lifeos.meal_plans. Use the send_message MCP tool to ask user: 'How was [recipe]? Rate 1-5.' If user cooked, log calories from recipe data to lifeos.calorie_log and deduct ingredients from lifeos.pantry.",
     },
@@ -155,6 +164,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       group_folder: 'main',
       chat_jid: config.mealsChannelJid,
       context_mode: 'group',
+      model: 'haiku',
       prompt:
         'Check lifeos.pantry for items with expiry_date within 3 days. If any found, use the send_message MCP tool to warn the user about expiring items.',
       script: path.join(scriptsDir, 'pantry-expiry-check.sh'),
@@ -168,6 +178,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       group_folder: 'main',
       chat_jid: config.healthChannelJid,
       context_mode: 'group',
+      model: 'haiku',
       prompt:
         'Generate daily calorie summary. Query lifeos.calorie_log for today. Use the send_message MCP tool to post total calories, protein, carbs, fat.',
     },
@@ -180,6 +191,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       group_folder: 'main',
       chat_jid: config.healthChannelJid,
       context_mode: 'group',
+      model: 'sonnet',
       prompt:
         "Generate morning supplement recommendations for tomorrow. Query today's health data from lifeos.health_metrics. Adjust dosages within safe ranges (check lifeos.supplements.max_safe_dosage). Use the send_message MCP tool to send recommendations with reasoning. Log to lifeos.supplement_log.",
     },
@@ -192,6 +204,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       group_folder: 'main',
       chat_jid: config.healthChannelJid,
       context_mode: 'group',
+      model: 'haiku',
       prompt:
         "Generate evening supplement recommendations. Query today's health data from lifeos.health_metrics. Use the send_message MCP tool to send recommendations. Log to lifeos.supplement_log.",
     },
@@ -204,6 +217,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       group_folder: 'main',
       chat_jid: config.healthChannelJid,
       context_mode: 'group',
+      model: 'haiku',
       prompt:
         'Query lifeos.health_metrics for steps over last 3 days. If average below 5000, use the send_message MCP tool to send a friendly fitness nudge. Log to lifeos.fitness_nudges.',
       script: path.join(scriptsDir, 'steps-check.sh'),
@@ -217,6 +231,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       group_folder: 'main',
       chat_jid: config.healthChannelJid,
       context_mode: 'group',
+      model: 'haiku',
       prompt:
         'Query weight from lifeos.health_metrics for last 2 weeks. Calculate trend. If trending up, use the send_message MCP tool to send a gentle nudge about activity.',
     },
@@ -229,6 +244,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       group_folder: 'main',
       chat_jid: config.healthChannelJid,
       context_mode: 'group',
+      model: 'sonnet',
       prompt:
         'Generate daily health summary. Query lifeos.health_metrics for today: sleep, steps, calories, HR, HRV, SpO2, weight. Include calories from lifeos.calorie_log and supplements from lifeos.supplement_log. Use the send_message MCP tool to post the summary.',
     },
@@ -241,6 +257,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       group_folder: 'main',
       chat_jid: config.activityLogJid,
       context_mode: 'group',
+      model: 'haiku',
       prompt:
         'Generate daily summary for Obsidian vault. Write to LifeOS/daily-summaries/YYYY-MM-DD.md covering health, meals, activity, and bot actions for yesterday. Update LifeOS/learned-preferences.md if new preferences learned. Commit and push to MyVault repo.',
     },
@@ -253,6 +270,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       group_folder: 'main',
       chat_jid: config.remindersChannelJid,
       context_mode: 'group',
+      model: 'haiku',
       prompt:
         'Check lifeos.bills for bills due within 3 days. For each, use the send_message MCP tool to alert the user.',
       script: path.join(scriptsDir, 'bill-check.sh'),
@@ -266,6 +284,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       group_folder: 'main',
       chat_jid: config.remindersChannelJid,
       context_mode: 'group',
+      model: 'haiku',
       prompt:
         'Generate monthly spending summary from lifeos.bills for last month. Categorize by merchant/type. Use the send_message MCP tool to post the summary.',
     },
@@ -311,6 +330,7 @@ export interface IpcTaskFile {
   targetJid: string;
   groupFolder: string;
   script?: string;
+  model?: string;
 }
 
 export function buildIpcPayload(task: TaskDefinition): IpcTaskFile {
@@ -326,6 +346,9 @@ export function buildIpcPayload(task: TaskDefinition): IpcTaskFile {
   };
   if (task.script) {
     payload.script = task.script;
+  }
+  if (task.model) {
+    payload.model = task.model;
   }
   return payload;
 }
@@ -386,8 +409,13 @@ if (isDirectRun) {
 
   // Validate all cron expressions before writing
   for (const task of tasks) {
-    if (task.schedule_type === 'cron' && !validateCronExpression(task.schedule_value)) {
-      console.error(`Invalid cron expression for task ${task.id}: ${task.schedule_value}`);
+    if (
+      task.schedule_type === 'cron' &&
+      !validateCronExpression(task.schedule_value)
+    ) {
+      console.error(
+        `Invalid cron expression for task ${task.id}: ${task.schedule_value}`,
+      );
       process.exit(1);
     }
   }
