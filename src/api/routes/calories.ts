@@ -55,16 +55,34 @@ caloriesRouter.post('/log', async (req: Request, res: Response) => {
   }
 
   try {
-    const id = crypto.randomUUID();
     const cal = calories !== undefined ? Number(calories) : 'NULL';
     const pro = protein_g !== undefined ? Number(protein_g) : 'NULL';
     const carb = carbs_g !== undefined ? Number(carbs_g) : 'NULL';
     const fat = fat_g !== undefined ? Number(fat_g) : 'NULL';
-    await query(
-      `INSERT INTO lifeos.calorie_log (id, meal_type, description, calories, protein_g, carbs_g, fat_g, log_date, source)
-       VALUES ('${sanitize(id)}', '${sanitize(meal_type)}', '${sanitize(description)}', ${cal}, ${pro}, ${carb}, ${fat}, CURRENT_DATE, 'manual')`,
+
+    // Check for existing entry with same meal_type on the same day (upsert)
+    const existing = await query(
+      `SELECT id FROM lifeos.calorie_log
+       WHERE meal_type = '${sanitize(meal_type as string)}' AND log_date = CURRENT_DATE
+       LIMIT 1`,
     );
-    res.json({ success: true, id });
+
+    if (existing.length > 0) {
+      const existingId = (existing[0] as Record<string, unknown>).id as string;
+      await query(
+        `UPDATE lifeos.calorie_log
+         SET description = '${sanitize(description)}', calories = ${cal}, protein_g = ${pro}, carbs_g = ${carb}, fat_g = ${fat}, source = 'manual'
+         WHERE id = '${sanitize(existingId)}'`,
+      );
+      res.json({ success: true, id: existingId, updated: true });
+    } else {
+      const id = crypto.randomUUID();
+      await query(
+        `INSERT INTO lifeos.calorie_log (id, meal_type, description, calories, protein_g, carbs_g, fat_g, log_date, source)
+         VALUES ('${sanitize(id)}', '${sanitize(meal_type as string)}', '${sanitize(description as string)}', ${cal}, ${pro}, ${carb}, ${fat}, CURRENT_DATE, 'manual')`,
+      );
+      res.json({ success: true, id });
+    }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     res.status(500).json({ error: message });
