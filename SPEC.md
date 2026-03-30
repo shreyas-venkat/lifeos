@@ -1066,7 +1066,19 @@ The app MUST be installable on Android as a standalone app (no browser chrome).
 - **Recipe browser**: Searchable list below meal plan
   - Search input with debounce
   - Recipe cards: name, rating stars, calories, cook time
-  - Data from `meals/recipes?search=...`
+  - Click a recipe card → expands or navigates to detail view showing:
+    - Full ingredients list (from `ingredients` JSON column)
+    - Step-by-step instructions
+    - Prep time + cook time
+    - Servings
+    - Full macros (calories, protein, carbs, fat per serving)
+    - Rating with ability to rate (1-5 stars)
+    - Times cooked counter
+    - Tags
+    - Source URL (if available, as a link)
+  - Data from `meals/recipes?search=...` for list, `GET /api/meals/recipes/:id` for detail
+  - **New API endpoint needed**: `GET /api/meals/recipes/:id` — returns full recipe with all columns from `lifeos.recipes`
+- **Recipes are append-only**: Never delete recipes. When generating meal plans, check if a recipe with the same name already exists before inserting. Recipes accumulate over time and build a personal cookbook.
 
 #### `/app/pantry` — Pantry Inventory
 
