@@ -55,11 +55,9 @@ photoEstimateRouter.post('/photo-log', async (req: Request, res: Response) => {
     // Estimate decoded size: base64 is ~4/3 the size of the binary
     imageSize = Math.ceil((image.length * 3) / 4);
     if (imageSize > MAX_IMAGE_SIZE_BYTES) {
-      res
-        .status(413)
-        .json({
-          error: `Image exceeds maximum size of 5MB (got ${Math.round(imageSize / 1024 / 1024)}MB)`,
-        });
+      res.status(413).json({
+        error: `Image exceeds maximum size of 5MB (got ${Math.round(imageSize / 1024 / 1024)}MB)`,
+      });
       return;
     }
   }
