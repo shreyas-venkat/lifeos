@@ -94,8 +94,8 @@ jobs:
             printf '%s\n' 'ASSISTANT_NAME=LifeOS' 'TZ=America/Edmonton' 'ONECLI_URL=http://127.0.0.1:10254' "DISCORD_BOT_TOKEN=${{ secrets.DISCORD_TOKEN }}" "DISCORD_OWNER_ID=${{ secrets.DISCORD_OWNER_ID }}" "GITHUB_TOKEN=${{ secrets.GH_TOKEN }}" "GOOGLE_CLIENT_ID=${{ secrets.GMAIL_CLIENT_ID }}" "GOOGLE_CLIENT_SECRET=${{ secrets.GMAIL_CLIENT_SECRET }}" "GOOGLE_REFRESH_TOKEN=${{ secrets.GMAIL_REFRESH_TOKEN }}" "GOOGLE_CALENDAR_REFRESH_TOKEN=${{ secrets.GOOGLE_CALENDAR_REFRESH_TOKEN }}" "MOTHERDUCK_TOKEN=${{ secrets.MOTHERDUCK_TOKEN }}" > .env
             chmod 600 .env
 
-            # Install Node dependencies (ignore-scripts skips husky prepare hook)
-            npm install --omit=dev --ignore-scripts
+            # Install all deps (need typescript for build), then prune after
+            npm install --ignore-scripts
 
             # Build container image
             if [ -f "./container/build.sh" ]; then
@@ -133,8 +133,11 @@ jobs:
             mkdir -p data/sessions data/ipc
             chown -R 1000:1000 data/sessions data/ipc
 
-            # Build TypeScript
-            npm run build 2>/dev/null || true
+            # Build TypeScript (fail loudly if tsc breaks)
+            npm run build
+
+            # Remove devDependencies after build
+            npm prune --omit=dev
 
             # Restart service
             systemctl --user restart nanoclaw || systemctl --user start nanoclaw
