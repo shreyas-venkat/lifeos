@@ -1057,10 +1057,13 @@ The app MUST be installable on Android as a standalone app (no browser chrome).
 - **Calorie summary card**: Today's total calories + macro breakdown (protein/carbs/fat as colored bar segments)
   - Data from `calories/today`
   - If empty: "No meals logged today"
-- **Weekly meal plan**: 7-day grid (Mon-Sun)
-  - Each day shows meal entries with recipe name, calories, status badge
-  - Status badges: planned (gray), cooked (green), skipped (amber), ate_out (blue)
-  - Click to toggle status via `POST /meals/plan/:id/status`
+- **Weekly meal plan**: Vertical day-by-day list (NOT horizontal scroll)
+  - Each day is a card/row showing: day name (Mon, Tue...), date, recipe name, calories, prep time
+  - Status badge on each card: planned (gray), cooked (green), skipped (amber), ate_out (blue)
+  - Click the status badge to cycle through statuses via `POST /meals/plan/:id/status`
+  - Click the recipe name to expand/navigate to recipe detail
+  - Each card also shows the "packed lunch" note (e.g., "← Mon's leftovers")
+  - Full width cards, stacked vertically, easy to read on mobile
   - Data from `meals/plan?week=current`
   - If empty: "No meal plan for this week"
 - **Calendar integration**: When a meal plan is generated, a Google Calendar event is created for each cooking day at 6 PM (e.g., "🍳 Cook: Chicken Tikka Masala"). If the user has a conflicting event (like violin at 8 PM), the cook event is set earlier (5:30 PM). A "Grocery shopping" event is added for the Sunday BEFORE the meal plan starts.
