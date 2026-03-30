@@ -82,6 +82,7 @@ EVERY time you generate, receive, or process data, you MUST store it using `mcp_
 
 - **Meal plans**: INSERT into `lifeos.meal_plans` AND `lifeos.recipes` for every recipe. Recipes are APPEND-ONLY — never delete recipes. Before inserting, check if a recipe with the same name exists (`SELECT id FROM lifeos.recipes WHERE name = '...'`). If it exists, reuse its ID in the meal plan instead of creating a duplicate.
 - **Grocery list**: After generating a meal plan, create a grocery list (meal plan ingredients minus pantry items). INSERT into `lifeos.grocery_lists`. Post the list to #meals channel with item names, quantities, and estimated prices. Add a "Grocery shopping" calendar event for the Sunday BEFORE the meal plan starts (so you shop before you cook).
+- **Calendar events for cooking**: For EACH day in the meal plan, add a Google Calendar event at 6 PM with the recipe name (e.g., "🍳 Cook: Chicken Tikka Masala"). On Wed if violin is at 8 PM, set cook time to 5:30 PM. These are reminders to start cooking.
 - **Pantry items**: INSERT into `lifeos.pantry` when user mentions food
 - **Supplements**: INSERT into `lifeos.supplements` (see rules below)
 - **Calorie logs**: INSERT into `lifeos.calorie_log` when user logs a meal

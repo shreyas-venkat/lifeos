@@ -1063,6 +1063,7 @@ The app MUST be installable on Android as a standalone app (no browser chrome).
   - Click to toggle status via `POST /meals/plan/:id/status`
   - Data from `meals/plan?week=current`
   - If empty: "No meal plan for this week"
+- **Calendar integration**: When a meal plan is generated, a Google Calendar event is created for each cooking day at 6 PM (e.g., "🍳 Cook: Chicken Tikka Masala"). If the user has a conflicting event (like violin at 8 PM), the cook event is set earlier (5:30 PM). A "Grocery shopping" event is added for the Sunday BEFORE the meal plan starts.
 - **Recipe browser**: Searchable list below meal plan
   - Search input with debounce
   - Recipe cards: name, rating stars, calories, cook time
