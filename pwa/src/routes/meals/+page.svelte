@@ -85,12 +85,24 @@
 		}, 300);
 	}
 
-	async function cycleStatus(meal: MealPlanRecord) {
-		const currentIdx = statusOrder.indexOf(meal.status);
-		const nextStatus = statusOrder[(currentIdx + 1) % statusOrder.length];
+	async function setStatus(meal: MealPlanRecord, newStatus: string) {
 		try {
-			await api.meals.updateStatus(meal.id, nextStatus);
-			meal.status = nextStatus;
+			await api.meals.updateStatus(meal.id, newStatus);
+			// Auto-log calories when marking as cooked
+			if (newStatus === 'cooked' && meal.calories_per_serving) {
+				await api.calories.log({
+					meal_type: 'dinner',
+					description: meal.recipe_name ?? 'Dinner',
+					calories: meal.calories_per_serving,
+				});
+				await api.calories.log({
+					meal_type: 'lunch',
+					description: `${meal.recipe_name ?? 'Leftovers'} (leftovers)`,
+					calories: meal.calories_per_serving,
+				});
+				todayCalories = await api.calories.today();
+			}
+			meal.status = newStatus;
 			plan = [...plan];
 		} catch {
 			// Keep current state
@@ -231,13 +243,16 @@
 												<span class="meal-notes">{meal.notes}</span>
 											{/if}
 										</div>
-										<button
-											class="status-badge"
-											style="background: {statusColors[meal.status] ?? '#8888a0'}20; color: {statusColors[meal.status] ?? '#8888a0'}; border: 1px solid {statusColors[meal.status] ?? '#8888a0'}40"
-											onclick={() => cycleStatus(meal)}
+										<select
+											class="status-select"
+											style="color: {statusColors[meal.status] ?? '#8888a0'}; border-color: {statusColors[meal.status] ?? '#8888a0'}40"
+											value={meal.status}
+											onchange={(e) => setStatus(meal, (e.target as HTMLSelectElement).value)}
 										>
-											{statusLabels[meal.status] ?? meal.status}
-										</button>
+											{#each statusOrder as opt}
+												<option value={opt}>{statusLabels[opt] ?? opt}</option>
+											{/each}
+										</select>
 									</div>
 								{/each}
 							</div>
@@ -299,15 +314,18 @@
 								{:else if recipeDetails[recipe.id]}
 									{@const d = recipeDetails[recipe.id]}
 									{#if d}
-										{#if d.ingredients && d.ingredients.length > 0}
-											<div class="detail-section">
-												<h4>Ingredients</h4>
-												<ul class="ingredient-list">
-													{#each d.ingredients as ing}
-														<li>{ing}</li>
-													{/each}
-												</ul>
-											</div>
+										{#if d.ingredients}
+											{@const parsed = typeof d.ingredients === 'string' ? (() => { try { return JSON.parse(d.ingredients); } catch { return [d.ingredients]; } })() : Array.isArray(d.ingredients) ? d.ingredients : []}
+											{#if parsed.length > 0}
+												<div class="detail-section">
+													<h4>Ingredients</h4>
+													<ul class="ingredient-list">
+														{#each parsed as ing}
+															<li>{typeof ing === 'object' ? `${ing.name || ing.item || ''}${ing.qty ? ' — ' + ing.qty : ''}${ing.quantity ? ' — ' + ing.quantity + (ing.unit ? ' ' + ing.unit : '') : ''}` : ing}</li>
+														{/each}
+													</ul>
+												</div>
+											{/if}
 										{/if}
 										{#if d.instructions}
 											<div class="detail-section">
@@ -550,6 +568,17 @@
 		font-size: 0.72rem;
 		color: var(--text-secondary);
 		font-style: italic;
+	}
+
+	.status-select {
+		background: var(--bg-elevated);
+		border: 1px solid var(--border);
+		border-radius: 6px;
+		padding: 4px 8px;
+		font-size: 0.72rem;
+		cursor: pointer;
+		text-transform: capitalize;
+		flex-shrink: 0;
 	}
 
 	.status-badge {
