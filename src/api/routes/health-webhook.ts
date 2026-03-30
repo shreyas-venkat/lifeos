@@ -53,27 +53,28 @@ export function transformHealthConnectPayload(
     }
   }
 
-  // Sleep: various formats from Health Connect
+  // Sleep: Health Connect sends {session_end_time, duration_seconds, stages[]}
   if (Array.isArray(body.sleep)) {
     for (const entry of body.sleep) {
       const e = entry as Record<string, unknown>;
-      logger.info({ sleepEntry: e }, 'Sleep data received');
-      // Try multiple field name conventions
-      const duration = Number(
-        e.duration_hours ?? e.duration ?? e.totalSleepDuration ?? e.value ?? 0,
-      );
+      // Duration: prefer seconds (convert to hours), fall back to hours
+      let duration: number;
+      if (e.duration_seconds != null) {
+        duration = Number(e.duration_seconds) / 3600;
+      } else {
+        duration = Number(e.duration_hours ?? e.duration ?? e.value ?? 0);
+      }
+      // Timestamp: session_end_time is the primary field from Health Connect
       const timestamp = String(
-        e.end_time ??
-          e.endTime ??
+        e.session_end_time ??
+          e.end_time ??
           e.start_time ??
-          e.startTime ??
           e.time ??
-          e.date ??
           new Date().toISOString(),
       );
       metrics.push({
         metric_type: 'sleep_duration',
-        value: duration,
+        value: Math.round(duration * 100) / 100,
         unit: 'hours',
         recorded_at: timestamp,
         source: 'health_connect',
