@@ -22,6 +22,10 @@
 	});
 	let calSubmitting = $state(false);
 
+	// Recipe browser collapse
+	let showRecipes = $state(false);
+	let showAllRecipes = $state(false);
+
 	// Recipe detail expansion (recipe browser)
 	let expandedRecipeId = $state<string | null>(null);
 	let recipeDetails = $state<Record<string, RecipeDetail | null>>({});
@@ -84,6 +88,7 @@
 	}
 
 	function handleSearch() {
+		if (search.length > 0) showRecipes = true;
 		if (searchTimeout) clearTimeout(searchTimeout);
 		searchTimeout = setTimeout(async () => {
 			recipes = await api.meals.recipes(search);
@@ -355,7 +360,10 @@
 
 		<!-- Recipe Browser -->
 		<section class="section fade-in">
-			<h2>Recipes</h2>
+			<button class="recipe-browser-header" onclick={() => (showRecipes = !showRecipes)}>
+				<h2 class="recipe-browser-title">Recipes ({recipes.length})</h2>
+				<span class="recipe-toggle-arrow" class:recipe-toggle-open={showRecipes}>&#9662;</span>
+			</button>
 			<input
 				type="text"
 				placeholder="Search recipes..."
@@ -363,8 +371,9 @@
 				oninput={handleSearch}
 				class="search-input"
 			/>
+			{#if showRecipes}
 			<div class="recipe-list">
-				{#each recipes as recipe}
+				{#each (showAllRecipes ? recipes : recipes.slice(0, 5)) as recipe}
 					<button
 						class="recipe-card"
 						class:recipe-expanded={expandedRecipeId === recipe.id}
@@ -462,7 +471,13 @@
 				{#if recipes.length === 0}
 					<p class="empty-text">No recipes found</p>
 				{/if}
+				{#if !showAllRecipes && recipes.length > 5}
+					<button class="show-all-btn" onclick={() => (showAllRecipes = true)}>
+						Show all {recipes.length} recipes
+					</button>
+				{/if}
 			</div>
+			{/if}
 		</section>
 
 		<!-- Calorie Log Form -->
@@ -711,6 +726,51 @@
 		cursor: pointer;
 		text-transform: capitalize;
 		flex-shrink: 0;
+	}
+
+	.recipe-browser-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		width: 100%;
+		background: none;
+		border: none;
+		padding: 0;
+		cursor: pointer;
+		color: var(--text-primary);
+		margin-bottom: 0.75rem;
+	}
+
+	.recipe-browser-title {
+		margin-bottom: 0;
+	}
+
+	.recipe-toggle-arrow {
+		font-size: 0.9rem;
+		color: var(--text-secondary);
+		transition: transform 0.2s;
+	}
+
+	.recipe-toggle-open {
+		transform: rotate(180deg);
+	}
+
+	.show-all-btn {
+		width: 100%;
+		padding: 10px;
+		margin-top: 8px;
+		background: var(--bg-elevated);
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		color: var(--text-secondary);
+		font-size: 0.82rem;
+		cursor: pointer;
+		transition: border-color 0.2s;
+	}
+
+	.show-all-btn:hover {
+		border-color: var(--accent);
+		color: var(--text-primary);
 	}
 
 	.search-input {
