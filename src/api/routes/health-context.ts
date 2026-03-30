@@ -59,10 +59,7 @@ async function getWeightInsights(date: string): Promise<Insight[]> {
   );
 
   if (calorieRows.length > 0) {
-    const totalCal = calorieRows.reduce(
-      (sum, r) => sum + (r.calories ?? 0),
-      0,
-    );
+    const totalCal = calorieRows.reduce((sum, r) => sum + (r.calories ?? 0), 0);
     const descriptions = calorieRows
       .map((r) => r.description)
       .filter(Boolean)
@@ -84,7 +81,8 @@ async function getWeightInsights(date: string): Promise<Insight[]> {
 
   if (stepsRows.length > 0 && stepsRows[0].avg_value != null) {
     const steps = Math.round(stepsRows[0].avg_value);
-    const type = steps < 5000 ? 'negative' : steps > 10000 ? 'positive' : 'neutral';
+    const type =
+      steps < 5000 ? 'negative' : steps > 10000 ? 'positive' : 'neutral';
     insights.push({
       text:
         steps < 5000
@@ -312,7 +310,8 @@ async function getHrvInsights(date: string): Promise<Insight[]> {
 
   if (sleepRows.length > 0 && sleepRows[0].avg_value != null) {
     const quality = sleepRows[0].avg_value;
-    const type = quality >= 80 ? 'positive' : quality < 60 ? 'negative' : 'neutral';
+    const type =
+      quality >= 80 ? 'positive' : quality < 60 ? 'negative' : 'neutral';
     insights.push({
       text: `Sleep quality: ${quality.toFixed(0)}%`,
       type,
@@ -485,9 +484,94 @@ async function getStepsInsights(date: string): Promise<Insight[]> {
   return insights;
 }
 
+// Map health metrics to related streak types for contextual insights
+const METRIC_STREAK_MAP: Record<string, string[]> = {
+  steps: ['steps_goal', 'exercise'],
+  sleep_duration: ['sleep_target'],
+  sleep_quality: ['sleep_target'],
+  heart_rate: ['exercise'],
+  hrv: ['exercise', 'sleep_target'],
+  weight: ['steps_goal', 'cooking'],
+  spo2: ['sleep_target'],
+};
+
+interface StreakRow {
+  streak_type: string;
+  current_streak: number;
+}
+
+async function getStreakInsights(metric: string): Promise<Insight[]> {
+  const relatedTypes = METRIC_STREAK_MAP[metric];
+  if (!relatedTypes || relatedTypes.length === 0) return [];
+
+  const insights: Insight[] = [];
+
+  try {
+    // Fetch supplement streak via supplement_log
+    const supplementStreakTypes = relatedTypes.filter(
+      (t) => t === 'supplements',
+    );
+    const otherTypes = relatedTypes.filter((t) => t !== 'supplements');
+
+    // Check stored streaks for relevant types
+    if (otherTypes.length > 0) {
+      const placeholders = otherTypes.map((_t, i) => `$${i + 1}`).join(', ');
+      const rows = await query<StreakRow>(
+        `SELECT streak_type, current_streak
+         FROM lifeos.streaks
+         WHERE streak_type IN (${placeholders})
+           AND current_streak > 0`,
+        ...otherTypes,
+      );
+
+      for (const row of rows) {
+        const label = row.streak_type.replace(/_/g, ' ');
+        if (row.current_streak >= 3) {
+          insights.push({
+            text: `${row.current_streak}-day ${label} streak!`,
+            type: 'positive',
+            source: 'streaks',
+          });
+        } else if (row.current_streak > 0) {
+          insights.push({
+            text: `${label}: ${row.current_streak}-day streak at risk`,
+            type: 'neutral',
+            source: 'streaks',
+          });
+        }
+      }
+    }
+
+    if (supplementStreakTypes.length > 0) {
+      const suppRows = await query<{ streak_days: number }>(
+        `SELECT current_streak AS streak_days
+         FROM lifeos.streaks
+         WHERE streak_type = 'supplements'
+           AND current_streak > 0`,
+      );
+      if (suppRows.length > 0 && suppRows[0].streak_days > 0) {
+        const days = suppRows[0].streak_days;
+        insights.push({
+          text:
+            days >= 3
+              ? `${days}-day supplement streak!`
+              : `Supplement streak: ${days} day${days === 1 ? '' : 's'} -- keep it going`,
+          type: days >= 3 ? 'positive' : 'neutral',
+          source: 'streaks',
+        });
+      }
+    }
+  } catch {
+    // Streak table may not exist yet -- non-fatal
+  }
+
+  return insights;
+}
+
 healthContextRouter.get('/', async (req: Request, res: Response) => {
   const metric = req.query.metric as string | undefined;
-  const date = (req.query.date as string) || new Date().toISOString().split('T')[0];
+  const date =
+    (req.query.date as string) || new Date().toISOString().split('T')[0];
 
   if (!metric || !VALID_METRICS.has(metric)) {
     res.status(400).json({
@@ -542,6 +626,10 @@ healthContextRouter.get('/', async (req: Request, res: Response) => {
       default:
         insights = [];
     }
+
+    // Append streak-related insights (non-fatal on failure)
+    const streakInsights = await getStreakInsights(metric);
+    insights.push(...streakInsights);
 
     res.json({
       data: {

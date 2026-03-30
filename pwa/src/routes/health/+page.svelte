@@ -1,31 +1,14 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { goto } from '$app/navigation';
-	import { base } from '$app/paths';
 	import { api } from '$lib/api';
-	import type { HealthMetric, HealthHistoryPoint, WaterLog, MoodEntry } from '$lib/api';
+	import type { HealthMetric, HealthHistoryPoint, Streak } from '$lib/api';
 	import Chart from 'chart.js/auto';
-	import { createGradient, mergeOptions } from '$lib/charts';
-	import type { ChartOptions } from 'chart.js';
+	import StreakCard from '$lib/components/StreakCard.svelte';
 
 	let todayMetrics = $state<HealthMetric[]>([]);
 	let history = $state<HealthHistoryPoint[]>([]);
+	let streaks = $state<Streak[]>([]);
 	let loading = $state(true);
-
-	// Water tracking
-	let waterGlasses = $state(0);
-	let waterLogging = $state(false);
-	const WATER_TARGET = 8;
-
-	// Mood tracking
-	let todayMood = $state<MoodEntry | null>(null);
-	let moodSelection = $state(0);
-	let energySelection = $state(0);
-	let moodNotes = $state('');
-	let moodSubmitting = $state(false);
-	let moodHistory = $state<MoodEntry[]>([]);
-	let moodSparkCanvas = $state<HTMLCanvasElement | null>(null);
-	let moodSparkChart: Chart | null = null;
 	/** 0 = Today tab; 7/30/90 = period tabs */
 	let selectedDays = $state(7);
 
@@ -134,15 +117,6 @@
 		return '';
 	}
 
-	/** Handle card tap: navigate to sleep page for sleep_duration, expand otherwise */
-	function handleCardTap(type: string) {
-		if (type === 'sleep_duration') {
-			goto(`${base}/sleep`);
-			return;
-		}
-		toggleMetric(type);
-	}
-
 	/** Toggle card expansion */
 	async function toggleMetric(type: string) {
 		if (expandedMetric === type) {
@@ -201,23 +175,10 @@
 		const ctx = canvas.getContext('2d');
 		if (!ctx) return;
 
-		const gradient = createGradient(ctx, config.color, canvas.height);
-
-		const chartOpts = mergeOptions({
-			plugins: {
-				legend: { display: false },
-				tooltip: {
-					borderColor: config.color,
-					displayColors: false,
-					callbacks: {
-						label: (tooltipCtx) => {
-							const val = tooltipCtx.parsed.y;
-							return `${formatValue(val, type)} ${config.unit}`.trim();
-						},
-					},
-				},
-			},
-		} as ChartOptions<'line'>);
+		// Create gradient fill
+		const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+		gradient.addColorStop(0, config.color + '40');
+		gradient.addColorStop(1, config.color + '05');
 
 		metricCharts[type] = new Chart(canvas, {
 			type: 'line',
@@ -230,12 +191,54 @@
 						borderColor: config.color,
 						backgroundColor: gradient,
 						fill: true,
+						tension: 0.4,
+						pointRadius: 2,
+						pointHoverRadius: 6,
 						pointBackgroundColor: config.color,
 						pointBorderColor: config.color,
+						borderWidth: 2,
 					},
 				],
 			},
-			options: chartOpts,
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				interaction: {
+					mode: 'index',
+					intersect: false,
+				},
+				plugins: {
+					legend: { display: false },
+					tooltip: {
+						backgroundColor: '#1a1a24',
+						titleColor: '#e8e8ed',
+						bodyColor: '#e8e8ed',
+						borderColor: config.color,
+						borderWidth: 1,
+						padding: 10,
+						cornerRadius: 8,
+						displayColors: false,
+						callbacks: {
+							label: (ctx) => {
+								const val = ctx.parsed.y;
+								return `${formatValue(val, type)} ${config.unit}`.trim();
+							},
+						},
+					},
+				},
+				scales: {
+					x: {
+						ticks: { color: '#8888a0', font: { family: 'Inter', size: 10 } },
+						grid: { display: false },
+						border: { display: false },
+					},
+					y: {
+						ticks: { color: '#8888a0', font: { family: 'Inter', size: 10 } },
+						grid: { display: false },
+						border: { display: false },
+					},
+				},
+			},
 		});
 	}
 
@@ -292,7 +295,9 @@
 				const points = grouped[m];
 				const dateMap = new Map(points.map((p) => [p.date, p.avg_value]));
 
-				const gradient = createGradient(ctx, config.color, overviewCanvas?.height ?? 220);
+				const gradient = ctx.createLinearGradient(0, 0, 0, overviewCanvas?.height ?? 220);
+				gradient.addColorStop(0, config.color + '30');
+				gradient.addColorStop(1, config.color + '05');
 
 				return {
 					label: config.label,
@@ -300,21 +305,13 @@
 					borderColor: config.color,
 					backgroundColor: gradient,
 					fill: true,
+					tension: 0.4,
+					pointRadius: 2,
+					pointHoverRadius: 5,
+					borderWidth: 2,
 					yAxisID: m === 'steps' ? 'y' : 'y1',
 				};
 			});
-
-		const chartOpts = mergeOptions({
-			scales: {
-				y: { position: 'left' as const },
-				y1: {
-					position: 'right' as const,
-					grid: { color: '#2a2a3a20' },
-					ticks: { color: '#8888a0', font: { size: 10 } },
-					border: { display: false },
-				},
-			},
-		} as ChartOptions<'line'>);
 
 		overviewChart = new Chart(overviewCanvas, {
 			type: 'line',
@@ -322,96 +319,18 @@
 				labels: allDates.map((d) => d.slice(5)),
 				datasets,
 			},
-			options: chartOpts,
-		});
-	}
-
-	function insightBorderColor(type: string): string {
-		if (type === 'positive') return '#22c55e';
-		if (type === 'negative') return '#ef4444';
-		return '#8888a0';
-	}
-
-	async function addWaterGlass() {
-		if (waterLogging) return;
-		waterLogging = true;
-		waterGlasses += 1; // optimistic
-		try {
-			await api.water.log();
-			const result = await api.water.today();
-			if (result) waterGlasses = result.glasses;
-		} catch {
-			waterGlasses = Math.max(0, waterGlasses - 1); // revert on failure
-		}
-		waterLogging = false;
-	}
-
-	async function submitMood() {
-		if (moodSubmitting || moodSelection === 0 || energySelection === 0) return;
-		moodSubmitting = true;
-		try {
-			await api.mood.log({
-				mood: moodSelection,
-				energy: energySelection,
-				notes: moodNotes || undefined,
-			});
-			todayMood = await api.mood.today();
-			moodHistory = await api.mood.history(7);
-			requestAnimationFrame(() => renderMoodSparkline());
-		} catch {
-			// submission failed
-		}
-		moodSubmitting = false;
-	}
-
-	function renderMoodSparkline() {
-		if (!moodSparkCanvas || moodHistory.length === 0) return;
-		if (moodSparkChart) moodSparkChart.destroy();
-
-		const sorted = [...moodHistory].sort(
-			(a, b) => a.log_date.localeCompare(b.log_date),
-		);
-		const labels = sorted.map((e) => e.log_date.slice(5));
-		const moodData = sorted.map((e) => e.mood);
-		const energyData = sorted.map((e) => e.energy);
-
-		moodSparkChart = new Chart(moodSparkCanvas, {
-			type: 'line',
-			data: {
-				labels,
-				datasets: [
-					{
-						label: 'Mood',
-						data: moodData,
-						borderColor: '#f59e0b',
-						backgroundColor: '#f59e0b20',
-						fill: false,
-						tension: 0.4,
-						pointRadius: 3,
-						pointBackgroundColor: '#f59e0b',
-						borderWidth: 2,
-					},
-					{
-						label: 'Energy',
-						data: energyData,
-						borderColor: '#22c55e',
-						backgroundColor: '#22c55e20',
-						fill: false,
-						tension: 0.4,
-						pointRadius: 3,
-						pointBackgroundColor: '#22c55e',
-						borderWidth: 2,
-					},
-				],
-			},
 			options: {
 				responsive: true,
 				maintainAspectRatio: false,
+				interaction: {
+					mode: 'index',
+					intersect: false,
+				},
 				plugins: {
 					legend: {
 						labels: {
 							color: '#8888a0',
-							font: { family: 'Inter', size: 10 },
+							font: { family: 'Inter', size: 11 },
 							usePointStyle: true,
 							pointStyle: 'circle',
 						},
@@ -422,7 +341,7 @@
 						bodyColor: '#e8e8ed',
 						borderColor: '#2a2a3a',
 						borderWidth: 1,
-						padding: 8,
+						padding: 10,
 						cornerRadius: 8,
 					},
 				},
@@ -433,13 +352,14 @@
 						border: { display: false },
 					},
 					y: {
-						min: 1,
-						max: 5,
-						ticks: {
-							stepSize: 1,
-							color: '#8888a0',
-							font: { family: 'Inter', size: 10 },
-						},
+						position: 'left',
+						ticks: { color: '#8888a0', font: { family: 'Inter', size: 10 } },
+						grid: { display: false },
+						border: { display: false },
+					},
+					y1: {
+						position: 'right',
+						ticks: { color: '#8888a0', font: { family: 'Inter', size: 10 } },
 						grid: { display: false },
 						border: { display: false },
 					},
@@ -448,13 +368,17 @@
 		});
 	}
 
+	function insightBorderColor(type: string): string {
+		if (type === 'positive') return '#22c55e';
+		if (type === 'negative') return '#ef4444';
+		return '#8888a0';
+	}
+
 	onMount(async () => {
-		const [t, h, w, mToday, mHist] = await Promise.allSettled([
+		const [t, h, s] = await Promise.allSettled([
 			api.health.today(),
 			api.health.history(14),
-			api.water.today(),
-			api.mood.today(),
-			api.mood.history(7),
+			api.streaks.list(),
 		]);
 		if (t.status === 'fulfilled') todayMetrics = t.value;
 		if (h.status === 'fulfilled') {
@@ -465,24 +389,13 @@
 			const priorAvg = computeAverages(prior);
 			trendDirection = computeTrends(periodAverages, priorAvg);
 		}
-		if (w.status === 'fulfilled' && w.value) waterGlasses = w.value.glasses;
-		if (mToday.status === 'fulfilled' && mToday.value) {
-			todayMood = mToday.value;
-			moodSelection = mToday.value.mood;
-			energySelection = mToday.value.energy;
-			moodNotes = mToday.value.notes ?? '';
-		}
-		if (mHist.status === 'fulfilled') moodHistory = mHist.value;
+		if (s.status === 'fulfilled') streaks = s.value;
 		loading = false;
-		requestAnimationFrame(() => {
-			renderOverviewChart();
-			renderMoodSparkline();
-		});
+		requestAnimationFrame(() => renderOverviewChart());
 	});
 
 	onDestroy(() => {
 		if (overviewChart) overviewChart.destroy();
-		if (moodSparkChart) moodSparkChart.destroy();
 		for (const key of Object.keys(metricCharts)) {
 			metricCharts[key].destroy();
 		}
@@ -529,19 +442,15 @@
 					class="vital-card"
 					class:expanded={isExpanded}
 					style={isExpanded ? `border-color: ${config.color}40` : ''}
-					onclick={() => selectedDays > 0 ? handleCardTap(type) : null}
-					onkeydown={(e) => e.key === 'Enter' && selectedDays > 0 ? handleCardTap(type) : null}
+					onclick={() => selectedDays > 0 ? toggleMetric(type) : null}
+					onkeydown={(e) => e.key === 'Enter' && selectedDays > 0 ? toggleMetric(type) : null}
 					role={selectedDays > 0 ? 'button' : undefined}
 					tabindex={selectedDays > 0 ? 0 : undefined}
 				>
 					<div class="vital-header">
 						<span class="vital-label" style={isExpanded ? `color: ${config.color}` : ''}>{config.label}</span>
 						{#if selectedDays > 0}
-							{#if type === 'sleep_duration'}
-								<span class="expand-hint" title="Open sleep analysis">&rarr;</span>
-							{:else}
-								<span class="expand-hint">{isExpanded ? '\u25B2' : '\u25BC'}</span>
-							{/if}
+							<span class="expand-hint">{isExpanded ? '\u25B2' : '\u25BC'}</span>
 						{/if}
 					</div>
 					<div class="vital-row">
@@ -588,77 +497,16 @@
 			{/each}
 		</div>
 
-		<!-- Water Intake -->
-		<section class="water-section fade-in">
-			<div class="water-header">
-				<span class="water-icon">{'\u{1F4A7}'}</span>
-				<span class="water-count">{waterGlasses} / {WATER_TARGET} glasses</span>
-			</div>
-			<div class="water-progress-bar">
-				<div
-					class="water-progress-fill"
-					style="width: {Math.min((waterGlasses / WATER_TARGET) * 100, 100)}%"
-				></div>
-			</div>
-			<button class="water-add-btn" onclick={addWaterGlass} disabled={waterLogging}>
-				+ Add Glass
-			</button>
-		</section>
-
-		<!-- Mood & Energy -->
-		<section class="mood-section fade-in">
-			<h2 class="mood-title">How are you feeling?</h2>
-
-			<div class="mood-row">
-				<span class="mood-row-label">Mood</span>
-				<div class="emoji-buttons">
-					{#each [{e: '\u{1F62B}', v: 1}, {e: '\u{1F615}', v: 2}, {e: '\u{1F610}', v: 3}, {e: '\u{1F642}', v: 4}, {e: '\u{1F604}', v: 5}] as item}
-						<button
-							class="emoji-btn"
-							class:emoji-selected={moodSelection === item.v}
-							onclick={() => (moodSelection = item.v)}
-						>{item.e}</button>
+		{#if streaks.length > 0}
+			<div class="streaks-section fade-in">
+				<h2>Streaks</h2>
+				<div class="streaks-grid">
+					{#each streaks as streak (streak.type)}
+						<StreakCard {streak} />
 					{/each}
 				</div>
 			</div>
-
-			<div class="mood-row">
-				<span class="mood-row-label">Energy</span>
-				<div class="emoji-buttons">
-					{#each [{e: '\u{1FAAB}', v: 1}, {e: '\u{1F50B}', v: 2}, {e: '\u26A1', v: 3}, {e: '\u{1F4AA}', v: 4}, {e: '\u{1F525}', v: 5}] as item}
-						<button
-							class="emoji-btn"
-							class:emoji-selected={energySelection === item.v}
-							onclick={() => (energySelection = item.v)}
-						>{item.e}</button>
-					{/each}
-				</div>
-			</div>
-
-			<textarea
-				class="mood-notes"
-				placeholder="Notes (optional)"
-				bind:value={moodNotes}
-				rows="2"
-			></textarea>
-
-			<button
-				class="mood-submit-btn"
-				onclick={submitMood}
-				disabled={moodSubmitting || moodSelection === 0 || energySelection === 0}
-			>
-				{#if todayMood}Update{:else}Log Mood{/if}
-			</button>
-
-			{#if moodHistory.length > 0}
-				<div class="mood-sparkline-wrapper">
-					<h3 class="sparkline-label">Last 7 days</h3>
-					<div class="sparkline-chart">
-						<canvas bind:this={moodSparkCanvas}></canvas>
-					</div>
-				</div>
-			{/if}
-		</section>
+		{/if}
 
 		{#if selectedDays > 0 && history.length > 0 && !expandedMetric}
 			<div class="chart-section fade-in">
@@ -849,6 +697,26 @@
 		display: block;
 	}
 
+	/* Streaks section */
+	.streaks-section {
+		margin-bottom: 1.25rem;
+	}
+
+	.streaks-section h2 {
+		font-size: 0.8rem;
+		color: var(--text-secondary);
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		margin-bottom: 0.75rem;
+		font-weight: 500;
+	}
+
+	.streaks-grid {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
 	/* Overview chart */
 	.chart-section {
 		background: var(--bg-card);
@@ -881,182 +749,5 @@
 		font-size: 0.85rem;
 		margin-top: 0.5rem;
 		opacity: 0.7;
-	}
-
-	/* Water intake section */
-	.water-section {
-		background: var(--bg-card);
-		border-radius: 12px;
-		padding: 1rem;
-		margin-bottom: 1.25rem;
-		border: 1px solid var(--border);
-	}
-
-	.water-header {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		margin-bottom: 10px;
-	}
-
-	.water-icon {
-		font-size: 1.2rem;
-	}
-
-	.water-count {
-		font-size: 0.95rem;
-		font-weight: 600;
-		font-variant-numeric: tabular-nums;
-	}
-
-	.water-progress-bar {
-		height: 8px;
-		background: var(--bg-elevated);
-		border-radius: 4px;
-		overflow: hidden;
-		margin-bottom: 10px;
-	}
-
-	.water-progress-fill {
-		height: 100%;
-		background: #06b6d4;
-		border-radius: 4px;
-		transition: width 0.3s ease;
-	}
-
-	.water-add-btn {
-		background: var(--bg-elevated);
-		border: 1px solid var(--border);
-		border-radius: 8px;
-		color: var(--text-primary);
-		padding: 8px 16px;
-		font-size: 0.85rem;
-		font-weight: 500;
-		cursor: pointer;
-		transition: border-color 0.2s, background 0.2s;
-		width: 100%;
-	}
-
-	.water-add-btn:hover:not(:disabled) {
-		border-color: #06b6d4;
-		background: #06b6d410;
-	}
-
-	.water-add-btn:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	/* Mood & energy section */
-	.mood-section {
-		background: var(--bg-card);
-		border-radius: 12px;
-		padding: 1rem;
-		margin-bottom: 1.25rem;
-		border: 1px solid var(--border);
-	}
-
-	.mood-title {
-		font-size: 0.8rem;
-		color: var(--text-secondary);
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		margin-bottom: 0.75rem;
-		font-weight: 500;
-	}
-
-	.mood-row {
-		margin-bottom: 10px;
-	}
-
-	.mood-row-label {
-		display: block;
-		font-size: 0.75rem;
-		color: var(--text-secondary);
-		margin-bottom: 6px;
-		font-weight: 500;
-	}
-
-	.emoji-buttons {
-		display: flex;
-		gap: 6px;
-	}
-
-	.emoji-btn {
-		flex: 1;
-		padding: 8px 0;
-		font-size: 1.4rem;
-		background: var(--bg-elevated);
-		border: 2px solid transparent;
-		border-radius: 10px;
-		cursor: pointer;
-		transition: border-color 0.2s, transform 0.15s;
-	}
-
-	.emoji-btn:hover {
-		transform: scale(1.1);
-	}
-
-	.emoji-btn.emoji-selected {
-		border-color: var(--accent);
-		background: var(--accent-glow);
-	}
-
-	.mood-notes {
-		width: 100%;
-		background: var(--bg-elevated);
-		border: 1px solid var(--border);
-		border-radius: 8px;
-		padding: 8px 12px;
-		color: var(--text-primary);
-		font-size: 0.85rem;
-		font-family: inherit;
-		resize: none;
-		margin-bottom: 10px;
-	}
-
-	.mood-notes::placeholder {
-		color: var(--text-secondary);
-	}
-
-	.mood-notes:focus {
-		outline: none;
-		border-color: var(--accent);
-	}
-
-	.mood-submit-btn {
-		background: var(--accent);
-		border: none;
-		border-radius: 8px;
-		color: var(--text-primary);
-		padding: 10px 0;
-		font-size: 0.85rem;
-		font-weight: 600;
-		cursor: pointer;
-		width: 100%;
-		transition: opacity 0.2s;
-	}
-
-	.mood-submit-btn:disabled {
-		opacity: 0.4;
-		cursor: not-allowed;
-	}
-
-	.mood-sparkline-wrapper {
-		margin-top: 14px;
-	}
-
-	.sparkline-label {
-		font-size: 0.7rem;
-		color: var(--text-secondary);
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		font-weight: 500;
-		margin-bottom: 6px;
-	}
-
-	.sparkline-chart {
-		height: 120px;
-		position: relative;
 	}
 </style>

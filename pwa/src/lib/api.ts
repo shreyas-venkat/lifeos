@@ -146,21 +146,17 @@ export interface PreferenceRow {
   skill: string;
 }
 
-export interface PantryAlerts {
-  expiring: PantryItem[];
-  depleted: PantryItem[];
-  stale: PantryItem[];
+export interface Streak {
+  type: string;
+  currentStreak: number;
+  longestStreak: number;
+  lastCompleted: string | null;
+  target: number | null;
 }
 
-export interface RecipeSuggestion {
-  recipe: RecipeSummary;
-  match_pct: number;
-  missing: string[];
-}
-
-export interface ShoppingNeed {
-  ingredient: string;
-  needed_for: string[];
+export interface StreakHistoryDay {
+  date: string;
+  completed: boolean;
 }
 
 /** Exported for direct use in dashboard */
@@ -228,16 +224,6 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify(data),
       }),
-    alerts: () =>
-      fetchSafe<PantryAlerts>('/pantry/smart/alerts', {
-        expiring: [],
-        depleted: [],
-        stale: [],
-      }),
-    suggestions: () =>
-      fetchSafe<RecipeSuggestion[]>('/pantry/smart/suggestions', []),
-    shoppingNeeds: () =>
-      fetchSafe<ShoppingNeed[]>('/pantry/smart/shopping-needs', []),
   },
   supplements: {
     today: (date?: string) =>
@@ -292,15 +278,18 @@ export const api = {
   },
   preferences: {
     get: () => fetchSafe<PreferenceRow[]>('/preferences', []),
-    update: (prefs: Array<{ key: string; value: string; skill?: string }>) =>
+    update: (prefs: Record<string, string>) =>
       fetchApi<void>('/preferences', {
         method: 'PUT',
-        body: JSON.stringify({ preferences: prefs }),
+        body: JSON.stringify(prefs),
       }),
-    toggleNotification: (taskId: string, enabled: boolean) =>
-      fetchApi<void>('/preferences/notifications/toggle', {
-        method: 'POST',
-        body: JSON.stringify({ task_id: taskId, enabled }),
-      }),
+  },
+  streaks: {
+    list: () => fetchSafe<Streak[]>('/streaks', []),
+    history: (type: string, days = 30) =>
+      fetchSafe<StreakHistoryDay[]>(
+        `/streaks/history?type=${encodeURIComponent(type)}&days=${encodeURIComponent(days)}`,
+        [],
+      ),
   },
 };
