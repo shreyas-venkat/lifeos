@@ -162,6 +162,11 @@ export const api = {
         `/health/history?days=${encodeURIComponent(days)}&metric=${encodeURIComponent(metric)}`,
         [],
       ),
+    context: (metric: string, date?: string) =>
+      fetchSafe<{ metric: string; date: string; value: number | null; insights: { text: string; type: string; source: string }[] }>(
+        `/health/context?metric=${encodeURIComponent(metric)}${date ? '&date=' + encodeURIComponent(date) : ''}`,
+        { metric, date: date || '', value: null, insights: [] },
+      ),
   },
   meals: {
     plan: (week = 'current') =>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { api } from '$lib/api';
 	import type { HealthMetric, HealthHistoryPoint } from '$lib/api';
 	import Chart from 'chart.js/auto';
@@ -9,8 +9,19 @@
 	let loading = $state(true);
 	/** 0 = Today tab; 7/30/90 = period tabs */
 	let selectedDays = $state(7);
-	let chartCanvas = $state<HTMLCanvasElement | null>(null);
-	let chartInstance: Chart | null = null;
+
+	/** Which metric card is expanded (null = none) */
+	let expandedMetric = $state<string | null>(null);
+
+	/** Context insights for expanded metric */
+	let contextInsights = $state<{ text: string; type: string; source: string }[]>([]);
+	let contextLoading = $state(false);
+
+	// Chart refs: one overview canvas + per-metric canvases
+	let overviewCanvas = $state<HTMLCanvasElement | null>(null);
+	let overviewChart: Chart | null = null;
+	let metricCanvases: Record<string, HTMLCanvasElement | null> = {};
+	let metricCharts: Record<string, Chart> = {};
 
 	/** Computed average values per metric_type for the current period */
 	let periodAverages = $state<Record<string, number | null>>({});
@@ -24,7 +35,6 @@
 		spo2: { label: 'SpO2', unit: '%', color: '#06b6d4' },
 		weight: { label: 'Weight', unit: 'kg', color: '#f59e0b' },
 		sleep_duration: { label: 'Sleep', unit: 'h', color: '#22c55e' },
-		sleep_quality: { label: 'Sleep Q', unit: '', color: '#14b8a6' },
 	};
 
 	const metricTypes = Object.keys(metricConfig);
@@ -46,7 +56,6 @@
 		return `${selectedDays}d avg`;
 	}
 
-	/** Compute averages from history data for a given slice of points */
 	function computeAverages(points: HealthHistoryPoint[]): Record<string, number | null> {
 		const grouped: Record<string, number[]> = {};
 		for (const p of points) {
@@ -65,7 +74,6 @@
 		return result;
 	}
 
-	/** Split history into current period (last N days) and prior period */
 	function splitPeriods(allData: HealthHistoryPoint[], days: number) {
 		const today = new Date();
 		const cutoff = new Date(today);
@@ -77,7 +85,6 @@
 		return { current, prior };
 	}
 
-	/** Compute trend directions comparing current vs prior averages */
 	function computeTrends(currentAvg: Record<string, number | null>, priorAvg: Record<string, number | null>): Record<string, number> {
 		const trends: Record<string, number> = {};
 		for (const type of metricTypes) {
@@ -96,16 +103,9 @@
 		return trends;
 	}
 
-	/** Get CSS class for trend arrow */
 	function trendClass(type: string, direction: number): string {
 		if (direction === 0) return '';
-		// Heart rate is context-dependent -- show direction but no color
-		if (type === 'heart_rate') return '';
-		// For most metrics, up is good
-		if (type === 'weight') {
-			// Weight: neutral, no color judgement
-			return '';
-		}
+		if (type === 'heart_rate' || type === 'weight') return '';
 		return direction > 0 ? 'trend-good' : 'trend-bad';
 	}
 
@@ -115,43 +115,176 @@
 		return '';
 	}
 
+	/** Toggle card expansion */
+	async function toggleMetric(type: string) {
+		if (expandedMetric === type) {
+			expandedMetric = null;
+			contextInsights = [];
+			// Destroy metric chart
+			if (metricCharts[type]) {
+				metricCharts[type].destroy();
+				delete metricCharts[type];
+			}
+			return;
+		}
+
+		// Collapse previous
+		if (expandedMetric && metricCharts[expandedMetric]) {
+			metricCharts[expandedMetric].destroy();
+			delete metricCharts[expandedMetric];
+		}
+
+		expandedMetric = type;
+		contextInsights = [];
+		contextLoading = true;
+
+		// Render the individual chart after DOM updates
+		requestAnimationFrame(() => {
+			renderMetricChart(type);
+		});
+
+		// Fetch context insights (non-blocking)
+		try {
+			const today = new Date().toISOString().slice(0, 10);
+			const result = await api.health.context(type, today);
+			if (result && result.insights && result.insights.length > 0) {
+				contextInsights = result.insights;
+			}
+		} catch {
+			// Context endpoint may not exist yet -- that's fine
+		}
+		contextLoading = false;
+	}
+
+	/** Render chart for a single expanded metric */
+	function renderMetricChart(type: string) {
+		const canvas = metricCanvases[type];
+		if (!canvas || history.length === 0) return;
+
+		if (metricCharts[type]) metricCharts[type].destroy();
+
+		const config = metricConfig[type];
+		const points = history.filter((p) => p.metric_type === type);
+		if (points.length === 0) return;
+
+		const dates = [...new Set(points.map((p) => p.date))].sort();
+		const dateMap = new Map(points.map((p) => [p.date, p.avg_value]));
+
+		const ctx = canvas.getContext('2d');
+		if (!ctx) return;
+
+		// Create gradient fill
+		const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+		gradient.addColorStop(0, config.color + '40');
+		gradient.addColorStop(1, config.color + '05');
+
+		metricCharts[type] = new Chart(canvas, {
+			type: 'line',
+			data: {
+				labels: dates.map((d) => d.slice(5)),
+				datasets: [
+					{
+						label: config.label,
+						data: dates.map((d) => dateMap.get(d) ?? null),
+						borderColor: config.color,
+						backgroundColor: gradient,
+						fill: true,
+						tension: 0.4,
+						pointRadius: 2,
+						pointHoverRadius: 6,
+						pointBackgroundColor: config.color,
+						pointBorderColor: config.color,
+						borderWidth: 2,
+					},
+				],
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				interaction: {
+					mode: 'index',
+					intersect: false,
+				},
+				plugins: {
+					legend: { display: false },
+					tooltip: {
+						backgroundColor: '#1a1a24',
+						titleColor: '#e8e8ed',
+						bodyColor: '#e8e8ed',
+						borderColor: config.color,
+						borderWidth: 1,
+						padding: 10,
+						cornerRadius: 8,
+						displayColors: false,
+						callbacks: {
+							label: (ctx) => {
+								const val = ctx.parsed.y;
+								return `${formatValue(val, type)} ${config.unit}`.trim();
+							},
+						},
+					},
+				},
+				scales: {
+					x: {
+						ticks: { color: '#8888a0', font: { family: 'Inter', size: 10 } },
+						grid: { display: false },
+						border: { display: false },
+					},
+					y: {
+						ticks: { color: '#8888a0', font: { family: 'Inter', size: 10 } },
+						grid: { display: false },
+						border: { display: false },
+					},
+				},
+			},
+		});
+	}
+
 	async function selectTab(days: number) {
 		selectedDays = days;
+		expandedMetric = null;
+		contextInsights = [];
+
+		// Destroy any open metric charts
+		for (const key of Object.keys(metricCharts)) {
+			metricCharts[key].destroy();
+		}
+		metricCharts = {};
+
 		if (days === 0) {
-			// Today tab: just load today's metrics
 			todayMetrics = await api.health.today();
 			periodAverages = {};
 			trendDirection = {};
-			if (chartInstance) {
-				chartInstance.destroy();
-				chartInstance = null;
+			if (overviewChart) {
+				overviewChart.destroy();
+				overviewChart = null;
 			}
 		} else {
-			// Period tab: fetch 2x days for trend comparison
 			const doubleHistory = await api.health.history(days * 2);
 			const { current, prior } = splitPeriods(doubleHistory, days);
 			history = current;
 			periodAverages = computeAverages(current);
 			const priorAvg = computeAverages(prior);
 			trendDirection = computeTrends(periodAverages, priorAvg);
-			renderChart();
+			requestAnimationFrame(() => renderOverviewChart());
 		}
 	}
 
-	function renderChart() {
-		if (!chartCanvas || history.length === 0) return;
-		if (chartInstance) chartInstance.destroy();
+	function renderOverviewChart() {
+		if (!overviewCanvas || history.length === 0) return;
+		if (overviewChart) overviewChart.destroy();
 
-		// Group history by metric_type
 		const grouped: Record<string, HealthHistoryPoint[]> = {};
 		for (const point of history) {
 			if (!grouped[point.metric_type]) grouped[point.metric_type] = [];
 			grouped[point.metric_type].push(point);
 		}
 
-		// Build datasets for chart metrics (steps, heart_rate, sleep_duration)
 		const chartMetrics = ['steps', 'heart_rate', 'sleep_duration'];
 		const allDates = [...new Set(history.map((p) => p.date))].sort();
+
+		const ctx = overviewCanvas.getContext('2d');
+		if (!ctx) return;
 
 		const datasets = chartMetrics
 			.filter((m) => grouped[m])
@@ -160,20 +293,25 @@
 				const points = grouped[m];
 				const dateMap = new Map(points.map((p) => [p.date, p.avg_value]));
 
+				const gradient = ctx.createLinearGradient(0, 0, 0, overviewCanvas?.height ?? 220);
+				gradient.addColorStop(0, config.color + '30');
+				gradient.addColorStop(1, config.color + '05');
+
 				return {
 					label: config.label,
 					data: allDates.map((d) => dateMap.get(d) ?? null),
 					borderColor: config.color,
-					backgroundColor: config.color + '20',
+					backgroundColor: gradient,
 					fill: true,
 					tension: 0.4,
 					pointRadius: 2,
 					pointHoverRadius: 5,
+					borderWidth: 2,
 					yAxisID: m === 'steps' ? 'y' : 'y1',
 				};
 			});
 
-		chartInstance = new Chart(chartCanvas, {
+		overviewChart = new Chart(overviewCanvas, {
 			type: 'line',
 			data: {
 				labels: allDates.map((d) => d.slice(5)),
@@ -182,7 +320,10 @@
 			options: {
 				responsive: true,
 				maintainAspectRatio: false,
-				interaction: { mode: 'index', intersect: false },
+				interaction: {
+					mode: 'index',
+					intersect: false,
+				},
 				plugins: {
 					legend: {
 						labels: {
@@ -192,29 +333,46 @@
 							pointStyle: 'circle',
 						},
 					},
+					tooltip: {
+						backgroundColor: '#1a1a24',
+						titleColor: '#e8e8ed',
+						bodyColor: '#e8e8ed',
+						borderColor: '#2a2a3a',
+						borderWidth: 1,
+						padding: 10,
+						cornerRadius: 8,
+					},
 				},
 				scales: {
 					x: {
 						ticks: { color: '#8888a0', font: { family: 'Inter', size: 10 } },
 						grid: { display: false },
+						border: { display: false },
 					},
 					y: {
 						position: 'left',
 						ticks: { color: '#8888a0', font: { family: 'Inter', size: 10 } },
-						grid: { color: '#2a2a3a' },
+						grid: { display: false },
+						border: { display: false },
 					},
 					y1: {
 						position: 'right',
 						ticks: { color: '#8888a0', font: { family: 'Inter', size: 10 } },
 						grid: { display: false },
+						border: { display: false },
 					},
 				},
 			},
 		});
 	}
 
+	function insightBorderColor(type: string): string {
+		if (type === 'positive') return '#22c55e';
+		if (type === 'negative') return '#ef4444';
+		return '#8888a0';
+	}
+
 	onMount(async () => {
-		// Default to 7D tab: fetch 14 days for trend comparison
 		const [t, h] = await Promise.allSettled([
 			api.health.today(),
 			api.health.history(14),
@@ -229,7 +387,14 @@
 			trendDirection = computeTrends(periodAverages, priorAvg);
 		}
 		loading = false;
-		requestAnimationFrame(() => renderChart());
+		requestAnimationFrame(() => renderOverviewChart());
+	});
+
+	onDestroy(() => {
+		if (overviewChart) overviewChart.destroy();
+		for (const key of Object.keys(metricCharts)) {
+			metricCharts[key].destroy();
+		}
 	});
 </script>
 
@@ -250,7 +415,7 @@
 
 	{#if loading}
 		<div class="vitals-grid">
-			{#each Array(7) as _}
+			{#each Array(6) as _}
 				<div class="skeleton" style="height: 80px;"></div>
 			{/each}
 		</div>
@@ -267,8 +432,23 @@
 					? formatValue(getLatestMetric(type)?.value ?? null, type)
 					: formatValue(periodAverages[type] ?? null, type)}
 				{@const trend = trendDirection[type] ?? 0}
-				<div class="vital-card">
-					<span class="vital-label">{config.label}</span>
+				{@const isExpanded = expandedMetric === type}
+				<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+				<div
+					class="vital-card"
+					class:expanded={isExpanded}
+					style={isExpanded ? `border-color: ${config.color}40` : ''}
+					onclick={() => selectedDays > 0 ? toggleMetric(type) : null}
+					onkeydown={(e) => e.key === 'Enter' && selectedDays > 0 ? toggleMetric(type) : null}
+					role={selectedDays > 0 ? 'button' : undefined}
+					tabindex={selectedDays > 0 ? 0 : undefined}
+				>
+					<div class="vital-header">
+						<span class="vital-label" style={isExpanded ? `color: ${config.color}` : ''}>{config.label}</span>
+						{#if selectedDays > 0}
+							<span class="expand-hint">{isExpanded ? '\u25B2' : '\u25BC'}</span>
+						{/if}
+					</div>
 					<div class="vital-row">
 						<span class="vital-value" class:muted={displayValue === '\u2014'}>
 							{displayValue}
@@ -283,15 +463,41 @@
 						<span class="vital-unit">{config.unit}</span>
 					{/if}
 					<span class="vital-period">{periodLabel()}</span>
+
+					{#if isExpanded}
+						<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+						<div class="expanded-chart" onclick={(e) => e.stopPropagation()}>
+							<div class="metric-chart-wrapper">
+								<canvas bind:this={metricCanvases[type]}></canvas>
+							</div>
+
+							{#if contextLoading}
+								<div class="context-loading">
+									<div class="skeleton" style="height: 40px; width: 100%;"></div>
+								</div>
+							{/if}
+
+							{#if contextInsights.length > 0}
+								<div class="context-panel">
+									{#each contextInsights as insight}
+										<div class="insight-card" style="border-left-color: {insightBorderColor(insight.type)}">
+											<p class="insight-text">{insight.text}</p>
+											<span class="insight-source">{insight.source}</span>
+										</div>
+									{/each}
+								</div>
+							{/if}
+						</div>
+					{/if}
 				</div>
 			{/each}
 		</div>
 
-		{#if selectedDays > 0 && history.length > 0}
+		{#if selectedDays > 0 && history.length > 0 && !expandedMetric}
 			<div class="chart-section fade-in">
 				<h2>Trends</h2>
 				<div class="chart-wrapper">
-					<canvas bind:this={chartCanvas}></canvas>
+					<canvas bind:this={overviewCanvas}></canvas>
 				</div>
 			</div>
 		{/if}
@@ -356,11 +562,23 @@
 		flex-direction: column;
 		gap: 4px;
 		border: 1px solid var(--border);
-		transition: border-color 0.2s;
+		transition: border-color 0.2s, transform 150ms ease, box-shadow 150ms ease;
+		cursor: pointer;
 	}
 
-	.vital-card:hover {
-		border-color: var(--accent);
+	.vital-card:active {
+		transform: scale(0.98);
+	}
+
+	.vital-card.expanded {
+		grid-column: 1 / -1;
+		cursor: default;
+	}
+
+	.vital-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
 	}
 
 	.vital-label {
@@ -369,6 +587,13 @@
 		text-transform: uppercase;
 		letter-spacing: 0.06em;
 		font-weight: 500;
+		transition: color 0.2s;
+	}
+
+	.expand-hint {
+		font-size: 0.55rem;
+		color: var(--text-secondary);
+		opacity: 0.5;
 	}
 
 	.vital-row {
@@ -413,6 +638,51 @@
 		color: #ef4444;
 	}
 
+	/* Expanded metric chart */
+	.expanded-chart {
+		margin-top: 12px;
+		width: 100%;
+	}
+
+	.metric-chart-wrapper {
+		height: 200px;
+		position: relative;
+		width: 100%;
+	}
+
+	/* Context insights panel */
+	.context-panel {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		margin-top: 12px;
+	}
+
+	.context-loading {
+		margin-top: 12px;
+	}
+
+	.insight-card {
+		background: var(--bg-elevated);
+		border-radius: 8px;
+		padding: 10px 12px;
+		border-left: 3px solid #8888a0;
+	}
+
+	.insight-text {
+		font-size: 0.8rem;
+		color: var(--text-primary);
+		line-height: 1.4;
+	}
+
+	.insight-source {
+		font-size: 0.65rem;
+		color: var(--text-secondary);
+		margin-top: 4px;
+		display: block;
+	}
+
+	/* Overview chart */
 	.chart-section {
 		background: var(--bg-card);
 		border-radius: 12px;
