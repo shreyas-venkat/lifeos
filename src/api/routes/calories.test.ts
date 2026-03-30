@@ -25,6 +25,73 @@ describe('calories routes', () => {
     mockQuery.mockReset();
   });
 
+  describe('POST /calories/log', () => {
+    it('inserts a calorie log entry and returns id', async () => {
+      mockQuery.mockResolvedValue([]);
+
+      const res = await request(createApp()).post('/calories/log').send({
+        meal_type: 'lunch',
+        description: 'Chicken sandwich',
+        calories: 500,
+        protein_g: 30,
+        carbs_g: 40,
+        fat_g: 15,
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.id).toBeDefined();
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO lifeos.calorie_log'),
+      );
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining("'manual'"),
+      );
+    });
+
+    it('inserts entry without optional macro fields', async () => {
+      mockQuery.mockResolvedValue([]);
+
+      const res = await request(createApp()).post('/calories/log').send({
+        meal_type: 'snack',
+        description: 'Apple',
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('NULL'));
+    });
+
+    it('returns 400 when meal_type is missing', async () => {
+      const res = await request(createApp()).post('/calories/log').send({
+        description: 'Apple',
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('meal_type is required');
+    });
+
+    it('returns 400 when description is missing', async () => {
+      const res = await request(createApp()).post('/calories/log').send({
+        meal_type: 'lunch',
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('description is required');
+    });
+
+    it('returns 500 on database error', async () => {
+      mockQuery.mockRejectedValue(new Error('DB error'));
+
+      const res = await request(createApp()).post('/calories/log').send({
+        meal_type: 'lunch',
+        description: 'Chicken sandwich',
+      });
+
+      expect(res.status).toBe(500);
+    });
+  });
+
   describe('GET /calories/today', () => {
     it('returns today calorie entries with macro totals', async () => {
       mockQuery.mockResolvedValue([
