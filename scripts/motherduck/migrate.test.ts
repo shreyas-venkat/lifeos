@@ -16,6 +16,8 @@ const EXPECTED_TABLES = [
   'dietary_preferences',
   'email_deletion_log',
   'emails',
+  'exercise_log',
+  'exercise_templates',
   'fitness_log',
   'fitness_nudges',
   'grocery_lists',
@@ -52,6 +54,7 @@ describe('runMigrations', () => {
       '002_phase2_meals.sql',
       '003_phase3_health.sql',
       '004_phase5_bills.sql',
+      '006_exercise.sql',
     ]);
   });
 
@@ -75,7 +78,7 @@ describe('runMigrations', () => {
 });
 
 describe('schema tables', () => {
-  it('creates all 17 expected tables in the lifeos schema', async () => {
+  it('creates all 19 expected tables in the lifeos schema', async () => {
     const { instance, conn } = await applyAllSchemas();
 
     const result = await conn.runAndReadAll(

@@ -77,7 +77,6 @@ export interface RecipeSummary {
   cook_time_min: number | null;
   servings: number | null;
   tags: string[] | null;
-  favorited: boolean;
 }
 
 export interface RecipeDetail {
@@ -141,53 +140,40 @@ export interface SupplementWithStatus {
   log_date: string | null;
 }
 
-export interface WaterLog {
-  glasses: number;
-  log_date: string;
-}
-
-export interface MoodEntry {
-  id: string;
-  mood: number;
-  energy: number;
-  notes: string | null;
-  log_date: string;
-  log_time: string;
-}
-
 export interface PreferenceRow {
   key: string;
   value: string;
   skill: string;
 }
 
-export interface Reminder {
+export interface ExerciseLogEntry {
   id: string;
-  message: string;
-  due_at: string;
-  recurring_cron: string | null;
-  status: string;
+  log_date: string;
+  exercise_type: string;
+  duration_min: number | null;
+  sets: number | null;
+  reps: number | null;
+  weight_kg: number | null;
+  distance_km: number | null;
+  calories_burned: number | null;
+  notes: string | null;
   created_at: string;
 }
 
-export interface CalendarEvent {
-  id?: string;
-  googleEventId?: string;
-  title: string;
-  description?: string;
-  startTime: string;
-  endTime?: string;
-  location?: string;
+export interface ExerciseHistoryDay {
+  log_date: string;
+  exercise_count: number;
+  total_duration: number | null;
+  total_calories: number | null;
 }
 
-export interface Bill {
+export interface ExerciseTemplate {
   id: string;
   name: string;
-  amount: number | null;
-  merchant: string | null;
-  due_date: string | null;
-  recurring: string | null;
-  status: string;
+  category: string;
+  default_sets: number | null;
+  default_reps: number | null;
+  muscles_targeted: string[] | null;
   created_at: string;
 }
 
@@ -208,12 +194,7 @@ export const api = {
         [],
       ),
     context: (metric: string, date?: string) =>
-      fetchSafe<{
-        metric: string;
-        date: string;
-        value: number | null;
-        insights: { text: string; type: string; source: string }[];
-      }>(
+      fetchSafe<{ metric: string; date: string; value: number | null; insights: { text: string; type: string; source: string }[] }>(
         `/health/context?metric=${encodeURIComponent(metric)}${date ? '&date=' + encodeURIComponent(date) : ''}`,
         { metric, date: date || '', value: null, insights: [] },
       ),
@@ -241,8 +222,6 @@ export const api = {
         `/meals/recipes/${encodeURIComponent(id)}`,
         null,
       ),
-    toggleFavorite: (id: string) =>
-      fetchApi<void>(`/meals/recipes/${encodeURIComponent(id)}/favorite`, { method: 'POST' }),
   },
   pantry: {
     list: () => fetchSafe<PantryItem[]>('/pantry', []),
@@ -315,19 +294,6 @@ export const api = {
         body: JSON.stringify(entry),
       }),
   },
-  water: {
-    today: () => fetchSafe<WaterLog | null>('/water/today', null),
-    log: () => fetchApi<void>('/water/log', { method: 'POST' }),
-  },
-  mood: {
-    today: () => fetchSafe<MoodEntry | null>('/mood/today', null),
-    log: (entry: { mood: number; energy: number; notes?: string; log_time?: string }) =>
-      fetchApi<void>('/mood/log', {
-        method: 'POST',
-        body: JSON.stringify(entry),
-      }),
-    history: (days = 30) => fetchSafe<MoodEntry[]>(`/mood/history?days=${encodeURIComponent(days)}`, []),
-  },
   preferences: {
     get: () => fetchSafe<PreferenceRow[]>('/preferences', []),
     update: (prefs: Record<string, string>) =>
@@ -336,37 +302,42 @@ export const api = {
         body: JSON.stringify(prefs),
       }),
   },
-  reminders: {
-    list: () => fetchSafe<Reminder[]>('/reminders', []),
-    add: (reminder: {
-      message: string;
-      due_at: string;
-      recurring_cron?: string;
-    }) =>
-      fetchApi<Reminder>('/reminders', {
-        method: 'POST',
-        body: JSON.stringify(reminder),
-      }),
-    remove: (id: string) =>
-      fetchApi<void>(`/reminders/${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-      }),
-    update: (id: string, data: { message?: string; due_at?: string }) =>
-      fetchApi<void>(`/reminders/${encodeURIComponent(id)}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      }),
-  },
-  calendar: {
-    today: () => fetchSafe<CalendarEvent[]>('/calendar/today', []),
-    week: () => fetchSafe<CalendarEvent[]>('/calendar/week', []),
-  },
-  bills: {
-    list: () => fetchSafe<Bill[]>('/bills', []),
-    summary: () =>
-      fetchSafe<{ recurring: string; total: number; count: number }[]>(
-        '/bills/summary',
+  exercise: {
+    today: () => fetchSafe<ExerciseLogEntry[]>('/exercise/today', []),
+    history: (days = 30) =>
+      fetchSafe<ExerciseHistoryDay[]>(
+        `/exercise/history?days=${encodeURIComponent(days)}`,
         [],
       ),
+    log: (entry: {
+      exercise_type: string;
+      duration_min?: number;
+      sets?: number;
+      reps?: number;
+      weight_kg?: number;
+      distance_km?: number;
+      calories_burned?: number;
+      notes?: string;
+    }) =>
+      fetchApi<{ success: boolean; id: string }>('/exercise/log', {
+        method: 'POST',
+        body: JSON.stringify(entry),
+      }),
+    remove: (id: string) =>
+      fetchApi<void>(`/exercise/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      }),
+    templates: () =>
+      fetchSafe<ExerciseTemplate[]>('/exercise/templates', []),
+    addTemplate: (template: {
+      name: string;
+      category: string;
+      default_sets?: number;
+      default_reps?: number;
+    }) =>
+      fetchApi<{ success: boolean; id: string }>('/exercise/templates', {
+        method: 'POST',
+        body: JSON.stringify(template),
+      }),
   },
 };
