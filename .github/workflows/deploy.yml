@@ -86,8 +86,9 @@ jobs:
             git fetch origin main
             git checkout main
             # Clean untracked files that would block pull (VPS-only artifacts)
-            git clean -fd
-            git checkout -- .
+            # Exclude data/ directory to preserve SQLite DB, sessions, IPC state
+            git clean -fd --exclude=data/
+            git checkout -- . ':!data/'
             git pull origin main
 
             # Write .env from secrets (printf avoids DRONE_SSH line injection from script_stop)
