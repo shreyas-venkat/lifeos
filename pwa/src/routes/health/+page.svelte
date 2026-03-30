@@ -4,6 +4,7 @@
 	import type { HealthMetric, HealthHistoryPoint, Streak } from '$lib/api';
 	import Chart from 'chart.js/auto';
 	import StreakCard from '$lib/components/StreakCard.svelte';
+	import PullToRefresh from '$lib/components/PullToRefresh.svelte';
 
 	let todayMetrics = $state<HealthMetric[]>([]);
 	let history = $state<HealthHistoryPoint[]>([]);
@@ -374,7 +375,7 @@
 		return '#8888a0';
 	}
 
-	onMount(async () => {
+	async function loadData() {
 		const [t, h, s] = await Promise.allSettled([
 			api.health.today(),
 			api.health.history(14),
@@ -392,7 +393,9 @@
 		if (s.status === 'fulfilled') streaks = s.value;
 		loading = false;
 		requestAnimationFrame(() => renderOverviewChart());
-	});
+	}
+
+	onMount(() => loadData());
 
 	onDestroy(() => {
 		if (overviewChart) overviewChart.destroy();
@@ -406,6 +409,7 @@
 	<title>Health - LifeOS</title>
 </svelte:head>
 
+<PullToRefresh onRefresh={loadData}>
 <div class="page">
 	<div class="page-header">
 		<h1>Health</h1>
@@ -518,6 +522,7 @@
 		{/if}
 	{/if}
 </div>
+</PullToRefresh>
 
 <style>
 	.page-header {

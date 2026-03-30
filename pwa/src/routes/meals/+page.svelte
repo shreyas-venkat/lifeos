@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
 	import type { MealPlanRecord, CalorieEntry, RecipeSummary, RecipeDetail } from '$lib/api';
+	import PullToRefresh from '$lib/components/PullToRefresh.svelte';
 
 	let plan = $state<MealPlanRecord[]>([]);
 	let todayCalories = $state<CalorieEntry[]>([]);
@@ -210,7 +211,7 @@
 		return '\u2605'.repeat(full) + '\u2606'.repeat(5 - full);
 	}
 
-	onMount(async () => {
+	async function loadData() {
 		const [p, c, r] = await Promise.allSettled([
 			api.meals.plan(),
 			api.calories.today(),
@@ -220,13 +221,16 @@
 		if (c.status === 'fulfilled') todayCalories = c.value;
 		if (r.status === 'fulfilled') recipes = r.value;
 		loading = false;
-	});
+	}
+
+	onMount(() => loadData());
 </script>
 
 <svelte:head>
 	<title>Meals - LifeOS</title>
 </svelte:head>
 
+<PullToRefresh onRefresh={loadData}>
 <div class="page">
 	<h1>Meals & Calories</h1>
 
@@ -588,6 +592,7 @@
 		</button>
 	{/if}
 </div>
+</PullToRefresh>
 
 <style>
 	h1 {

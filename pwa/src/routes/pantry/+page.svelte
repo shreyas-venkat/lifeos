@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
 	import type { PantryItem, PantryAlerts, RecipeSuggestion } from '$lib/api';
+	import PullToRefresh from '$lib/components/PullToRefresh.svelte';
 
 	let items = $state<PantryItem[]>([]);
 	let loading = $state(true);
@@ -163,7 +164,7 @@
 		setTimeout(() => { highlightIds = new Set(); }, 3000);
 	}
 
-	onMount(async () => {
+	async function loadData() {
 		const [itemsResult, alertsResult, suggestionsResult] = await Promise.all([
 			api.pantry.list(),
 			api.pantry.alerts(),
@@ -173,7 +174,9 @@
 		alerts = alertsResult;
 		suggestions = suggestionsResult;
 		loading = false;
-	});
+	}
+
+	onMount(() => loadData());
 
 	async function handlePhotoUpload(event: Event) {
 		const input = event.target as HTMLInputElement;
@@ -202,6 +205,7 @@
 	<title>Pantry - LifeOS</title>
 </svelte:head>
 
+<PullToRefresh onRefresh={loadData}>
 <div class="page">
 	<h1>Pantry</h1>
 
@@ -414,6 +418,7 @@
 		/>
 	</label>
 </div>
+</PullToRefresh>
 
 <style>
 	h1 {
