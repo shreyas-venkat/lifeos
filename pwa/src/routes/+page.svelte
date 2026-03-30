@@ -8,6 +8,13 @@
 
 	let svgEl = $state<SVGSVGElement | null>(null);
 	let loading = $state(true);
+	let showMenu = $state(false);
+
+	const menuLinks = [
+		{ href: `${base}/reminders`, label: 'Reminders', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
+		{ href: `${base}/calendar`, label: 'Calendar', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
+		{ href: `${base}/bills`, label: 'Bills', icon: 'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z' },
+	];
 
 	// Data state
 	let healthMetrics = $state<HealthMetric[]>([]);
@@ -573,6 +580,28 @@
 </svelte:head>
 
 <div class="dashboard">
+	<!-- Menu button (top-left) -->
+	<div class="menu-container">
+		<button class="menu-btn" onclick={() => (showMenu = !showMenu)} aria-label="More pages">
+			<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<circle cx="12" cy="5" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" />
+			</svg>
+		</button>
+		{#if showMenu}
+			<button class="menu-backdrop" onclick={() => (showMenu = false)} aria-label="Close menu"></button>
+			<div class="menu-dropdown fade-in">
+				{#each menuLinks as link}
+					<a href={link.href} class="menu-item" onclick={() => (showMenu = false)}>
+						<svg class="menu-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+							<path d={link.icon} />
+						</svg>
+						{link.label}
+					</a>
+				{/each}
+			</div>
+		{/if}
+	</div>
+
 	<!-- Date picker -->
 	<div class="date-picker">
 		<button class="date-arrow" onclick={() => shiftDate(-1)} aria-label="Previous day">
@@ -704,5 +733,81 @@
 		50% {
 			transform: scale(1.02);
 		}
+	}
+
+	/* Menu button and dropdown */
+	.menu-container {
+		position: absolute;
+		top: 0.5rem;
+		left: 0.5rem;
+		z-index: 11;
+	}
+
+	.menu-btn {
+		width: 36px;
+		height: 36px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: 1px solid var(--border);
+		background: rgba(26, 26, 36, 0.85);
+		backdrop-filter: blur(12px);
+		-webkit-backdrop-filter: blur(12px);
+		border-radius: 10px;
+		color: var(--text-secondary);
+		cursor: pointer;
+		transition: color 0.2s, border-color 0.2s;
+	}
+
+	.menu-btn:hover {
+		color: var(--text-primary);
+		border-color: var(--accent);
+	}
+
+	.menu-backdrop {
+		position: fixed;
+		inset: 0;
+		background: transparent;
+		border: none;
+		z-index: 10;
+		cursor: default;
+	}
+
+	.menu-dropdown {
+		position: absolute;
+		top: 42px;
+		left: 0;
+		background: var(--bg-card);
+		border: 1px solid var(--border);
+		border-radius: 12px;
+		padding: 6px;
+		min-width: 160px;
+		z-index: 12;
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+	}
+
+	.menu-item {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		padding: 10px 12px;
+		border-radius: 8px;
+		color: var(--text-primary);
+		text-decoration: none;
+		font-size: 0.88rem;
+		font-weight: 500;
+		transition: background 0.15s;
+	}
+
+	.menu-item:hover {
+		background: var(--bg-elevated);
+		color: var(--text-primary);
+	}
+
+	.menu-item-icon {
+		width: 18px;
+		height: 18px;
+		flex-shrink: 0;
+		color: var(--text-secondary);
 	}
 </style>

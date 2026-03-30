@@ -161,6 +161,36 @@ export interface PreferenceRow {
   skill: string;
 }
 
+export interface Reminder {
+  id: string;
+  message: string;
+  due_at: string;
+  recurring_cron: string | null;
+  status: string;
+  created_at: string;
+}
+
+export interface CalendarEvent {
+  id?: string;
+  googleEventId?: string;
+  title: string;
+  description?: string;
+  startTime: string;
+  endTime?: string;
+  location?: string;
+}
+
+export interface Bill {
+  id: string;
+  name: string;
+  amount: number | null;
+  merchant: string | null;
+  due_date: string | null;
+  recurring: string | null;
+  status: string;
+  created_at: string;
+}
+
 /** Exported for direct use in dashboard */
 export { fetchSafe };
 
@@ -178,7 +208,12 @@ export const api = {
         [],
       ),
     context: (metric: string, date?: string) =>
-      fetchSafe<{ metric: string; date: string; value: number | null; insights: { text: string; type: string; source: string }[] }>(
+      fetchSafe<{
+        metric: string;
+        date: string;
+        value: number | null;
+        insights: { text: string; type: string; source: string }[];
+      }>(
         `/health/context?metric=${encodeURIComponent(metric)}${date ? '&date=' + encodeURIComponent(date) : ''}`,
         { metric, date: date || '', value: null, insights: [] },
       ),
@@ -300,5 +335,38 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify(prefs),
       }),
+  },
+  reminders: {
+    list: () => fetchSafe<Reminder[]>('/reminders', []),
+    add: (reminder: {
+      message: string;
+      due_at: string;
+      recurring_cron?: string;
+    }) =>
+      fetchApi<Reminder>('/reminders', {
+        method: 'POST',
+        body: JSON.stringify(reminder),
+      }),
+    remove: (id: string) =>
+      fetchApi<void>(`/reminders/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      }),
+    update: (id: string, data: { message?: string; due_at?: string }) =>
+      fetchApi<void>(`/reminders/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+  },
+  calendar: {
+    today: () => fetchSafe<CalendarEvent[]>('/calendar/today', []),
+    week: () => fetchSafe<CalendarEvent[]>('/calendar/week', []),
+  },
+  bills: {
+    list: () => fetchSafe<Bill[]>('/bills', []),
+    summary: () =>
+      fetchSafe<{ recurring: string; total: number; count: number }[]>(
+        '/bills/summary',
+        [],
+      ),
   },
 };
