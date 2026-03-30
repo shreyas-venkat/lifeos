@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
 	import type { SupplementWithStatus } from '$lib/api';
+	import PullToRefresh from '$lib/components/PullToRefresh.svelte';
 
 	let supplements = $state<SupplementWithStatus[]>([]);
 	let loading = $state(true);
@@ -60,14 +61,15 @@
 		return `1 tab (${dosage}${unit})`;
 	}
 
-	onMount(async () => {
+	async function loadData() {
 		supplements = await api.supplements.today();
 		loading = false;
-		// Trigger ring animation after a tick so CSS transition kicks in
 		requestAnimationFrame(() => {
 			ringAnimated = true;
 		});
-	});
+	}
+
+	onMount(() => loadData());
 
 	async function toggleTaken(supp: SupplementWithStatus) {
 		try {
@@ -113,6 +115,7 @@
 	<title>Supplements - LifeOS</title>
 </svelte:head>
 
+<PullToRefresh onRefresh={loadData}>
 <div class="page">
 	<h1>Supplements</h1>
 
@@ -319,6 +322,7 @@
 		</svg>
 	</button>
 </div>
+</PullToRefresh>
 
 <style>
 	h1 {
