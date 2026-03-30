@@ -77,6 +77,7 @@ export interface RecipeSummary {
   cook_time_min: number | null;
   servings: number | null;
   tags: string[] | null;
+  favorited: boolean;
 }
 
 export interface RecipeDetail {
@@ -140,6 +141,20 @@ export interface SupplementWithStatus {
   log_date: string | null;
 }
 
+export interface WaterLog {
+  glasses: number;
+  log_date: string;
+}
+
+export interface MoodEntry {
+  id: string;
+  mood: number;
+  energy: number;
+  notes: string | null;
+  log_date: string;
+  log_time: string;
+}
+
 export interface PreferenceRow {
   key: string;
   value: string;
@@ -191,6 +206,8 @@ export const api = {
         `/meals/recipes/${encodeURIComponent(id)}`,
         null,
       ),
+    toggleFavorite: (id: string) =>
+      fetchApi<void>(`/meals/recipes/${encodeURIComponent(id)}/favorite`, { method: 'POST' }),
   },
   pantry: {
     list: () => fetchSafe<PantryItem[]>('/pantry', []),
@@ -262,6 +279,19 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(entry),
       }),
+  },
+  water: {
+    today: () => fetchSafe<WaterLog | null>('/water/today', null),
+    log: () => fetchApi<void>('/water/log', { method: 'POST' }),
+  },
+  mood: {
+    today: () => fetchSafe<MoodEntry | null>('/mood/today', null),
+    log: (entry: { mood: number; energy: number; notes?: string; log_time?: string }) =>
+      fetchApi<void>('/mood/log', {
+        method: 'POST',
+        body: JSON.stringify(entry),
+      }),
+    history: (days = 30) => fetchSafe<MoodEntry[]>(`/mood/history?days=${encodeURIComponent(days)}`, []),
   },
   preferences: {
     get: () => fetchSafe<PreferenceRow[]>('/preferences', []),

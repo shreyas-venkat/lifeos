@@ -185,6 +185,25 @@
 		}
 	}
 
+	async function toggleFavorite(recipe: RecipeSummary, event: Event) {
+		event.stopPropagation();
+		// Optimistic update
+		const idx = recipes.indexOf(recipe);
+		if (idx >= 0) {
+			recipes[idx] = { ...recipe, favorited: !recipe.favorited };
+			recipes = [...recipes];
+		}
+		try {
+			await api.meals.toggleFavorite(recipe.id);
+		} catch {
+			// Revert on failure
+			if (idx >= 0) {
+				recipes[idx] = recipe;
+				recipes = [...recipes];
+			}
+		}
+	}
+
 	function renderStars(rating: number | null): string {
 		if (rating === null) return '';
 		const full = Math.round(rating);
@@ -400,9 +419,20 @@
 					>
 						<div class="recipe-header">
 							<span class="recipe-name">{foodEmoji(recipe.name)} {recipe.name}</span>
-							{#if recipe.rating !== null}
-								<span class="recipe-stars">{renderStars(recipe.rating)}</span>
-							{/if}
+							<span class="recipe-header-actions">
+								<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+								<span
+									class="favorite-btn"
+									class:favorited={recipe.favorited}
+									onclick={(e) => toggleFavorite(recipe, e)}
+									onkeydown={(e) => { if (e.key === 'Enter') toggleFavorite(recipe, e); }}
+									role="button"
+									tabindex="0"
+								>{recipe.favorited ? '\u2605' : '\u2606'}</span>
+								{#if recipe.rating !== null}
+									<span class="recipe-stars">{renderStars(recipe.rating)}</span>
+								{/if}
+							</span>
 						</div>
 						<div class="recipe-meta">
 							{#if recipe.calories_per_serving !== null}
@@ -845,6 +875,32 @@
 		justify-content: space-between;
 		align-items: center;
 		margin-bottom: 4px;
+	}
+
+	.recipe-header-actions {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		flex-shrink: 0;
+	}
+
+	.favorite-btn {
+		background: none;
+		border: none;
+		font-size: 1.2rem;
+		cursor: pointer;
+		padding: 2px 4px;
+		color: var(--text-secondary);
+		transition: color 0.2s, transform 0.15s;
+		line-height: 1;
+	}
+
+	.favorite-btn:hover {
+		transform: scale(1.2);
+	}
+
+	.favorite-btn.favorited {
+		color: #f59e0b;
 	}
 
 	.recipe-name {
