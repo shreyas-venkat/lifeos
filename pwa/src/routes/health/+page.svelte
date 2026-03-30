@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { api } from '$lib/api';
-	import type { HealthMetric, HealthHistoryPoint } from '$lib/api';
+	import type { HealthMetric, HealthHistoryPoint, Streak } from '$lib/api';
 	import Chart from 'chart.js/auto';
+	import StreakCard from '$lib/components/StreakCard.svelte';
 
 	let todayMetrics = $state<HealthMetric[]>([]);
 	let history = $state<HealthHistoryPoint[]>([]);
+	let streaks = $state<Streak[]>([]);
 	let loading = $state(true);
 	/** 0 = Today tab; 7/30/90 = period tabs */
 	let selectedDays = $state(7);
@@ -373,9 +375,10 @@
 	}
 
 	onMount(async () => {
-		const [t, h] = await Promise.allSettled([
+		const [t, h, s] = await Promise.allSettled([
 			api.health.today(),
 			api.health.history(14),
+			api.streaks.list(),
 		]);
 		if (t.status === 'fulfilled') todayMetrics = t.value;
 		if (h.status === 'fulfilled') {
@@ -386,6 +389,7 @@
 			const priorAvg = computeAverages(prior);
 			trendDirection = computeTrends(periodAverages, priorAvg);
 		}
+		if (s.status === 'fulfilled') streaks = s.value;
 		loading = false;
 		requestAnimationFrame(() => renderOverviewChart());
 	});
@@ -492,6 +496,17 @@
 				</div>
 			{/each}
 		</div>
+
+		{#if streaks.length > 0}
+			<div class="streaks-section fade-in">
+				<h2>Streaks</h2>
+				<div class="streaks-grid">
+					{#each streaks as streak (streak.type)}
+						<StreakCard {streak} />
+					{/each}
+				</div>
+			</div>
+		{/if}
 
 		{#if selectedDays > 0 && history.length > 0 && !expandedMetric}
 			<div class="chart-section fade-in">
@@ -680,6 +695,26 @@
 		color: var(--text-secondary);
 		margin-top: 4px;
 		display: block;
+	}
+
+	/* Streaks section */
+	.streaks-section {
+		margin-bottom: 1.25rem;
+	}
+
+	.streaks-section h2 {
+		font-size: 0.8rem;
+		color: var(--text-secondary);
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		margin-bottom: 0.75rem;
+		font-weight: 500;
+	}
+
+	.streaks-grid {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
 	}
 
 	/* Overview chart */

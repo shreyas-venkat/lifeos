@@ -146,6 +146,19 @@ export interface PreferenceRow {
   skill: string;
 }
 
+export interface Streak {
+  type: string;
+  currentStreak: number;
+  longestStreak: number;
+  lastCompleted: string | null;
+  target: number | null;
+}
+
+export interface StreakHistoryDay {
+  date: string;
+  completed: boolean;
+}
+
 /** Exported for direct use in dashboard */
 export { fetchSafe };
 
@@ -270,5 +283,13 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify(prefs),
       }),
+  },
+  streaks: {
+    list: () => fetchSafe<Streak[]>('/streaks', []),
+    history: (type: string, days = 30) =>
+      fetchSafe<StreakHistoryDay[]>(
+        `/streaks/history?type=${encodeURIComponent(type)}&days=${encodeURIComponent(days)}`,
+        [],
+      ),
   },
 };
