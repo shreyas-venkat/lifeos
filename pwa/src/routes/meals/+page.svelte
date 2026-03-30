@@ -39,6 +39,15 @@
 	const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 	const statusOrder = ['planned', 'cooked', 'skipped', 'ate_out'];
 
+	function foodEmoji(name: string): string {
+		const lower = name.toLowerCase();
+		if (lower.includes('chicken')) return '\u{1F414}';
+		if (lower.includes('beef') || lower.includes('ground')) return '\u{1F969}';
+		if (lower.includes('salmon') || lower.includes('fish')) return '\u{1F41F}';
+		if (lower.includes('egg')) return '\u{1F95A}';
+		return '\u{1F37D}\uFE0F';
+	}
+
 	const statusColors: Record<string, string> = {
 		planned: '#8888a0',
 		cooked: '#22c55e',
@@ -203,8 +212,18 @@
 	<h1>Meals & Calories</h1>
 
 	{#if loading}
-		<div class="skeleton" style="height: 120px; margin-bottom: 1rem;"></div>
-		<div class="skeleton" style="height: 200px; margin-bottom: 1rem;"></div>
+		<!-- Calorie summary skeleton -->
+		<div class="skeleton" style="height: 120px; margin-bottom: 1rem; border-radius: 12px;"></div>
+		<!-- Day card skeletons -->
+		{#each Array(3) as _}
+			<div class="skeleton-day-card">
+				<div class="skeleton" style="height: 36px; border-radius: 8px 8px 0 0;"></div>
+				<div style="padding: 10px 14px; display: flex; flex-direction: column; gap: 8px;">
+					<div class="skeleton" style="height: 14px; width: 60%; border-radius: 4px;"></div>
+					<div class="skeleton" style="height: 10px; width: 40%; border-radius: 4px;"></div>
+				</div>
+			</div>
+		{/each}
 	{:else}
 		<!-- Calorie Summary -->
 		<section class="calorie-card fade-in">
@@ -263,7 +282,7 @@
 										onclick={() => toggleMealDetail(meal)}
 									>
 										<div class="meal-info">
-											<span class="meal-name">{meal.recipe_name ?? meal.meal_type}</span>
+											<span class="meal-name">{foodEmoji(meal.recipe_name ?? meal.meal_type)} {meal.recipe_name ?? meal.meal_type}</span>
 											<div class="meal-meta">
 												{#if meal.calories_per_serving}
 													<span>{meal.calories_per_serving} kcal</span>
@@ -380,7 +399,7 @@
 						onclick={() => toggleRecipeDetail(recipe.id)}
 					>
 						<div class="recipe-header">
-							<span class="recipe-name">{recipe.name}</span>
+							<span class="recipe-name">{foodEmoji(recipe.name)} {recipe.name}</span>
 							{#if recipe.rating !== null}
 								<span class="recipe-stars">{renderStars(recipe.rating)}</span>
 							{/if}
@@ -1066,5 +1085,13 @@
 		padding: 1.5rem;
 		color: var(--text-secondary);
 		font-size: 0.9rem;
+	}
+
+	.skeleton-day-card {
+		background: var(--bg-card);
+		border-radius: 12px;
+		border: 1px solid var(--border);
+		margin-bottom: 10px;
+		overflow: hidden;
 	}
 </style>
