@@ -1214,6 +1214,152 @@ The PWA must feel like a real consumer app, not a dev prototype. Every interacti
 - **Pull-to-refresh**: On all detail pages
 - **Loading states**: Skeleton placeholders (pulsing rectangles), never blank screens
 
+### Dashboard Constraints
+
+- **Node boundary lock**: Nodes cannot be dragged off-screen. Add D3 force boundary constraints:
+  - During tick: clamp `node.x` to `[radius + padding, width - radius - padding]` and same for `node.y`
+  - Zoom range clamped to 0.5x–2x (prevent zooming out so far everything becomes tiny)
+  - On mobile: nodes are fixed position, NOT draggable. Only breathing animation.
+  - On desktop: draggable within bounds, gentle physics, can't escape viewport
+
+### New PWA Pages
+
+#### `/app/reminders` — Reminder Management
+- **List all active reminders** from `lifeos.reminders` (via new API)
+  - Each reminder shows: message, due date/time, recurring cron (if any), status
+  - Swipe or tap X to delete
+  - Tap to edit message/time
+- **Add reminder form**: FAB "+" button
+  - Fields: message, date, time, recurring (none / daily / weekly / monthly)
+  - Submit → `POST /api/reminders`
+- **Snooze button**: postpone by 1hr / tomorrow / next week
+- **New API endpoints**:
+  - `GET /api/reminders` — all active reminders from `lifeos.reminders WHERE status = 'active'`
+  - `POST /api/reminders` — insert new reminder with `gen_random_uuid()`, set `status = 'active'`
+  - `DELETE /api/reminders/:id` — delete reminder
+  - `PUT /api/reminders/:id` — update message/due_at/recurring_cron
+- Add to bottom nav: replace one icon or add a 6th tab, or make it accessible from dashboard
+
+#### `/app/calendar` — Calendar View
+- **Today's events**: List of Google Calendar events for today
+  - Time, title, location (if any)
+  - Color-coded: cook events (orange), work (blue), personal (green)
+- **Week view**: Scrollable 7-day list
+- **Data**: Proxy through new API endpoint that calls the Google Calendar MCP
+- **New API endpoints**:
+  - `GET /api/calendar/today` — fetch today's events via googleapis
+  - `GET /api/calendar/week` — fetch next 7 days of events
+  - Both use the Google Calendar integration already in `src/integrations/google-calendar.ts`
+
+#### `/app/bills` — Bill Tracker
+- **Upcoming bills**: List sorted by due date
+  - Name, amount, merchant, due date, recurring badge
+  - Red highlight if due within 3 days
+  - Green if paid
+- **Monthly spending chart**: Bar chart showing last 3 months of total spending
+- **Data from**: `lifeos.bills` table (auto-populated from email parsing)
+- **New API endpoints**:
+  - `GET /api/bills` — all bills from `lifeos.bills ORDER BY due_date`
+  - `GET /api/bills/summary` — monthly spending totals
+
+### New Tracking Features
+
+#### Water Intake Tracking
+- **New MotherDuck table**: `lifeos.water_log`
+  ```sql
+  CREATE TABLE IF NOT EXISTS lifeos.water_log (
+    id VARCHAR PRIMARY KEY,
+    glasses INTEGER NOT NULL,
+    log_date DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+  ```
+- **PWA widget**: On dashboard or health page, show water glasses counter (target: 8 glasses/day)
+  - Tap "+" to add a glass → `POST /api/water/log`
+  - Shows progress ring: 5/8 glasses
+- **API endpoints**:
+  - `GET /api/water/today` — today's count
+  - `POST /api/water/log` — increment or set count for today (upsert)
+- **Scheduled task**: 2 PM reminder "You've had X glasses today, drink more water!" if below 4
+
+#### Mood & Energy Logging
+- **New MotherDuck table**: `lifeos.mood_log`
+  ```sql
+  CREATE TABLE IF NOT EXISTS lifeos.mood_log (
+    id VARCHAR PRIMARY KEY,
+    mood INTEGER NOT NULL,
+    energy INTEGER NOT NULL,
+    notes TEXT,
+    log_date DATE NOT NULL,
+    log_time VARCHAR DEFAULT 'morning',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+  ```
+- **PWA widget**: Quick 1-5 scale for mood + energy on health page
+  - Emoji faces: 😫 😕 😐 🙂 😄
+  - Tap to log, optional notes
+  - Shows trend chart over 7/30 days
+- **Correlations**: Health context panel uses mood data:
+  - "Your mood averages 4.2 on days you sleep 7+ hours"
+  - "Energy drops on days you skip supplements"
+- **API endpoints**:
+  - `GET /api/mood/today` — today's entry
+  - `POST /api/mood/log` — log mood + energy (upsert for same date + time_of_day)
+  - `GET /api/mood/history?days=30` — trend data
+
+#### Recipe Favorites
+- Star toggle on recipe cards and detail views
+- `lifeos.recipes` already has `rating` column — use it or add `favorite BOOLEAN DEFAULT FALSE`
+- Meal planner prioritizes starred/favorited recipes
+- PWA: filled star (★) vs outline (☆), tap to toggle
+
+#### Pantry Auto-Deduct
+- When a meal plan entry is marked as "cooked":
+  - Look up the recipe's ingredients JSON
+  - Subtract each ingredient quantity from `lifeos.pantry`
+  - If pantry item quantity goes to 0 or below, mark it as depleted
+- API: `POST /meals/plan/:id/status` already exists — add pantry deduction logic server-side
+
+#### Weekly Report
+- **New scheduled task**: Sunday 8 PM
+  - Summarize the week: health trends, meals cooked vs skipped, calories avg, supplements adherence %, steps trend, weight change, bills paid/upcoming
+  - Post to `#activity-log` channel
+  - Write to Obsidian vault as `LifeOS/weekly-reports/2026-W13.md`
+
+### Data Pipeline Fixes
+
+These are CLAUDE.md updates that tell the bot HOW to write data:
+
+1. **Email scan** → must INSERT into `lifeos.emails` with category, action_taken, sender, subject
+2. **Bill detection** → when email scan finds RBC/bank emails, parse amount/merchant/due date and INSERT into `lifeos.bills`
+3. **Cooking check-in** → when user rates a meal, INSERT calories + macros into `lifeos.calorie_log` from the recipe's nutritional data
+4. **Obsidian sync** → write daily summary markdown to `/workspace/extra/vault/LifeOS/daily-summaries/`, then `git add && git commit && git push`
+5. **Email deletion log** → when trashing emails, INSERT into `lifeos.email_deletion_log` with 7-day recovery window
+
+### New MotherDuck Migration
+
+Add `scripts/motherduck/schemas/005_new_features.sql`:
+```sql
+CREATE TABLE IF NOT EXISTS lifeos.water_log (
+    id VARCHAR PRIMARY KEY,
+    glasses INTEGER NOT NULL,
+    log_date DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS lifeos.mood_log (
+    id VARCHAR PRIMARY KEY,
+    mood INTEGER NOT NULL,
+    energy INTEGER NOT NULL,
+    notes TEXT,
+    log_date DATE NOT NULL,
+    log_time VARCHAR DEFAULT 'morning',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE lifeos.recipes ADD COLUMN IF NOT EXISTS favorited BOOLEAN DEFAULT FALSE;
+```
+
 ---
 
 ## Phase 4 Tests
@@ -1250,6 +1396,24 @@ The PWA must feel like a real consumer app, not a dev prototype. Every interacti
 - [ ] `PUT /api/preferences` upserts correctly
 - [ ] All endpoints return `{ data: [...] }` wrapper consistently
 - [ ] All SQL uses parameterized queries — zero string interpolation
+
+### New Feature Tests
+- [ ] Dashboard nodes stay within viewport bounds (can't drag off-screen)
+- [ ] Dashboard zoom clamped between 0.5x and 2x
+- [ ] `/app/reminders` page loads, shows active reminders
+- [ ] `POST /api/reminders` creates a reminder
+- [ ] `DELETE /api/reminders/:id` removes a reminder
+- [ ] `/app/calendar` page shows today's Google Calendar events
+- [ ] `/app/bills` page shows upcoming bills
+- [ ] `GET /api/bills` returns bills sorted by due date
+- [ ] `POST /api/water/log` increments water glasses for today
+- [ ] `GET /api/water/today` returns today's count
+- [ ] `POST /api/mood/log` logs mood + energy
+- [ ] `GET /api/mood/history?days=30` returns trend data
+- [ ] Recipe favorite toggle works (star/unstar)
+- [ ] Pantry auto-deducts when meal marked as cooked
+- [ ] Weekly report posts to #activity-log on Sunday 8 PM
+- [ ] New MotherDuck tables created (water_log, mood_log)
 
 ---
 
