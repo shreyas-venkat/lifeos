@@ -6,6 +6,11 @@ vi.mock('../db.js', () => ({
   getDb: vi.fn(),
 }));
 
+vi.mock('../../integrations/google-calendar.js', () => ({
+  GoogleCalendarClient: vi.fn(),
+  CalendarEvent: undefined,
+}));
+
 import { mountRoutes } from './index.js';
 
 describe('mountRoutes', () => {
@@ -25,6 +30,11 @@ describe('mountRoutes', () => {
     expect(mockUse).toHaveBeenCalledWith('/supplements', expect.anything());
     expect(mockUse).toHaveBeenCalledWith('/calories', expect.anything());
     expect(mockUse).toHaveBeenCalledWith('/preferences', expect.anything());
-    expect(mockUse).toHaveBeenCalledTimes(7);
+    expect(mockUse).toHaveBeenCalledWith('/reminders', expect.anything());
+    expect(mockUse).toHaveBeenCalledWith('/calendar', expect.anything());
+    expect(mockUse).toHaveBeenCalledWith('/bills', expect.anything());
+    expect(mockUse).toHaveBeenCalledWith('/water', expect.anything());
+    expect(mockUse).toHaveBeenCalledWith('/mood', expect.anything());
+    expect(mockUse).toHaveBeenCalledTimes(12);
   });
 });
