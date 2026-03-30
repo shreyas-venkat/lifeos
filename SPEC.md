@@ -1033,18 +1033,24 @@ The app MUST be installable on Android as a standalone app (no browser chrome).
 
 #### `/app/health` — Health Detail
 
-- **Top bar**: 7D | 30D | 90D toggle buttons (pill style, accent color when active)
-- **Today's vitals**: Row of metric cards (Steps, HR, HRV, SpO2, Weight, Sleep)
-  - Each card: large number, unit below, subtle trend arrow (↑↓) if prior data exists
-  - Use latest value per `metric_type` from `health/today`
+- **Top bar**: Today | 7D | 30D | 90D toggle buttons (pill style, accent color when active)
+- **Metric cards**: Row of 6 cards (Steps, HR, HRV, SpO2, Weight, Sleep)
+  - Cards change based on selected period:
+    - **Today**: Show latest value per `metric_type` from `health/today`. Label: "today".
+    - **7D / 30D / 90D**: Show AVERAGE value per `metric_type` from `health/history?days={N}`. Label: "7d avg" / "30d avg" / "90d avg".
+  - Each card: large number, unit + period label below
+  - Subtle trend arrow (↑↓) comparing current period avg to prior period (e.g., 7D avg vs previous 7D avg)
   - If no data for a metric: show "—" with muted text
 - **Charts section**: One multi-line chart (Chart.js)
+  - Only shown when 7D/30D/90D is selected (not Today)
   - X-axis: dates
   - Y-axis: auto-scaled per dataset
   - Datasets: steps (blue), heart rate (red), sleep hours (purple)
   - Data from `health/history?days={selected}&metric=all`
   - Smooth curves, gradient fill below lines, no grid
 - **Empty state**: "No health data yet. Connect Health Connect on your phone to start tracking."
+
+**Note on timezone**: The API uses UTC for `CURRENT_DATE`. The VPS timezone is set to `America/Edmonton` via TZ env var. Ensure the API server process inherits this so "today" matches the user's local time.
 
 #### `/app/meals` — Meals & Calories
 
