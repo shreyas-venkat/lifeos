@@ -1063,18 +1063,24 @@ The app MUST be installable on Android as a standalone app (no browser chrome).
   - Submit → POST to new API endpoint `POST /api/calories/log`
 - **New API endpoint needed**: `POST /api/calories/log` — Insert into `lifeos.calorie_log` with `log_date = CURRENT_DATE`
 - **Weekly meal plan**: Vertical day-by-day list (NOT horizontal scroll)
-  - Each day is a card/row showing: day name (Mon, Tue...), date, recipe name, calories, prep time
-  - Status badge on each card: planned (gray), cooked (green), skipped (amber), ate_out (blue)
-  - Click the status badge to cycle through statuses via `POST /meals/plan/:id/status`
+  - Each day is a card/row showing: day name (Mon, Tue...), date, recipe name, calories, servings, prep + cook time
+  - Status DROPDOWN (not click-to-cycle): planned / cooked / skipped / ate out — user can go back to any status
+  - When status changes to "cooked": auto-log calories for dinner AND next day's lunch (same recipe, same calories)
+  - Status changes must PERSIST — after refresh, the updated status should still show. The PWA must call the API and re-fetch the plan after status change.
   - Click the recipe name to expand/navigate to recipe detail
   - Each card also shows the "packed lunch" note (e.g., "← Mon's leftovers")
   - Full width cards, stacked vertically, easy to read on mobile
   - Data from `meals/plan?week=current`
   - If empty: "No meal plan for this week"
+- **Recipe display**: Each recipe card must show REALISTIC times:
+  - Prep time AND cook time separately (e.g., "10 min prep · 20 min cook")
+  - Servings count (e.g., "2 servings")
+  - Total calories per serving
+  - Recipes should use proper cook times — NOT generic "5 min" for everything
 - **Calendar integration**: When a meal plan is generated, a Google Calendar event is created for each cooking day at 6 PM (e.g., "🍳 Cook: Chicken Tikka Masala"). If the user has a conflicting event (like violin at 8 PM), the cook event is set earlier (5:30 PM). A "Grocery shopping" event is added for the Sunday BEFORE the meal plan starts.
 - **Recipe browser**: Searchable list below meal plan
   - Search input with debounce
-  - Recipe cards: name, rating stars, calories, cook time
+  - Recipe cards: name, calories per serving, servings count, prep + cook time (e.g., "2 servings · 15 min prep · 20 min cook"), rating stars
   - Click a recipe card → expands or navigates to detail view showing:
     - Full ingredients list (from `ingredients` JSON column)
     - Step-by-step instructions
