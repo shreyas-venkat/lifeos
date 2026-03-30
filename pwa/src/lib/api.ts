@@ -146,6 +146,37 @@ export interface PreferenceRow {
   skill: string;
 }
 
+export interface ExerciseLogEntry {
+  id: string;
+  log_date: string;
+  exercise_type: string;
+  duration_min: number | null;
+  sets: number | null;
+  reps: number | null;
+  weight_kg: number | null;
+  distance_km: number | null;
+  calories_burned: number | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface ExerciseHistoryDay {
+  log_date: string;
+  exercise_count: number;
+  total_duration: number | null;
+  total_calories: number | null;
+}
+
+export interface ExerciseTemplate {
+  id: string;
+  name: string;
+  category: string;
+  default_sets: number | null;
+  default_reps: number | null;
+  muscles_targeted: string[] | null;
+  created_at: string;
+}
+
 /** Exported for direct use in dashboard */
 export { fetchSafe };
 
@@ -269,6 +300,44 @@ export const api = {
       fetchApi<void>('/preferences', {
         method: 'PUT',
         body: JSON.stringify(prefs),
+      }),
+  },
+  exercise: {
+    today: () => fetchSafe<ExerciseLogEntry[]>('/exercise/today', []),
+    history: (days = 30) =>
+      fetchSafe<ExerciseHistoryDay[]>(
+        `/exercise/history?days=${encodeURIComponent(days)}`,
+        [],
+      ),
+    log: (entry: {
+      exercise_type: string;
+      duration_min?: number;
+      sets?: number;
+      reps?: number;
+      weight_kg?: number;
+      distance_km?: number;
+      calories_burned?: number;
+      notes?: string;
+    }) =>
+      fetchApi<{ success: boolean; id: string }>('/exercise/log', {
+        method: 'POST',
+        body: JSON.stringify(entry),
+      }),
+    remove: (id: string) =>
+      fetchApi<void>(`/exercise/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      }),
+    templates: () =>
+      fetchSafe<ExerciseTemplate[]>('/exercise/templates', []),
+    addTemplate: (template: {
+      name: string;
+      category: string;
+      default_sets?: number;
+      default_reps?: number;
+    }) =>
+      fetchApi<{ success: boolean; id: string }>('/exercise/templates', {
+        method: 'POST',
+        body: JSON.stringify(template),
       }),
   },
 };

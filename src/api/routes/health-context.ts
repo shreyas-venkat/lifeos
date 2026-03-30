@@ -36,6 +36,13 @@ interface SupplementRow {
   taken: boolean;
 }
 
+interface ExerciseRow {
+  exercise_type: string;
+  duration_min: number | null;
+  sets: number | null;
+  reps: number | null;
+}
+
 function formatNumber(n: number): string {
   return n.toLocaleString('en-US');
 }
@@ -184,6 +191,26 @@ async function getHeartRateInsights(date: string): Promise<Insight[]> {
           : `${formatNumber(steps)} steps recorded`,
       type: 'neutral',
       source: 'health_metrics',
+    });
+  }
+
+  // Exercise log for that day
+  const exerciseRows = await query<ExerciseRow>(
+    `SELECT exercise_type, duration_min, sets, reps
+     FROM lifeos.exercise_log
+     WHERE log_date = CAST('${date}' AS DATE)`,
+  );
+
+  for (const row of exerciseRows) {
+    const desc = row.duration_min
+      ? `${row.duration_min} min ${row.exercise_type}`
+      : row.sets && row.reps
+        ? `${row.sets}x${row.reps} ${row.exercise_type}`
+        : row.exercise_type;
+    insights.push({
+      text: `You did ${desc} today — elevated HR is expected`,
+      type: 'neutral',
+      source: 'exercise_log',
     });
   }
 
@@ -433,6 +460,26 @@ async function getStepsInsights(date: string): Promise<Insight[]> {
         source: 'health_metrics',
       });
     }
+  }
+
+  // Exercise log for that day
+  const exerciseRows = await query<ExerciseRow>(
+    `SELECT exercise_type, duration_min, sets, reps
+     FROM lifeos.exercise_log
+     WHERE log_date = CAST('${date}' AS DATE)`,
+  );
+
+  for (const row of exerciseRows) {
+    const desc = row.duration_min
+      ? `${row.duration_min} min ${row.exercise_type}`
+      : row.sets && row.reps
+        ? `${row.sets}x${row.reps} ${row.exercise_type}`
+        : row.exercise_type;
+    insights.push({
+      text: `You did ${desc} today — step count reflects workout activity`,
+      type: 'positive',
+      source: 'exercise_log',
+    });
   }
 
   return insights;
