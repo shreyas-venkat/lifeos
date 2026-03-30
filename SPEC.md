@@ -948,12 +948,21 @@ Full-viewport interactive force-directed graph using D3.js. This is the centerpi
   - Label text below the circle
 - **No data state**: Node fill becomes muted (`--bg-elevated`), stat shows "—", icon dimmed to 30% opacity
 
-**Physics & Animation:**
+**Layout:**
+- **LifeOS center node must be at the CENTER of the viewport**, not the bottom
+- Satellite nodes arranged in a balanced circle around center (top, right, bottom-right, left — evenly spaced)
+- **On mobile**: Fixed positions in a clean circular layout. NO physics jitter — it looks messy on small screens. Nodes stay put, just breathing animation.
+- **On desktop**: Gentle physics with nodes staying roughly in their circular positions
+- Start zoomed to fit all nodes with comfortable padding — user should NOT need to scroll or zoom to see everything
+- The graph should fill the available space between the header and bottom nav
+
+**Physics & Animation (desktop only):**
 - D3 force simulation runs CONTINUOUSLY — never stops. Use `simulation.alphaTarget(0.02).restart()` to keep gentle motion forever.
 - Forces: center gravity (strength 0.01), collision (radius + padding), link force (distance 180), gentle random jitter force that nudges nodes slightly every few seconds
 - Nodes drift slowly at all times — the graph should never be static
 - Each node has a subtle **breathing pulse**: CSS animation on the glow/shadow, `scale(1.0)` → `scale(1.02)` → `scale(1.0)` with staggered delays per node
 - Draggable: click and drag to reposition nodes. On release, node rejoins physics.
+- **On mobile**: Skip physics entirely. Use CSS transitions for breathing only. Fixed positions calculated from viewport size.
 
 **Edges:**
 - Curved SVG paths (use `d3.linkHorizontal` or quadratic bezier) connecting each satellite to center
@@ -1041,13 +1050,22 @@ The app MUST be installable on Android as a standalone app (no browser chrome).
   - Each card: large number, unit + period label below
   - Subtle trend arrow (↑↓) comparing current period avg to prior period (e.g., 7D avg vs previous 7D avg)
   - If no data for a metric: show "—" with muted text
-- **Charts section**: One multi-line chart (Chart.js)
+- **Tappable metric cards**: Tapping a metric card expands it to show a dedicated full-width chart for JUST that metric. Tap again to collapse. Only one card expanded at a time.
+- **Charts section**: Overview multi-line chart (Chart.js)
   - Only shown when 7D/30D/90D is selected (not Today)
   - X-axis: dates
   - Y-axis: auto-scaled per dataset
   - Datasets: steps (blue), heart rate (red), sleep hours (purple)
   - Data from `health/history?days={selected}&metric=all`
-  - Smooth curves, gradient fill below lines, no grid
+  - **Smooth bezier curves** with gradient fill below lines, no grid lines
+  - **Interactive tooltip**: Tap/hover on chart to see exact value at that point with a vertical crosshair line
+- **Correlation insights** (shown below charts):
+  - Auto-generated based on available data:
+    - "Sleep vs Heart Rate" — scatter plot or text insight: "Your HR averages X% lower on days with 7+ hours of sleep"
+    - "Steps vs Sleep Quality" — "You sleep better on days with 5000+ steps"
+    - "Weight trend" — "Down 0.5kg over the last 30 days"
+  - Only show correlations when enough data exists (min 7 data points for both metrics)
+  - Use Chart.js scatter type for correlation plots
 - **Empty state**: "No health data yet. Connect Health Connect on your phone to start tracking."
 
 **Note on timezone**: The API uses UTC for `CURRENT_DATE`. The VPS timezone is set to `America/Edmonton` via TZ env var. Ensure the API server process inherits this so "today" matches the user's local time.
@@ -1143,6 +1161,19 @@ The app MUST be installable on Android as a standalone app (no browser chrome).
 - Each section shows key-value pairs from `preferences` table
 - Editable: click value to edit inline, auto-saves via `PUT /preferences`
 - **Empty state**: Show form fields with placeholder text
+
+### Visual Polish — Consumer-Grade Quality
+
+The PWA must feel like a real consumer app, not a dev prototype. Every interaction should be smooth and intentional.
+
+- **Page transitions**: Slide animation (200ms ease-out) when navigating between pages. Pages slide in from the right, out to the left.
+- **Card interactions**: All tappable cards scale to 1.02 on press with a subtle shadow increase. 150ms transition.
+- **Empty states**: Include a muted icon or illustration (SVG) with helpful text — not just plain text.
+- **Loading skeletons**: Pulsing rectangles that match the actual content layout (not generic bars).
+- **Supplement page**: Morning and Evening sections with clear visual dividers and section headers. Progress ring animates on page load (0% → actual% over 800ms).
+- **Meals page**: Recipe cards show food emoji based on protein source (🐔 chicken, 🥩 beef, 🐟 fish, 🥚 eggs).
+- **Consistent spacing**: 16px horizontal padding, 12px between cards, 24px between sections.
+- **Typography**: All numbers in health/calorie cards use `font-variant-numeric: tabular-nums` so they don't jump when values change.
 
 ### Layout & Navigation
 
