@@ -6,7 +6,7 @@ import { pantryRouter } from './pantry.js';
 import { supplementsRouter } from './supplements.js';
 import { caloriesRouter } from './calories.js';
 import { preferencesRouter } from './preferences.js';
-import { streaksRouter } from './streaks.js';
+import { spendingRouter } from './spending.js';
 
 export function mountRoutes(router: Router): void {
   router.use('/health/context', healthContextRouter);
@@ -16,5 +16,5 @@ export function mountRoutes(router: Router): void {
   router.use('/supplements', supplementsRouter);
   router.use('/calories', caloriesRouter);
   router.use('/preferences', preferencesRouter);
-  router.use('/streaks', streaksRouter);
+  router.use('/spending', spendingRouter);
 }
