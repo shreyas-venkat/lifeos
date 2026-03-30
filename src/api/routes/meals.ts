@@ -12,10 +12,12 @@ mealsRouter.get('/plan', async (req: Request, res: Response) => {
   }
 
   try {
+    // Match meal plans where week_start falls within the target week
+    // Flexible: handles both Monday and Sunday as week start
     const weekFilter =
       week === 'current'
-        ? `date_trunc('week', CURRENT_DATE)`
-        : `date_trunc('week', CURRENT_DATE) + INTERVAL '7' DAY`;
+        ? `mp.week_start BETWEEN CURRENT_DATE - INTERVAL '6' DAY AND CURRENT_DATE + INTERVAL '6' DAY`
+        : `mp.week_start BETWEEN CURRENT_DATE + INTERVAL '1' DAY AND CURRENT_DATE + INTERVAL '13' DAY`;
 
     const rows = await query(
       `SELECT mp.id, mp.week_start, mp.day_of_week, mp.meal_type, mp.status,
@@ -24,7 +26,7 @@ mealsRouter.get('/plan', async (req: Request, res: Response) => {
               r.prep_time_min, r.cook_time_min
        FROM lifeos.meal_plans mp
        LEFT JOIN lifeos.recipes r ON mp.recipe_id = r.id
-       WHERE mp.week_start = ${weekFilter}
+       WHERE ${weekFilter}
        ORDER BY mp.day_of_week, mp.meal_type`,
     );
 
