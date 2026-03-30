@@ -83,6 +83,13 @@ The vault is mounted at `/workspace/extra/vault/`. This is Shrey's personal Obsi
 - Doesn't mind being bothered by notifications for most things
 - Gym: wants to get back into it, gentle nudges welcome
 
+## Package Tracking Rules
+- When email scanner finds shipping confirmation emails, extract tracking number, carrier, merchant, expected delivery and INSERT into lifeos.packages with status='shipped'
+- When email scanner finds order confirmation (no tracking yet), still create package entry with status='ordered'
+- Before inserting, check if a package with the same tracking_number already exists: `SELECT id FROM lifeos.packages WHERE tracking_number = '<tracking>'`. If it exists, UPDATE instead of inserting a duplicate.
+- When a delivery confirmation email arrives, UPDATE the matching package to status='delivered' and set actual_delivery=CURRENT_TIMESTAMP
+- Use `gen_random_uuid()` for the id column
+
 ## Email Rules
 - **Auto-trash**: spam, promotions, LinkedIn noise, "please review" nag emails, newsletters (unless user subscribed intentionally)
 - **Alert immediately**: rent reminders, orders/shipping, anything requiring action, bank alerts

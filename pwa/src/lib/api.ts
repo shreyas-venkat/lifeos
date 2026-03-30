@@ -184,6 +184,33 @@ export interface Notification {
   created_at: string;
 }
 
+export interface Package {
+  id: string;
+  merchant: string;
+  tracking_number: string;
+  carrier: string;
+  status: string;
+  expected_delivery: string | null;
+  actual_delivery: string | null;
+  created_at: string;
+}
+
+export interface Subscription {
+  id: string;
+  name: string;
+  amount: number;
+  frequency: string;
+  category: string;
+  active: boolean;
+  last_charged: string | null;
+  created_at: string;
+}
+
+export interface SubscriptionSummary {
+  monthly_total: number;
+  count: number;
+}
+
 export interface WeeklyReport {
   week: string;
   generated_at: string;
@@ -364,6 +391,56 @@ export const api = {
       }),
     budget: () =>
       fetchSafe<BudgetInfo | null>('/spending/budget', null),
+  },
+  packages: {
+    active: () => fetchSafe<Package[]>('/packages', []),
+    all: () => fetchSafe<Package[]>('/packages/all', []),
+    add: (pkg: {
+      merchant: string;
+      tracking_number?: string;
+      carrier?: string;
+      expected_delivery?: string;
+    }) =>
+      fetchApi<Package>('/packages', {
+        method: 'POST',
+        body: JSON.stringify(pkg),
+      }),
+    updateStatus: (id: string, status: string) =>
+      fetchApi<void>(`/packages/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
+      }),
+    remove: (id: string) =>
+      fetchApi<void>(`/packages/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      }),
+  },
+  subscriptions: {
+    active: () => fetchSafe<Subscription[]>('/subscriptions', []),
+    summary: () =>
+      fetchSafe<SubscriptionSummary>('/subscriptions/summary', {
+        monthly_total: 0,
+        count: 0,
+      }),
+    add: (sub: {
+      name: string;
+      amount: number;
+      frequency?: string;
+      category?: string;
+    }) =>
+      fetchApi<Subscription>('/subscriptions', {
+        method: 'POST',
+        body: JSON.stringify(sub),
+      }),
+    update: (id: string, data: Partial<Subscription>) =>
+      fetchApi<void>(`/subscriptions/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+    remove: (id: string) =>
+      fetchApi<void>(`/subscriptions/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      }),
   },
   notifications: {
     pending: () => fetchSafe<Notification[]>('/notifications/pending', []),
