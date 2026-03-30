@@ -305,4 +305,98 @@ describe('meals routes', () => {
       expect(res.status).toBe(500);
     });
   });
+
+  describe('POST /meals/recipes/:id/favorite', () => {
+    it('adds a recipe to favorites when not already favorited', async () => {
+      mockQuery.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+
+      const res = await request(createApp()).post(
+        '/meals/recipes/r1/favorite',
+      );
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.favorited).toBe(true);
+      expect(mockQuery).toHaveBeenLastCalledWith(
+        expect.stringContaining('INSERT INTO lifeos.recipe_favorites'),
+        'r1',
+      );
+    });
+
+    it('removes a recipe from favorites when already favorited', async () => {
+      mockQuery
+        .mockResolvedValueOnce([{ recipe_id: 'r1' }])
+        .mockResolvedValueOnce([]);
+
+      const res = await request(createApp()).post(
+        '/meals/recipes/r1/favorite',
+      );
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.favorited).toBe(false);
+      expect(mockQuery).toHaveBeenLastCalledWith(
+        expect.stringContaining('DELETE FROM lifeos.recipe_favorites'),
+        'r1',
+      );
+    });
+
+    it('returns 500 on database error', async () => {
+      mockQuery.mockRejectedValue(new Error('DB error'));
+
+      const res = await request(createApp()).post(
+        '/meals/recipes/r1/favorite',
+      );
+
+      expect(res.status).toBe(500);
+    });
+  });
+
+  describe('POST /meals/plan/:id/status (pantry auto-deduct)', () => {
+    it('deducts pantry items when status changes to cooked', async () => {
+      mockQuery
+        .mockResolvedValueOnce([]) // UPDATE meal_plans SET status
+        .mockResolvedValueOnce([{ recipe_id: 'rec1' }]) // SELECT recipe_id
+        .mockResolvedValueOnce([
+          { ingredients: JSON.stringify(['chicken', 'rice']) },
+        ]) // SELECT ingredients
+        .mockResolvedValueOnce([{ id: 'p1', quantity: 5 }]) // SELECT pantry (chicken)
+        .mockResolvedValueOnce([]) // UPDATE pantry (chicken)
+        .mockResolvedValueOnce([{ id: 'p2', quantity: 3 }]) // SELECT pantry (rice)
+        .mockResolvedValueOnce([]); // UPDATE pantry (rice)
+
+      const res = await request(createApp())
+        .post('/meals/plan/123/status')
+        .send({ status: 'cooked' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+    });
+
+    it('still succeeds when pantry deduction fails', async () => {
+      mockQuery
+        .mockResolvedValueOnce([]) // UPDATE meal_plans SET status
+        .mockRejectedValueOnce(new Error('pantry lookup failed')); // SELECT recipe_id fails
+
+      const res = await request(createApp())
+        .post('/meals/plan/123/status')
+        .send({ status: 'cooked' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+    });
+
+    it('skips pantry deduction for non-cooked statuses', async () => {
+      mockQuery.mockResolvedValue([]);
+
+      const res = await request(createApp())
+        .post('/meals/plan/123/status')
+        .send({ status: 'skipped' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      // Only 1 call: the UPDATE status, no pantry queries
+      expect(mockQuery).toHaveBeenCalledTimes(1);
+    });
+  });
 });
