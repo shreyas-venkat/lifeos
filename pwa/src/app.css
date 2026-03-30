@@ -74,3 +74,21 @@ input, textarea, select {
 .fade-in {
 	animation: fade-in 0.3s ease-out;
 }
+
+/* Page transitions */
+.page { animation: fadeSlideIn 200ms ease-out; }
+@keyframes fadeSlideIn {
+	from { opacity: 0; transform: translateX(8px); }
+	to { opacity: 1; transform: translateX(0); }
+}
+
+/* Tabular nums for all numbers */
+.stat, .metric-value, h1, h2 { font-variant-numeric: tabular-nums; }
+
+/* Card press effect */
+.card, .meal-chip, .supp-item, .item-row, .recipe-card {
+	transition: transform 150ms ease, box-shadow 150ms ease;
+}
+.card:active, .meal-chip:active, .supp-item:active, .item-row:active, .recipe-card:active {
+	transform: scale(0.98);
+}

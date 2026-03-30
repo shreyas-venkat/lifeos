@@ -42,19 +42,14 @@
 
 	// --- SVG icon paths ---
 	const ICONS: Record<string, string> = {
-		// Heart
 		health:
 			'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z',
-		// Utensils
 		meals:
 			'M11 9H9V2H7v7H5V2H3v7c0 2.12 1.66 3.84 3.75 3.97V22h2.5v-9.03C11.34 12.84 13 11.12 13 9V2h-2v7zm5-3v8h2.5v8H21V2c-2.76 0-5 2.24-5 4z',
-		// Shopping basket
 		pantry:
 			'M5.5 21h13a1.5 1.5 0 001.46-1.15l1.5-6A1.5 1.5 0 0020 12H4a1.5 1.5 0 00-1.46 1.85l1.5 6A1.5 1.5 0 005.5 21zM6 4h12l2 6H4l2-6zm6-2a1 1 0 00-1 1v1h2V3a1 1 0 00-1-1z',
-		// Pill capsule
 		supps:
 			'M4.22 11.29l5.49-5.49a5 5 0 017.07 0 5 5 0 010 7.07l-5.49 5.49a5 5 0 01-7.07 0 5 5 0 010-7.07zm4.24 1.41L14.8 6.36',
-		// LifeOS center
 		center:
 			'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z',
 	};
@@ -112,7 +107,6 @@
 	function shiftDate(days: number) {
 		const d = new Date(selectedDate);
 		d.setDate(d.getDate() + days);
-		// Don't go into the future
 		if (d > new Date()) return;
 		selectedDate = d;
 		fetchData();
@@ -132,7 +126,6 @@
 		if (s.status === 'fulfilled') supplements = s.value;
 		if (p.status === 'fulfilled') pantryItems = p.value;
 
-		// Rebuild graph with new data
 		if (!loading) buildGraph();
 	}
 
@@ -147,13 +140,33 @@
 		const centerX = width / 2;
 		const centerY = height / 2;
 		const isMobile = width < 600;
-		const linkDist = isMobile ? 120 : 180;
+
+		// Calculate orbit radius to fit all nodes with padding
+		// Ensure nodes + labels fit within viewport
+		const maxOrbit = Math.min(width, height) / 2 - (isMobile ? 70 : 90);
+		const orbitRadius = Math.max(isMobile ? 90 : 120, maxOrbit);
+
+		const centerNodeR = isMobile ? 42 : 50;
+		const satNodeR = isMobile ? 34 : 40;
 
 		// Compute stats
 		const stepData = getStepCount(healthMetrics);
 		const calData = getCalorieStat(calorieEntries);
 		const suppData = getSuppStat(supplements);
 		const pantryData = getPantryStat(pantryItems);
+
+		// Satellite angles: evenly spaced around circle (top, right, bottom, left)
+		const angles = [
+			-Math.PI / 2,      // top
+			0,                  // right
+			Math.PI * 0.6,      // bottom-right
+			Math.PI,            // left
+		];
+
+		const satellitePositions = angles.map((a) => ({
+			x: centerX + Math.cos(a) * orbitRadius,
+			y: centerY + Math.sin(a) * orbitRadius,
+		}));
 
 		const nodes: SimNode[] = [
 			{
@@ -176,8 +189,8 @@
 				color: '#ef4444',
 				icon: ICONS.health,
 				hasData: stepData.hasData,
-				x: centerX,
-				y: centerY - linkDist,
+				x: satellitePositions[0].x,
+				y: satellitePositions[0].y,
 				index: 1,
 			},
 			{
@@ -188,8 +201,8 @@
 				color: '#f59e0b',
 				icon: ICONS.meals,
 				hasData: calData.hasData,
-				x: centerX + linkDist,
-				y: centerY,
+				x: satellitePositions[1].x,
+				y: satellitePositions[1].y,
 				index: 2,
 			},
 			{
@@ -200,8 +213,8 @@
 				color: '#22c55e',
 				icon: ICONS.pantry,
 				hasData: pantryData.hasData,
-				x: centerX,
-				y: centerY + linkDist,
+				x: satellitePositions[2].x,
+				y: satellitePositions[2].y,
 				index: 3,
 			},
 			{
@@ -212,8 +225,8 @@
 				color: '#8b5cf6',
 				icon: ICONS.supps,
 				hasData: suppData.hasData,
-				x: centerX - linkDist,
-				y: centerY,
+				x: satellitePositions[3].x,
+				y: satellitePositions[3].y,
 				index: 4,
 			},
 		];
@@ -224,9 +237,6 @@
 			{ source: nodes[0], target: nodes[3] },
 			{ source: nodes[0], target: nodes[4] },
 		];
-
-		const centerNodeR = isMobile ? 42 : 50;
-		const satNodeR = isMobile ? 34 : 40;
 
 		// Clear previous
 		if (simulation) simulation.stop();
@@ -288,7 +298,6 @@
 				rootG.attr('transform', event.transform.toString());
 			});
 		svg.call(zoomBehavior);
-		// Double-click resets zoom
 		svg.on('dblclick.zoom', () => {
 			svg.transition().duration(400).call(zoomBehavior.transform, d3.zoomIdentity);
 		});
@@ -301,7 +310,6 @@
 			const sy = src.y ?? 0;
 			const tx = tgt.x ?? 0;
 			const ty = tgt.y ?? 0;
-			// Quadratic bezier with control point offset perpendicular to line
 			const mx = (sx + tx) / 2;
 			const my = (sy + ty) / 2;
 			const dx = tx - sx;
@@ -345,8 +353,6 @@
 		});
 
 		// --- Node groups ---
-		// Outer <g> for D3 positioning (transform attribute), inner <g> for CSS breathing animation.
-		// This avoids CSS transform property conflicting with SVG transform attribute.
 		const nodeG = rootG.append('g').attr('class', 'nodes');
 
 		const nodeGroups = nodeG
@@ -356,7 +362,8 @@
 			.append('g')
 			.attr('class', 'node')
 			.attr('transform', (d) => `translate(${d.x ?? 0},${d.y ?? 0})`)
-			.style('cursor', (d) => (d.href ? 'pointer' : 'default'));
+			.style('cursor', (d) => (d.href ? 'pointer' : 'default'))
+			.style('will-change', 'transform');
 
 		// Inner group for breathing animation
 		const innerGroups = nodeGroups
@@ -409,7 +416,7 @@
 			.attr('font-family', 'Inter, sans-serif')
 			.attr('letter-spacing', '-0.02em');
 
-		// Label text below circle (on the outer group so it doesn't breathe)
+		// Label text below circle
 		nodeGroups
 			.filter((d) => d.id !== 'center')
 			.append('text')
@@ -428,16 +435,17 @@
 		// --- Hover & click ---
 		nodeGroups
 			.on('mouseenter', function (this: SVGGElement, _event: MouseEvent, d: SimNode) {
+				if (isMobile) return; // No hover on mobile
 				const inner = d3.select(this).select('.node-inner');
 				inner.select('.node-bg').attr('filter', 'url(#glow-hover)');
 				inner.transition().duration(150).attr('transform', 'scale(1.15)');
-				// Brighten connected edge
 				const idx = d.index;
 				if (idx !== undefined && idx > 0) {
 					edgePaths.filter((_e, i) => i === idx - 1).transition().duration(150).attr('opacity', 0.8);
 				}
 			})
 			.on('mouseleave', function (this: SVGGElement) {
+				if (isMobile) return;
 				const inner = d3.select(this).select('.node-inner');
 				inner.select('.node-bg').attr('filter', 'url(#glow)');
 				inner.transition().duration(150).attr('transform', 'scale(1)');
@@ -445,7 +453,6 @@
 			})
 			.on('click', (_event: MouseEvent, d: SimNode) => {
 				if (d.href) {
-					// Zoom toward clicked node then navigate
 					const targetScale = 1.5;
 					svg
 						.transition()
@@ -456,7 +463,6 @@
 						)
 						.on('end', () => goto(d.href));
 				} else {
-					// Center node: satisfying pulse on the inner group
 					const centerInner = nodeGroups.filter((n) => n.id === 'center').select('.node-inner');
 					centerInner
 						.transition()
@@ -468,72 +474,76 @@
 				}
 			});
 
-		// --- D3 force simulation (continuous) ---
-		// Pin center node
-		nodes[0].fx = centerX;
-		nodes[0].fy = centerY;
+		// --- Physics: desktop only, fixed positions on mobile ---
+		if (isMobile) {
+			// Mobile: fixed positions, no physics at all
+			// Positions are already set correctly from the initial node data
+			// Just set the edge paths once (they won't change)
+			edgePaths.attr('d', (d) => edgePath(d.source as SimNode, d.target as SimNode));
+		} else {
+			// Desktop: gentle physics simulation
+			// Pin center node
+			nodes[0].fx = centerX;
+			nodes[0].fy = centerY;
 
-		simulation = d3
-			.forceSimulation<SimNode>(nodes)
-			.force(
-				'link',
-				d3
-					.forceLink<SimNode, d3.SimulationLinkDatum<SimNode>>(links)
-					.id((d) => d.id)
-					.distance(linkDist)
-					.strength(0.3)
-			)
-			.force('charge', d3.forceManyBody<SimNode>().strength(-80))
-			.force('center', d3.forceCenter(centerX, centerY).strength(0.01))
-			.force(
-				'collision',
-				d3.forceCollide<SimNode>().radius((d) => (d.id === 'center' ? centerNodeR + 10 : satNodeR + 10))
-			)
-			.alphaTarget(0.02)
-			.on('tick', () => {
-				// Update node positions
-				nodeGroups.attr('transform', (d) => `translate(${d.x ?? 0},${d.y ?? 0})`);
+			simulation = d3
+				.forceSimulation<SimNode>(nodes)
+				.force(
+					'link',
+					d3
+						.forceLink<SimNode, d3.SimulationLinkDatum<SimNode>>(links)
+						.id((d) => d.id)
+						.distance(orbitRadius)
+						.strength(0.3)
+				)
+				.force('charge', d3.forceManyBody<SimNode>().strength(-80))
+				.force('center', d3.forceCenter(centerX, centerY).strength(0.01))
+				.force(
+					'collision',
+					d3.forceCollide<SimNode>().radius((d) => (d.id === 'center' ? centerNodeR + 10 : satNodeR + 10))
+				)
+				.alphaTarget(0.02)
+				.on('tick', () => {
+					nodeGroups.attr('transform', (d) => `translate(${d.x ?? 0},${d.y ?? 0})`);
+					edgePaths.attr('d', (d) => edgePath(d.source as SimNode, d.target as SimNode));
+				});
 
-				// Update edge paths
-				edgePaths.attr('d', (d) => edgePath(d.source as SimNode, d.target as SimNode));
-			});
+			simulation.alphaTarget(0.02).restart();
 
-		// Keep simulation alive
-		simulation.alphaTarget(0.02).restart();
+			// Gentle random jitter
+			jitterInterval = setInterval(() => {
+				nodes.forEach((n) => {
+					if (n.id === 'center') return;
+					n.vx = (n.vx ?? 0) + (Math.random() - 0.5) * 2;
+					n.vy = (n.vy ?? 0) + (Math.random() - 0.5) * 2;
+				});
+			}, 3000);
 
-		// Gentle random jitter force
-		jitterInterval = setInterval(() => {
-			nodes.forEach((n) => {
-				if (n.id === 'center') return;
-				n.vx = (n.vx ?? 0) + (Math.random() - 0.5) * 2;
-				n.vy = (n.vy ?? 0) + (Math.random() - 0.5) * 2;
-			});
-		}, 3000);
+			// Drag behavior (desktop only)
+			const drag = d3
+				.drag<SVGGElement, SimNode>()
+				.on('start', (event: d3.D3DragEvent<SVGGElement, SimNode, SimNode>) => {
+					if (!event.active && simulation) simulation.alphaTarget(0.1).restart();
+					const d = event.subject;
+					d.fx = d.x;
+					d.fy = d.y;
+				})
+				.on('drag', (event: d3.D3DragEvent<SVGGElement, SimNode, SimNode>) => {
+					const d = event.subject;
+					d.fx = event.x;
+					d.fy = event.y;
+				})
+				.on('end', (event: d3.D3DragEvent<SVGGElement, SimNode, SimNode>) => {
+					if (!event.active && simulation) simulation.alphaTarget(0.02);
+					const d = event.subject;
+					if (d.id !== 'center') {
+						d.fx = null;
+						d.fy = null;
+					}
+				});
 
-		// --- Drag behavior ---
-		const drag = d3
-			.drag<SVGGElement, SimNode>()
-			.on('start', (event: d3.D3DragEvent<SVGGElement, SimNode, SimNode>) => {
-				if (!event.active && simulation) simulation.alphaTarget(0.1).restart();
-				const d = event.subject;
-				d.fx = d.x;
-				d.fy = d.y;
-			})
-			.on('drag', (event: d3.D3DragEvent<SVGGElement, SimNode, SimNode>) => {
-				const d = event.subject;
-				d.fx = event.x;
-				d.fy = event.y;
-			})
-			.on('end', (event: d3.D3DragEvent<SVGGElement, SimNode, SimNode>) => {
-				if (!event.active && simulation) simulation.alphaTarget(0.02);
-				const d = event.subject;
-				if (d.id !== 'center') {
-					d.fx = null;
-					d.fy = null;
-				}
-			});
-
-		nodeGroups.call(drag as unknown as (sel: d3.Selection<SVGGElement, SimNode, SVGGElement, unknown>) => void);
+			nodeGroups.call(drag as unknown as (sel: d3.Selection<SVGGElement, SimNode, SVGGElement, unknown>) => void);
+		}
 	}
 
 	// --- Lifecycle ---
@@ -657,7 +667,7 @@
 		justify-content: center;
 	}
 
-	/* Breathing animation on inner node groups (SVG transform-origin + scale) */
+	/* Breathing animation on inner node groups */
 	:global(.node-inner) {
 		transform-origin: 0px 0px;
 	}
