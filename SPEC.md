@@ -1059,13 +1059,41 @@ The app MUST be installable on Android as a standalone app (no browser chrome).
   - Data from `health/history?days={selected}&metric=all`
   - **Smooth bezier curves** with gradient fill below lines, no grid lines
   - **Interactive tooltip**: Tap/hover on chart to see exact value at that point with a vertical crosshair line
-- **Correlation insights** (shown below charts):
-  - Auto-generated based on available data:
-    - "Sleep vs Heart Rate" — scatter plot or text insight: "Your HR averages X% lower on days with 7+ hours of sleep"
-    - "Steps vs Sleep Quality" — "You sleep better on days with 5000+ steps"
-    - "Weight trend" — "Down 0.5kg over the last 30 days"
-  - Only show correlations when enough data exists (min 7 data points for both metrics)
-  - Use Chart.js scatter type for correlation plots
+- **Smart context panel** — When you tap into ANY metric, the app should THINK and show interconnected insights by cross-referencing ALL available data. This is the killer feature.
+
+  When viewing a metric, show a "Why?" section below the chart that pulls from other tables:
+
+  **Weight expanded:**
+  - Check `lifeos.calorie_log` for that day: "You ate 1,400 kcal yesterday (Cheesy Beef Pasta + Beef Rice Bowl)"
+  - Check previous days' trend: "Weight up 0.3kg since Monday — calorie intake averaged 1,350/day"
+  - Check `lifeos.health_metrics` for steps: "Low activity (2,100 steps) on days weight increased"
+
+  **Heart Rate expanded:**
+  - Check `lifeos.supplement_log`: "You took Ashwagandha yesterday ✓" or "You skipped Ashwagandha — HR tends to be 10% higher without it"
+  - Check sleep: "You slept 5.2 hours — HR averages 15bpm higher after short sleep"
+  - Check steps: "Resting HR, no exercise today"
+
+  **Sleep expanded:**
+  - Check supplements: "Took Melatonin + Magnesium + L-Theanine ✓ — full evening stack"
+  - Check calories: "Late dinner at 9 PM might affect sleep quality"
+  - Check steps: "7,500 steps — active days correlate with better sleep for you"
+
+  **HRV expanded:**
+  - Check supplements: "Ashwagandha and Rhodiola taken ✓"
+  - Check sleep: "7.5 hours, quality 83 — good recovery"
+  - Check stress indicators: If HRV is low, suggest "Consider extra Ashwagandha tomorrow"
+
+  **SpO2 expanded:**
+  - Flag if below 95%: "SpO2 at 93% — below normal range. Check if sleeping position affects this."
+  - Check sleep data: "SpO2 drops correlate with sleep quality scores below 60"
+
+  **Implementation:**
+  - New API endpoint: `GET /api/health/context?metric=weight&date=2026-03-28`
+  - This endpoint queries MULTIPLE tables (health_metrics, calorie_log, supplement_log, meal_plans) and returns structured insights
+  - Each insight has: `text` (human readable), `type` (positive/negative/neutral), `source` (which table)
+  - The PWA renders these as small cards below the chart with colored left borders (green positive, red negative, gray neutral)
+  - Minimum data threshold: only show insights when there's actually data to correlate (don't show empty insights)
+
 - **Empty state**: "No health data yet. Connect Health Connect on your phone to start tracking."
 
 **Note on timezone**: The API uses UTC for `CURRENT_DATE`. The VPS timezone is set to `America/Edmonton` via TZ env var. Ensure the API server process inherits this so "today" matches the user's local time.
