@@ -29,7 +29,7 @@ const VALID_CONFIG: TaskConfig = {
   activityLogJid: 'dc:666666666666',
 };
 
-const EXPECTED_TASK_COUNT = 16;
+const EXPECTED_TASK_COUNT = 17;
 
 // Tasks that should reference a pre-check script
 const TASKS_WITH_SCRIPTS = [
@@ -198,6 +198,14 @@ describe('buildTaskDefinitions', () => {
 
     const obsidianTask = tasks.find((t) => t.id === 'lifeos-obsidian-sync')!;
     expect(obsidianTask.chat_jid).toBe(VALID_CONFIG.activityLogJid);
+
+    const cookingSuggestionTask = tasks.find(
+      (t) => t.id === 'lifeos-cooking-suggestion',
+    )!;
+    expect(cookingSuggestionTask).toBeDefined();
+    expect(cookingSuggestionTask.chat_jid).toBe(VALID_CONFIG.mealsChannelJid);
+    expect(cookingSuggestionTask.schedule_value).toBe('0 17 * * *');
+    expect(cookingSuggestionTask.context_mode).toBe('group');
   });
 
   it('all tasks belong to main group folder', () => {

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
-	import type { Transaction, CategorySummary, MonthlyTotal, BudgetInfo } from '$lib/api';
+	import type { Transaction, CategorySummary, MonthlyTotal, BudgetInfo, Subscription, SubscriptionSummary, SpendingForecast } from '$lib/api';
 
 	let loading = $state(true);
 
@@ -10,6 +10,9 @@
 	let monthlyHistory = $state<MonthlyTotal[]>([]);
 	let recentTransactions = $state<Transaction[]>([]);
 	let budgetInfo = $state<BudgetInfo | null>(null);
+	let subscriptions = $state<Subscription[]>([]);
+	let subscriptionSummary = $state<SubscriptionSummary>({ monthly_total: 0, count: 0 });
+	let forecast = $state<SpendingForecast | null>(null);
 
 	// Add form state
 	let showAddForm = $state(false);
@@ -110,17 +113,33 @@
 		return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 	}
 
+	// Forecast derived state
+	const forecastProgressPct = $derived(
+		forecast && forecast.projected_total > 0
+			? Math.min(Math.round((forecast.current_month_total / forecast.projected_total) * 100), 100)
+			: 0,
+	);
+	const forecastOnTrack = $derived(
+		forecast ? forecast.change_pct <= 0 : true,
+	);
+
 	async function fetchData() {
-		const [summary, history, recent, budget] = await Promise.allSettled([
+		const [summary, history, recent, budget, forecastResult, subs, subSummary] = await Promise.allSettled([
 			api.spending.summary(),
 			api.spending.history(),
 			api.spending.recent(),
 			api.spending.budget(),
+			api.spending.forecast(),
+			api.subscriptions.active(),
+			api.subscriptions.summary(),
 		]);
 		if (summary.status === 'fulfilled') categorySummary = summary.value;
 		if (history.status === 'fulfilled') monthlyHistory = history.value;
 		if (recent.status === 'fulfilled') recentTransactions = recent.value;
 		if (budget.status === 'fulfilled') budgetInfo = budget.value;
+		if (forecastResult.status === 'fulfilled') forecast = forecastResult.value;
+		if (subs.status === 'fulfilled') subscriptions = subs.value;
+		if (subSummary.status === 'fulfilled') subscriptionSummary = subSummary.value;
 	}
 
 	onMount(async () => {
@@ -206,6 +225,44 @@
 			<p class="empty-hint">LifeOS auto-detects spending from bank emails, or tap + to log manually.</p>
 		</div>
 	{:else}
+		<!-- Forecast Card -->
+		{#if forecast}
+			<div class="forecast-card fade-in">
+				<div class="forecast-header">
+					<span class="forecast-title">Monthly Forecast</span>
+					<span class="forecast-indicator" class:on-track={forecastOnTrack} class:over-budget={!forecastOnTrack}>
+						{forecastOnTrack ? 'On track' : 'Over budget'}
+					</span>
+				</div>
+				<div class="forecast-amounts">
+					<div class="forecast-projected">
+						<span class="forecast-amount">{formatCurrency(forecast.projected_total)}</span>
+						<span class="forecast-sublabel">projected this month</span>
+					</div>
+					{#if forecast.last_month_total > 0}
+						<div class="forecast-comparison">
+							<span class="forecast-change" class:positive={forecast.change_pct > 0} class:negative={forecast.change_pct <= 0}>
+								{forecast.change_pct > 0 ? '+' : ''}{forecast.change_pct}%
+							</span>
+							<span class="forecast-vs">vs last month ({formatCurrency(forecast.last_month_total)})</span>
+						</div>
+					{/if}
+				</div>
+				<div class="forecast-progress">
+					<div class="forecast-progress-track">
+						<div
+							class="forecast-progress-fill"
+							style="width: {forecastProgressPct}%;"
+						></div>
+					</div>
+					<div class="forecast-progress-labels">
+						<span>{formatCurrency(forecast.current_month_total)} spent</span>
+						<span>{formatCurrency(forecast.projected_total)} projected</span>
+					</div>
+				</div>
+			</div>
+		{/if}
+
 		<!-- Monthly Overview Card -->
 		{#if budgetInfo}
 			<div class="budget-card fade-in">
@@ -352,6 +409,29 @@
 				{/each}
 			</div>
 		{/if}
+
+		<!-- Subscriptions -->
+		{#if subscriptions.length > 0}
+			<div class="section-header fade-in">
+				<span class="section-label">Subscriptions</span>
+				<div class="section-divider"></div>
+			</div>
+			<div class="sub-total fade-in">
+				<span class="sub-total-label">Monthly recurring</span>
+				<span class="sub-total-amount">{formatCurrency(subscriptionSummary.monthly_total)}</span>
+			</div>
+			<div class="sub-list fade-in">
+				{#each subscriptions as sub}
+					<div class="sub-item">
+						<div class="sub-info">
+							<span class="sub-name">{sub.name}</span>
+							<span class="sub-freq">{sub.frequency}</span>
+						</div>
+						<span class="sub-amount">{formatCurrency(sub.amount)}</span>
+					</div>
+				{/each}
+			</div>
+		{/if}
 	{/if}
 
 	<!-- Add Form Overlay -->
@@ -415,6 +495,123 @@
 		font-size: 1.5rem;
 		font-weight: 600;
 		margin-bottom: 1.25rem;
+	}
+
+	/* Forecast card */
+	.forecast-card {
+		background: var(--bg-card);
+		border: 1px solid var(--border);
+		border-radius: 16px;
+		padding: 16px;
+		margin-bottom: 1rem;
+	}
+
+	.forecast-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 12px;
+	}
+
+	.forecast-title {
+		font-size: 0.8rem;
+		font-weight: 600;
+		color: var(--text-secondary);
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+	}
+
+	.forecast-indicator {
+		font-size: 0.72rem;
+		font-weight: 600;
+		padding: 2px 8px;
+		border-radius: 6px;
+	}
+
+	.forecast-indicator.on-track {
+		background: rgba(34, 197, 94, 0.15);
+		color: #22c55e;
+	}
+
+	.forecast-indicator.over-budget {
+		background: rgba(239, 68, 68, 0.15);
+		color: #ef4444;
+	}
+
+	.forecast-amounts {
+		margin-bottom: 12px;
+	}
+
+	.forecast-projected {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		margin-bottom: 4px;
+	}
+
+	.forecast-amount {
+		font-size: 1.6rem;
+		font-weight: 700;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.forecast-sublabel {
+		font-size: 0.75rem;
+		color: var(--text-secondary);
+	}
+
+	.forecast-comparison {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		margin-top: 4px;
+	}
+
+	.forecast-change {
+		font-size: 0.8rem;
+		font-weight: 600;
+	}
+
+	.forecast-change.positive {
+		color: #ef4444;
+	}
+
+	.forecast-change.negative {
+		color: #22c55e;
+	}
+
+	.forecast-vs {
+		font-size: 0.72rem;
+		color: var(--text-secondary);
+	}
+
+	.forecast-progress {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+
+	.forecast-progress-track {
+		width: 100%;
+		height: 8px;
+		background: var(--bg-elevated);
+		border-radius: 4px;
+		overflow: hidden;
+	}
+
+	.forecast-progress-fill {
+		height: 100%;
+		background: var(--accent);
+		border-radius: 4px;
+		transition: width 0.6s ease;
+	}
+
+	.forecast-progress-labels {
+		display: flex;
+		justify-content: space-between;
+		font-size: 0.7rem;
+		color: var(--text-secondary);
+		font-variant-numeric: tabular-nums;
 	}
 
 	/* Budget / Total card */
@@ -939,6 +1136,71 @@
 
 	.form-submit:hover:not(:disabled) {
 		opacity: 0.9;
+	}
+
+	/* Subscriptions */
+	.sub-total {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 12px 14px;
+		background: var(--bg-card);
+		border: 1px solid var(--border);
+		border-radius: 12px;
+		margin-bottom: 8px;
+	}
+
+	.sub-total-label {
+		font-size: 0.8rem;
+		color: var(--text-secondary);
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+
+	.sub-total-amount {
+		font-size: 1.1rem;
+		font-weight: 700;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.sub-list {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+
+	.sub-item {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 10px 14px;
+		background: var(--bg-card);
+		border: 1px solid var(--border);
+		border-radius: 10px;
+	}
+
+	.sub-info {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	.sub-name {
+		font-size: 0.9rem;
+		font-weight: 600;
+	}
+
+	.sub-freq {
+		font-size: 0.72rem;
+		color: var(--text-secondary);
+		text-transform: capitalize;
+	}
+
+	.sub-amount {
+		font-size: 0.9rem;
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
+		color: var(--text-primary);
 	}
 
 	/* FAB */
