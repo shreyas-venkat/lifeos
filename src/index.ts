@@ -279,6 +279,20 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
   };
 
   await channel.setTyping?.(chatJid, true);
+
+  // Send an immediate "thinking" message so the user knows the bot is working.
+  // This covers the cold container start gap (30-40s) where nothing is visible.
+  const thinkingMessages = [
+    'Thinking...',
+    'On it...',
+    'Let me check...',
+    'Working on it...',
+    'Give me a sec...',
+  ];
+  const thinkingMsg =
+    thinkingMessages[Math.floor(Math.random() * thinkingMessages.length)];
+  await channel.sendMessage(chatJid, `${ASSISTANT_NAME}: ${thinkingMsg}`);
+
   let hadError = false;
   let outputSentToUser = false;
 
