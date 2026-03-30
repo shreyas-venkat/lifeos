@@ -1,12 +1,27 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { api } from '$lib/api';
-	import type { HealthMetric, HealthHistoryPoint } from '$lib/api';
+	import type { HealthMetric, HealthHistoryPoint, WaterLog, MoodEntry } from '$lib/api';
 	import Chart from 'chart.js/auto';
 
 	let todayMetrics = $state<HealthMetric[]>([]);
 	let history = $state<HealthHistoryPoint[]>([]);
 	let loading = $state(true);
+
+	// Water tracking
+	let waterGlasses = $state(0);
+	let waterLogging = $state(false);
+	const WATER_TARGET = 8;
+
+	// Mood tracking
+	let todayMood = $state<MoodEntry | null>(null);
+	let moodSelection = $state(0);
+	let energySelection = $state(0);
+	let moodNotes = $state('');
+	let moodSubmitting = $state(false);
+	let moodHistory = $state<MoodEntry[]>([]);
+	let moodSparkCanvas = $state<HTMLCanvasElement | null>(null);
+	let moodSparkChart: Chart | null = null;
 	/** 0 = Today tab; 7/30/90 = period tabs */
 	let selectedDays = $state(7);
 
@@ -372,10 +387,129 @@
 		return '#8888a0';
 	}
 
+	async function addWaterGlass() {
+		if (waterLogging) return;
+		waterLogging = true;
+		waterGlasses += 1; // optimistic
+		try {
+			await api.water.log();
+			const result = await api.water.today();
+			if (result) waterGlasses = result.glasses;
+		} catch {
+			waterGlasses = Math.max(0, waterGlasses - 1); // revert on failure
+		}
+		waterLogging = false;
+	}
+
+	async function submitMood() {
+		if (moodSubmitting || moodSelection === 0 || energySelection === 0) return;
+		moodSubmitting = true;
+		try {
+			await api.mood.log({
+				mood: moodSelection,
+				energy: energySelection,
+				notes: moodNotes || undefined,
+			});
+			todayMood = await api.mood.today();
+			moodHistory = await api.mood.history(7);
+			requestAnimationFrame(() => renderMoodSparkline());
+		} catch {
+			// submission failed
+		}
+		moodSubmitting = false;
+	}
+
+	function renderMoodSparkline() {
+		if (!moodSparkCanvas || moodHistory.length === 0) return;
+		if (moodSparkChart) moodSparkChart.destroy();
+
+		const sorted = [...moodHistory].sort(
+			(a, b) => a.log_date.localeCompare(b.log_date),
+		);
+		const labels = sorted.map((e) => e.log_date.slice(5));
+		const moodData = sorted.map((e) => e.mood);
+		const energyData = sorted.map((e) => e.energy);
+
+		moodSparkChart = new Chart(moodSparkCanvas, {
+			type: 'line',
+			data: {
+				labels,
+				datasets: [
+					{
+						label: 'Mood',
+						data: moodData,
+						borderColor: '#f59e0b',
+						backgroundColor: '#f59e0b20',
+						fill: false,
+						tension: 0.4,
+						pointRadius: 3,
+						pointBackgroundColor: '#f59e0b',
+						borderWidth: 2,
+					},
+					{
+						label: 'Energy',
+						data: energyData,
+						borderColor: '#22c55e',
+						backgroundColor: '#22c55e20',
+						fill: false,
+						tension: 0.4,
+						pointRadius: 3,
+						pointBackgroundColor: '#22c55e',
+						borderWidth: 2,
+					},
+				],
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				plugins: {
+					legend: {
+						labels: {
+							color: '#8888a0',
+							font: { family: 'Inter', size: 10 },
+							usePointStyle: true,
+							pointStyle: 'circle',
+						},
+					},
+					tooltip: {
+						backgroundColor: '#1a1a24',
+						titleColor: '#e8e8ed',
+						bodyColor: '#e8e8ed',
+						borderColor: '#2a2a3a',
+						borderWidth: 1,
+						padding: 8,
+						cornerRadius: 8,
+					},
+				},
+				scales: {
+					x: {
+						ticks: { color: '#8888a0', font: { family: 'Inter', size: 10 } },
+						grid: { display: false },
+						border: { display: false },
+					},
+					y: {
+						min: 1,
+						max: 5,
+						ticks: {
+							stepSize: 1,
+							color: '#8888a0',
+							font: { family: 'Inter', size: 10 },
+						},
+						grid: { display: false },
+						border: { display: false },
+					},
+				},
+			},
+		});
+	}
+
 	onMount(async () => {
-		const [t, h] = await Promise.allSettled([
+		const [t, h, w, mToday, mHist] = await Promise.allSettled([
 			api.health.today(),
 			api.health.history(14),
+			api.water.today(),
+			api.mood.today(),
+			api.mood.history(7),
 		]);
 		if (t.status === 'fulfilled') todayMetrics = t.value;
 		if (h.status === 'fulfilled') {
@@ -386,12 +520,24 @@
 			const priorAvg = computeAverages(prior);
 			trendDirection = computeTrends(periodAverages, priorAvg);
 		}
+		if (w.status === 'fulfilled' && w.value) waterGlasses = w.value.glasses;
+		if (mToday.status === 'fulfilled' && mToday.value) {
+			todayMood = mToday.value;
+			moodSelection = mToday.value.mood;
+			energySelection = mToday.value.energy;
+			moodNotes = mToday.value.notes ?? '';
+		}
+		if (mHist.status === 'fulfilled') moodHistory = mHist.value;
 		loading = false;
-		requestAnimationFrame(() => renderOverviewChart());
+		requestAnimationFrame(() => {
+			renderOverviewChart();
+			renderMoodSparkline();
+		});
 	});
 
 	onDestroy(() => {
 		if (overviewChart) overviewChart.destroy();
+		if (moodSparkChart) moodSparkChart.destroy();
 		for (const key of Object.keys(metricCharts)) {
 			metricCharts[key].destroy();
 		}
@@ -492,6 +638,78 @@
 				</div>
 			{/each}
 		</div>
+
+		<!-- Water Intake -->
+		<section class="water-section fade-in">
+			<div class="water-header">
+				<span class="water-icon">{'\u{1F4A7}'}</span>
+				<span class="water-count">{waterGlasses} / {WATER_TARGET} glasses</span>
+			</div>
+			<div class="water-progress-bar">
+				<div
+					class="water-progress-fill"
+					style="width: {Math.min((waterGlasses / WATER_TARGET) * 100, 100)}%"
+				></div>
+			</div>
+			<button class="water-add-btn" onclick={addWaterGlass} disabled={waterLogging}>
+				+ Add Glass
+			</button>
+		</section>
+
+		<!-- Mood & Energy -->
+		<section class="mood-section fade-in">
+			<h2 class="mood-title">How are you feeling?</h2>
+
+			<div class="mood-row">
+				<span class="mood-row-label">Mood</span>
+				<div class="emoji-buttons">
+					{#each [{e: '\u{1F62B}', v: 1}, {e: '\u{1F615}', v: 2}, {e: '\u{1F610}', v: 3}, {e: '\u{1F642}', v: 4}, {e: '\u{1F604}', v: 5}] as item}
+						<button
+							class="emoji-btn"
+							class:emoji-selected={moodSelection === item.v}
+							onclick={() => (moodSelection = item.v)}
+						>{item.e}</button>
+					{/each}
+				</div>
+			</div>
+
+			<div class="mood-row">
+				<span class="mood-row-label">Energy</span>
+				<div class="emoji-buttons">
+					{#each [{e: '\u{1FAAB}', v: 1}, {e: '\u{1F50B}', v: 2}, {e: '\u26A1', v: 3}, {e: '\u{1F4AA}', v: 4}, {e: '\u{1F525}', v: 5}] as item}
+						<button
+							class="emoji-btn"
+							class:emoji-selected={energySelection === item.v}
+							onclick={() => (energySelection = item.v)}
+						>{item.e}</button>
+					{/each}
+				</div>
+			</div>
+
+			<textarea
+				class="mood-notes"
+				placeholder="Notes (optional)"
+				bind:value={moodNotes}
+				rows="2"
+			></textarea>
+
+			<button
+				class="mood-submit-btn"
+				onclick={submitMood}
+				disabled={moodSubmitting || moodSelection === 0 || energySelection === 0}
+			>
+				{#if todayMood}Update{:else}Log Mood{/if}
+			</button>
+
+			{#if moodHistory.length > 0}
+				<div class="mood-sparkline-wrapper">
+					<h3 class="sparkline-label">Last 7 days</h3>
+					<div class="sparkline-chart">
+						<canvas bind:this={moodSparkCanvas}></canvas>
+					</div>
+				</div>
+			{/if}
+		</section>
 
 		{#if selectedDays > 0 && history.length > 0 && !expandedMetric}
 			<div class="chart-section fade-in">
@@ -714,5 +932,182 @@
 		font-size: 0.85rem;
 		margin-top: 0.5rem;
 		opacity: 0.7;
+	}
+
+	/* Water intake section */
+	.water-section {
+		background: var(--bg-card);
+		border-radius: 12px;
+		padding: 1rem;
+		margin-bottom: 1.25rem;
+		border: 1px solid var(--border);
+	}
+
+	.water-header {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-bottom: 10px;
+	}
+
+	.water-icon {
+		font-size: 1.2rem;
+	}
+
+	.water-count {
+		font-size: 0.95rem;
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.water-progress-bar {
+		height: 8px;
+		background: var(--bg-elevated);
+		border-radius: 4px;
+		overflow: hidden;
+		margin-bottom: 10px;
+	}
+
+	.water-progress-fill {
+		height: 100%;
+		background: #06b6d4;
+		border-radius: 4px;
+		transition: width 0.3s ease;
+	}
+
+	.water-add-btn {
+		background: var(--bg-elevated);
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		color: var(--text-primary);
+		padding: 8px 16px;
+		font-size: 0.85rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition: border-color 0.2s, background 0.2s;
+		width: 100%;
+	}
+
+	.water-add-btn:hover:not(:disabled) {
+		border-color: #06b6d4;
+		background: #06b6d410;
+	}
+
+	.water-add-btn:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	/* Mood & energy section */
+	.mood-section {
+		background: var(--bg-card);
+		border-radius: 12px;
+		padding: 1rem;
+		margin-bottom: 1.25rem;
+		border: 1px solid var(--border);
+	}
+
+	.mood-title {
+		font-size: 0.8rem;
+		color: var(--text-secondary);
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		margin-bottom: 0.75rem;
+		font-weight: 500;
+	}
+
+	.mood-row {
+		margin-bottom: 10px;
+	}
+
+	.mood-row-label {
+		display: block;
+		font-size: 0.75rem;
+		color: var(--text-secondary);
+		margin-bottom: 6px;
+		font-weight: 500;
+	}
+
+	.emoji-buttons {
+		display: flex;
+		gap: 6px;
+	}
+
+	.emoji-btn {
+		flex: 1;
+		padding: 8px 0;
+		font-size: 1.4rem;
+		background: var(--bg-elevated);
+		border: 2px solid transparent;
+		border-radius: 10px;
+		cursor: pointer;
+		transition: border-color 0.2s, transform 0.15s;
+	}
+
+	.emoji-btn:hover {
+		transform: scale(1.1);
+	}
+
+	.emoji-btn.emoji-selected {
+		border-color: var(--accent);
+		background: var(--accent-glow);
+	}
+
+	.mood-notes {
+		width: 100%;
+		background: var(--bg-elevated);
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		padding: 8px 12px;
+		color: var(--text-primary);
+		font-size: 0.85rem;
+		font-family: inherit;
+		resize: none;
+		margin-bottom: 10px;
+	}
+
+	.mood-notes::placeholder {
+		color: var(--text-secondary);
+	}
+
+	.mood-notes:focus {
+		outline: none;
+		border-color: var(--accent);
+	}
+
+	.mood-submit-btn {
+		background: var(--accent);
+		border: none;
+		border-radius: 8px;
+		color: var(--text-primary);
+		padding: 10px 0;
+		font-size: 0.85rem;
+		font-weight: 600;
+		cursor: pointer;
+		width: 100%;
+		transition: opacity 0.2s;
+	}
+
+	.mood-submit-btn:disabled {
+		opacity: 0.4;
+		cursor: not-allowed;
+	}
+
+	.mood-sparkline-wrapper {
+		margin-top: 14px;
+	}
+
+	.sparkline-label {
+		font-size: 0.7rem;
+		color: var(--text-secondary);
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		font-weight: 500;
+		margin-bottom: 6px;
+	}
+
+	.sparkline-chart {
+		height: 120px;
+		position: relative;
 	}
 </style>
