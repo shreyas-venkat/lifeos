@@ -146,6 +146,23 @@ export interface PreferenceRow {
   skill: string;
 }
 
+export interface PantryAlerts {
+  expiring: PantryItem[];
+  depleted: PantryItem[];
+  stale: PantryItem[];
+}
+
+export interface RecipeSuggestion {
+  recipe: RecipeSummary;
+  match_pct: number;
+  missing: string[];
+}
+
+export interface ShoppingNeed {
+  ingredient: string;
+  needed_for: string[];
+}
+
 /** Exported for direct use in dashboard */
 export { fetchSafe };
 
@@ -211,6 +228,16 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify(data),
       }),
+    alerts: () =>
+      fetchSafe<PantryAlerts>('/pantry/smart/alerts', {
+        expiring: [],
+        depleted: [],
+        stale: [],
+      }),
+    suggestions: () =>
+      fetchSafe<RecipeSuggestion[]>('/pantry/smart/suggestions', []),
+    shoppingNeeds: () =>
+      fetchSafe<ShoppingNeed[]>('/pantry/smart/shopping-needs', []),
   },
   supplements: {
     today: (date?: string) =>
