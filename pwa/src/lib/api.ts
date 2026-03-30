@@ -184,6 +184,37 @@ export interface Notification {
   created_at: string;
 }
 
+export interface UsageSummary {
+  period: string;
+  totals: {
+    total_cost: number;
+    total_input_tokens: number;
+    total_output_tokens: number;
+    total_requests: number;
+  };
+  byTask: Array<{
+    task_id: string | null;
+    cost: number;
+    input_tokens: number;
+    output_tokens: number;
+    requests: number;
+  }>;
+  byModel: Array<{
+    model: string | null;
+    cost: number;
+    input_tokens: number;
+    output_tokens: number;
+    requests: number;
+  }>;
+  daily: Array<{
+    date: string;
+    cost: number;
+    input_tokens: number;
+    output_tokens: number;
+    requests: number;
+  }>;
+}
+
 export interface WeeklyReport {
   week: string;
   generated_at: string;
@@ -390,5 +421,12 @@ export const api = {
       fetchSafe<WeeklyReport | null>('/weekly-report/', null),
     history: () =>
       fetchSafe<WeeklyReport[]>('/weekly-report/history', []),
+  },
+  usage: {
+    summary: (period: 'today' | 'week' | 'month' = 'today') =>
+      fetchSafe<UsageSummary | null>(
+        `/usage/summary?period=${encodeURIComponent(period)}`,
+        null,
+      ),
   },
 };

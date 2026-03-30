@@ -24,6 +24,7 @@ describe('mountRoutes', () => {
     expect(mockUse).toHaveBeenCalledWith('/preferences', expect.anything());
     expect(mockUse).toHaveBeenCalledWith('/spending', expect.anything());
     expect(mockUse).toHaveBeenCalledWith('/notifications', expect.anything());
-    expect(mockUse).toHaveBeenCalledTimes(9);
+    expect(mockUse).toHaveBeenCalledWith('/usage', expect.anything());
+    expect(mockUse).toHaveBeenCalledTimes(10);
   });
 });

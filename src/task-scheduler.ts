@@ -1,8 +1,10 @@
 import { ChildProcess } from 'child_process';
 import { CronExpressionParser } from 'cron-parser';
+import { randomUUID } from 'crypto';
 import fs from 'fs';
 
 import { ASSISTANT_NAME, SCHEDULER_POLL_INTERVAL, TIMEZONE } from './config.js';
+import { query as mdQuery } from './api/db.js';
 import {
   ContainerOutput,
   runContainerAgent,
@@ -150,6 +152,7 @@ async function runTask(
 
   let result: string | null = null;
   let error: string | null = null;
+  let lastUsageOutput: ContainerOutput | null = null;
 
   // For group context mode, use the group's current session
   const sessions = deps.getSessions();
@@ -182,6 +185,7 @@ async function runTask(
         isScheduledTask: true,
         assistantName: ASSISTANT_NAME,
         script: task.script || undefined,
+        model: task.model || undefined,
       },
       (proc, containerName) =>
         deps.onProcess(task.chat_jid, proc, containerName, task.group_folder),
@@ -191,6 +195,9 @@ async function runTask(
           // Forward result to user (sendMessage handles formatting)
           await deps.sendMessage(task.chat_jid, streamedOutput.result);
           scheduleClose();
+        }
+        if (streamedOutput.costUsd !== undefined) {
+          lastUsageOutput = streamedOutput;
         }
         if (streamedOutput.status === 'success') {
           deps.queue.notifyIdle(task.chat_jid);
@@ -248,6 +255,30 @@ async function runTask(
       ? result.slice(0, 200)
       : 'Completed';
   updateTaskAfterRun(task.id, nextRun, resultSummary);
+
+  // Log usage to MotherDuck (best-effort, don't crash on failure)
+  if (lastUsageOutput?.costUsd !== undefined) {
+    try {
+      await mdQuery(
+        `INSERT INTO lifeos.api_usage (id, task_id, chat_jid, model, input_tokens, output_tokens, cost_usd, duration_ms, num_turns, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)`,
+        randomUUID(),
+        task.id,
+        task.chat_jid,
+        lastUsageOutput.model || null,
+        lastUsageOutput.inputTokens || 0,
+        lastUsageOutput.outputTokens || 0,
+        lastUsageOutput.costUsd,
+        lastUsageOutput.durationMs || 0,
+        lastUsageOutput.numTurns || 0,
+      );
+    } catch (err) {
+      logger.warn(
+        { taskId: task.id, err },
+        'Failed to log usage to MotherDuck',
+      );
+    }
+  }
 }
 
 let schedulerRunning = false;

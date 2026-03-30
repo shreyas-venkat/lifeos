@@ -9,6 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const schemasDir = path.join(__dirname, 'schemas');
 
 const EXPECTED_TABLES = [
+  'api_usage',
   'bills',
   'calendar_events',
   'calorie_log',

@@ -44,6 +44,7 @@ export interface ContainerInput {
   isScheduledTask?: boolean;
   assistantName?: string;
   script?: string;
+  model?: string;
 }
 
 export interface ContainerOutput {
@@ -51,6 +52,12 @@ export interface ContainerOutput {
   result: string | null;
   newSessionId?: string;
   error?: string;
+  costUsd?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  model?: string;
+  durationMs?: number;
+  numTurns?: number;
 }
 
 interface VolumeMount {
@@ -269,6 +276,7 @@ async function buildContainerArgs(
   mounts: VolumeMount[],
   containerName: string,
   agentIdentifier?: string,
+  model?: string,
 ): Promise<string[]> {
   const args: string[] = ['run', '-i', '--rm', '--name', containerName];
 
@@ -289,6 +297,11 @@ async function buildContainerArgs(
     if (process.env[key]) {
       args.push('-e', `${key}=${process.env[key]}`);
     }
+  }
+
+  // Pass model selection to the container for SDK query routing
+  if (model) {
+    args.push('-e', `CLAUDE_MODEL=${model}`);
   }
 
   // OneCLI gateway handles credential injection — containers never see real secrets.
@@ -354,6 +367,7 @@ export async function runContainerAgent(
     mounts,
     containerName,
     agentIdentifier,
+    input.model,
   );
 
   logger.debug(
