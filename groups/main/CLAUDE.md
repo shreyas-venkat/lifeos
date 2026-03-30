@@ -160,6 +160,11 @@ How to make:
   - High stress / low HRV → extra Ashwagandha, extra Rhodiola
   - Low activity / low steps → skip Taurine (not needed)
 - NEVER exceed 2x the default dosage for any supplement
+- **Weight-aware dosing**: Shrey weighs ~53kg. Check latest weight from `lifeos.health_metrics WHERE metric_type = 'weight'`. Standard supplement doses are calibrated for ~70kg adults. For his weight:
+  - Magnesium: 1 tab (200mg) is appropriate — 3-4mg/kg = 160-210mg
+  - Zinc: 25mg is fine at any weight
+  - If creatine is added: recommend 1 tab not 2 (0.05g/kg = ~2.5g, not 5g)
+  - For supplements where dose is weight-sensitive, scale down rather than up
 - Log adjusted dosages in `lifeos.supplement_log` with `recommended_dosage` and `reason`
 - **IMPORTANT**: The evening supplement task MUST write tomorrow's morning recommendations to `lifeos.supplement_log` using `mcp__motherduck__query`. For EACH active supplement, INSERT a row:
   ```sql
