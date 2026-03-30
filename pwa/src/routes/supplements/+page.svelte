@@ -37,6 +37,9 @@
 		)
 	);
 
+	const mornSupps = $derived(sorted.filter((s) => s.time_of_day === 'morning'));
+	const eveSupps = $derived(sorted.filter((s) => s.time_of_day !== 'morning'));
+
 	// SVG progress ring constants
 	const ringSize = 140;
 	const strokeWidth = 10;
@@ -47,6 +50,10 @@
 	// Progress ring color transitions from accent to success
 	const ringColor = $derived(progress >= 1 ? 'var(--success)' : 'var(--accent)');
 
+	// Animate ring from 0 to actual progress on mount
+	let ringAnimated = $state(false);
+	const animatedOffset = $derived(ringAnimated ? ringOffset : ringCircumference);
+
 	function formatDosage(supp: SupplementWithStatus): string {
 		const dosage = supp.default_dosage;
 		const unit = supp.unit;
@@ -56,6 +63,10 @@
 	onMount(async () => {
 		supplements = await api.supplements.today();
 		loading = false;
+		// Trigger ring animation after a tick so CSS transition kicks in
+		requestAnimationFrame(() => {
+			ringAnimated = true;
+		});
 	});
 
 	async function toggleTaken(supp: SupplementWithStatus) {
@@ -109,8 +120,16 @@
 		<div class="ring-placeholder">
 			<div class="skeleton" style="width: 140px; height: 140px; border-radius: 50%;"></div>
 		</div>
+		<!-- Section header skeleton -->
+		<div class="skeleton" style="height: 16px; width: 100px; border-radius: 4px; margin-bottom: 0.75rem;"></div>
 		{#each Array(4) as _}
-			<div class="skeleton" style="height: 60px; margin-bottom: 0.5rem;"></div>
+			<div class="skeleton-supp-item">
+				<div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
+					<div class="skeleton" style="height: 14px; width: 55%; border-radius: 4px;"></div>
+					<div class="skeleton" style="height: 10px; width: 35%; border-radius: 4px;"></div>
+				</div>
+				<div class="skeleton" style="width: 36px; height: 36px; border-radius: 50%;"></div>
+			</div>
 		{/each}
 	{:else if total === 0 && !showAddForm}
 		<div class="empty-state fade-in">
@@ -144,9 +163,9 @@
 					stroke-width={strokeWidth}
 					stroke-linecap="round"
 					stroke-dasharray={ringCircumference}
-					stroke-dashoffset={ringOffset}
+					stroke-dashoffset={animatedOffset}
 					transform="rotate(-90 {ringSize / 2} {ringSize / 2})"
-					style="transition: stroke-dashoffset 0.5s ease, stroke 0.3s ease;"
+					style="transition: stroke-dashoffset 0.8s ease, stroke 0.3s ease;"
 				/>
 			</svg>
 			<div class="ring-label">
@@ -155,45 +174,96 @@
 			</div>
 		</div>
 
-		<!-- Supplement List -->
-		<div class="supp-list fade-in">
-			{#each sorted as supp}
-				<div class="supp-item" class:taken-item={supp.taken}>
-					<div class="supp-info">
-						<span class="supp-name">{supp.name}</span>
-						<div class="supp-details">
-							<span>{formatDosage(supp)}</span>
-							<span class="supp-time">{supp.time_of_day}</span>
-						</div>
-						{#if supp.reason}
-							<span class="supp-reason">{supp.reason}</span>
-						{/if}
-					</div>
-					<div class="supp-actions">
-						<button
-							class="toggle-btn"
-							class:taken-btn={supp.taken}
-							onclick={() => toggleTaken(supp)}
-						>
-							{#if supp.taken}
-								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-									<polyline points="20 6 9 17 4 12" />
-								</svg>
-							{:else}
-								<span class="toggle-circle"></span>
+		<!-- Supplement List: Morning -->
+		{#if mornSupps.length > 0}
+			<div class="section-header fade-in">
+				<span class="section-label">{'\u2600\uFE0F'} Morning</span>
+				<div class="section-divider"></div>
+			</div>
+			<div class="supp-list fade-in">
+				{#each mornSupps as supp}
+					<div class="supp-item" class:taken-item={supp.taken}>
+						<div class="supp-info">
+							<span class="supp-name">{supp.name}</span>
+							<div class="supp-details">
+								<span>{formatDosage(supp)}</span>
+							</div>
+							{#if supp.reason}
+								<span class="supp-reason">{supp.reason}</span>
 							{/if}
-						</button>
-						<button
-							class="delete-btn"
-							onclick={() => deleteSupplement(supp.supplement_id)}
-							title="Delete supplement"
-						>
-							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-						</button>
+						</div>
+						<div class="supp-actions">
+							<button
+								class="toggle-btn"
+								class:taken-btn={supp.taken}
+								onclick={() => toggleTaken(supp)}
+							>
+								{#if supp.taken}
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+										<polyline points="20 6 9 17 4 12" />
+									</svg>
+								{:else}
+									<span class="toggle-circle"></span>
+								{/if}
+							</button>
+							<button
+								class="delete-btn"
+								onclick={() => deleteSupplement(supp.supplement_id)}
+								title="Delete supplement"
+							>
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+							</button>
+						</div>
 					</div>
-				</div>
-			{/each}
-		</div>
+				{/each}
+			</div>
+		{/if}
+
+		<!-- Supplement List: Evening -->
+		{#if eveSupps.length > 0}
+			<div class="section-header fade-in">
+				<span class="section-label">{'\u{1F319}'} Evening</span>
+				<div class="section-divider"></div>
+			</div>
+			<div class="supp-list fade-in">
+				{#each eveSupps as supp}
+					<div class="supp-item" class:taken-item={supp.taken}>
+						<div class="supp-info">
+							<span class="supp-name">{supp.name}</span>
+							<div class="supp-details">
+								<span>{formatDosage(supp)}</span>
+								<span class="supp-time">{supp.time_of_day}</span>
+							</div>
+							{#if supp.reason}
+								<span class="supp-reason">{supp.reason}</span>
+							{/if}
+						</div>
+						<div class="supp-actions">
+							<button
+								class="toggle-btn"
+								class:taken-btn={supp.taken}
+								onclick={() => toggleTaken(supp)}
+							>
+								{#if supp.taken}
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+										<polyline points="20 6 9 17 4 12" />
+									</svg>
+								{:else}
+									<span class="toggle-circle"></span>
+								{/if}
+							</button>
+							<button
+								class="delete-btn"
+								onclick={() => deleteSupplement(supp.supplement_id)}
+								title="Delete supplement"
+							>
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+							</button>
+						</div>
+					</div>
+				{/each}
+			</div>
+		{/if}
 	{/if}
 
 	<!-- Add Form Overlay -->
@@ -554,6 +624,39 @@
 		width: 22px;
 		height: 22px;
 		color: white;
+	}
+
+	.section-header {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		margin-top: 1.25rem;
+		margin-bottom: 0.5rem;
+	}
+
+	.section-label {
+		font-size: 0.8rem;
+		font-weight: 600;
+		color: var(--text-secondary);
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		white-space: nowrap;
+	}
+
+	.section-divider {
+		flex: 1;
+		height: 1px;
+		background: var(--border);
+	}
+
+	.skeleton-supp-item {
+		display: flex;
+		align-items: center;
+		background: var(--bg-card);
+		border-radius: 12px;
+		padding: 14px;
+		border: 1px solid var(--border);
+		margin-bottom: 8px;
 	}
 
 	.empty-state {
