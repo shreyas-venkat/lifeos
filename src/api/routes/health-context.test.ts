@@ -129,9 +129,7 @@ describe('health context routes', () => {
       // metric value
       mockQuery.mockResolvedValueOnce([{ avg_value: 68 }]);
       // supplements
-      mockQuery.mockResolvedValueOnce([
-        { name: 'Ashwagandha', taken: true },
-      ]);
+      mockQuery.mockResolvedValueOnce([{ name: 'Ashwagandha', taken: true }]);
       // sleep duration
       mockQuery.mockResolvedValueOnce([{ avg_value: 7.5 }]);
       // steps
@@ -158,9 +156,7 @@ describe('health context routes', () => {
       // metric value
       mockQuery.mockResolvedValueOnce([{ avg_value: 6.5 }]);
       // supplements
-      mockQuery.mockResolvedValueOnce([
-        { name: 'Melatonin', taken: true },
-      ]);
+      mockQuery.mockResolvedValueOnce([{ name: 'Melatonin', taken: true }]);
       // late meals
       mockQuery.mockResolvedValueOnce([
         { description: 'Late Night Pizza', calories: 500 },
@@ -187,9 +183,7 @@ describe('health context routes', () => {
       // metric value
       mockQuery.mockResolvedValueOnce([{ avg_value: 45 }]);
       // supplements
-      mockQuery.mockResolvedValueOnce([
-        { name: 'Rhodiola', taken: true },
-      ]);
+      mockQuery.mockResolvedValueOnce([{ name: 'Rhodiola', taken: true }]);
       // sleep quality
       mockQuery.mockResolvedValueOnce([{ avg_value: 85 }]);
       // 7-day avg
@@ -244,8 +238,8 @@ describe('health context routes', () => {
 
       expect(res.status).toBe(200);
       // No "below normal" insight when >= 95
-      const flagInsight = res.body.data.insights.find(
-        (i: { text: string }) => i.text.includes('below normal'),
+      const flagInsight = res.body.data.insights.find((i: { text: string }) =>
+        i.text.includes('below normal'),
       );
       expect(flagInsight).toBeUndefined();
     });

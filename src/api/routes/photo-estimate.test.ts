@@ -148,9 +148,7 @@ describe('photo-estimate routes', () => {
       });
 
       expect(res.status).toBe(200);
-      expect(mockQuery).toHaveBeenCalledWith(
-        expect.stringContaining('NULL'),
-      );
+      expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('NULL'));
     });
 
     it('returns 500 on database error', async () => {

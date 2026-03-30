@@ -254,7 +254,9 @@ describe('habits routes', () => {
     it('returns 404 for non-existent habit', async () => {
       mockQuery.mockResolvedValueOnce([]); // no habit found
 
-      const res = await request(createApp()).post('/habits/nonexistent/complete');
+      const res = await request(createApp()).post(
+        '/habits/nonexistent/complete',
+      );
 
       expect(res.status).toBe(404);
       expect(res.body.error).toContain('not found');

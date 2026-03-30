@@ -179,9 +179,7 @@ describe('exercise routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(mockQuery).toHaveBeenCalledWith(
-        expect.stringContaining('NULL'),
-      );
+      expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('NULL'));
     });
 
     it('returns 400 when exercise_type is missing', async () => {
@@ -304,14 +302,12 @@ describe('exercise routes', () => {
     it('creates a strength template with defaults', async () => {
       mockQuery.mockResolvedValue([]);
 
-      const res = await request(createApp())
-        .post('/exercise/templates')
-        .send({
-          name: 'Bench Press',
-          category: 'strength',
-          default_sets: 3,
-          default_reps: 10,
-        });
+      const res = await request(createApp()).post('/exercise/templates').send({
+        name: 'Bench Press',
+        category: 'strength',
+        default_sets: 3,
+        default_reps: 10,
+      });
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);

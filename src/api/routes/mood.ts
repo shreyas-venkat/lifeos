@@ -95,9 +95,7 @@ moodRouter.get('/history', async (req: Request, res: Response) => {
   const days = daysParam ? Number(daysParam) : 30;
 
   if (isNaN(days) || days < 1 || days > 365) {
-    res
-      .status(400)
-      .json({ error: 'days must be a number between 1 and 365' });
+    res.status(400).json({ error: 'days must be a number between 1 and 365' });
     return;
   }
 

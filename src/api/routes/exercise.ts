@@ -83,10 +83,8 @@ exerciseRouter.post('/log', async (req: Request, res: Response) => {
       duration_min !== undefined && duration_min !== null
         ? Number(duration_min)
         : 'NULL';
-    const s =
-      sets !== undefined && sets !== null ? Number(sets) : 'NULL';
-    const r =
-      reps !== undefined && reps !== null ? Number(reps) : 'NULL';
+    const s = sets !== undefined && sets !== null ? Number(sets) : 'NULL';
+    const r = reps !== undefined && reps !== null ? Number(reps) : 'NULL';
     const w =
       weight_kg !== undefined && weight_kg !== null
         ? Number(weight_kg)
@@ -100,9 +98,7 @@ exerciseRouter.post('/log', async (req: Request, res: Response) => {
         ? Number(calories_burned)
         : 'NULL';
     const n =
-      notes && typeof notes === 'string'
-        ? `'${sanitize(notes)}'`
-        : 'NULL';
+      notes && typeof notes === 'string' ? `'${sanitize(notes)}'` : 'NULL';
 
     await query(
       `INSERT INTO lifeos.exercise_log (id, log_date, exercise_type, duration_min, sets, reps, weight_kg, distance_km, calories_burned, notes)
@@ -119,9 +115,7 @@ exerciseRouter.delete('/:id', async (req: Request, res: Response) => {
   const { id } = req.params;
 
   try {
-    await query(
-      `DELETE FROM lifeos.exercise_log WHERE id = '${sanitize(id)}'`,
-    );
+    await query(`DELETE FROM lifeos.exercise_log WHERE id = '${sanitize(id)}'`);
     res.json({ success: true });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';

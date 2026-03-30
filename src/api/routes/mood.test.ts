@@ -84,9 +84,7 @@ describe('mood routes', () => {
     });
 
     it('updates existing entry for same date and time', async () => {
-      mockQuery
-        .mockResolvedValueOnce([{ id: 'm1' }])
-        .mockResolvedValueOnce([]);
+      mockQuery.mockResolvedValueOnce([{ id: 'm1' }]).mockResolvedValueOnce([]);
 
       const res = await request(createApp()).post('/mood/log').send({
         mood: 5,

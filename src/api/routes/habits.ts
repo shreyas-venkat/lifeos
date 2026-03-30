@@ -9,7 +9,9 @@ const VALID_FREQUENCIES = ['daily', 'weekly'] as const;
 type Frequency = (typeof VALID_FREQUENCIES)[number];
 
 function isValidFrequency(val: unknown): val is Frequency {
-  return typeof val === 'string' && VALID_FREQUENCIES.includes(val as Frequency);
+  return (
+    typeof val === 'string' && VALID_FREQUENCIES.includes(val as Frequency)
+  );
 }
 
 // GET / — All active habits with today's completion status
@@ -32,17 +34,20 @@ habitsRouter.get('/', async (_req: Request, res: Response) => {
 
 // POST / — Create new habit
 habitsRouter.post('/', async (req: Request, res: Response) => {
-  const { name, description, frequency, target_per_day, color, icon } = req.body as {
-    name?: string;
-    description?: string;
-    frequency?: string;
-    target_per_day?: number;
-    color?: string;
-    icon?: string;
-  };
+  const { name, description, frequency, target_per_day, color, icon } =
+    req.body as {
+      name?: string;
+      description?: string;
+      frequency?: string;
+      target_per_day?: number;
+      color?: string;
+      icon?: string;
+    };
 
   if (!name || typeof name !== 'string' || !name.trim()) {
-    res.status(400).json({ error: 'name is required and must be a non-empty string' });
+    res
+      .status(400)
+      .json({ error: 'name is required and must be a non-empty string' });
     return;
   }
 
@@ -53,8 +58,13 @@ habitsRouter.post('/', async (req: Request, res: Response) => {
     return;
   }
 
-  if (target_per_day !== undefined && (typeof target_per_day !== 'number' || target_per_day < 1)) {
-    res.status(400).json({ error: 'target_per_day must be a positive integer' });
+  if (
+    target_per_day !== undefined &&
+    (typeof target_per_day !== 'number' || target_per_day < 1)
+  ) {
+    res
+      .status(400)
+      .json({ error: 'target_per_day must be a positive integer' });
     return;
   }
 
@@ -143,10 +153,7 @@ habitsRouter.delete('/:id', async (req: Request, res: Response) => {
   const { id } = req.params;
 
   try {
-    await query(
-      `UPDATE lifeos.habits SET active = false WHERE id = $1`,
-      id,
-    );
+    await query(`UPDATE lifeos.habits SET active = false WHERE id = $1`, id);
     res.json({ success: true });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';

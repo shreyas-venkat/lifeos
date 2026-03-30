@@ -310,9 +310,7 @@ describe('meals routes', () => {
     it('adds a recipe to favorites when not already favorited', async () => {
       mockQuery.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
 
-      const res = await request(createApp()).post(
-        '/meals/recipes/r1/favorite',
-      );
+      const res = await request(createApp()).post('/meals/recipes/r1/favorite');
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
@@ -328,9 +326,7 @@ describe('meals routes', () => {
         .mockResolvedValueOnce([{ recipe_id: 'r1' }])
         .mockResolvedValueOnce([]);
 
-      const res = await request(createApp()).post(
-        '/meals/recipes/r1/favorite',
-      );
+      const res = await request(createApp()).post('/meals/recipes/r1/favorite');
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
@@ -344,9 +340,7 @@ describe('meals routes', () => {
     it('returns 500 on database error', async () => {
       mockQuery.mockRejectedValue(new Error('DB error'));
 
-      const res = await request(createApp()).post(
-        '/meals/recipes/r1/favorite',
-      );
+      const res = await request(createApp()).post('/meals/recipes/r1/favorite');
 
       expect(res.status).toBe(500);
     });

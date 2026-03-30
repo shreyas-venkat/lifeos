@@ -34,7 +34,9 @@ export async function query<T = Record<string, unknown>>(
         obj[col] = Number(val);
       } else if (val && typeof val === 'object' && 'micros' in val) {
         // DuckDB TIMESTAMP → ISO string (micros since epoch)
-        obj[col] = new Date(Number(BigInt(val.micros as bigint) / 1000n)).toISOString();
+        obj[col] = new Date(
+          Number(BigInt(val.micros as bigint) / 1000n),
+        ).toISOString();
       } else if (val && typeof val === 'object' && 'days' in val) {
         // DuckDB DATE → ISO date string (days since epoch)
         const d = new Date(Number(val.days as number) * 86400000);

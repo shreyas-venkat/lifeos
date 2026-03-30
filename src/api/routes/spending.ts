@@ -48,13 +48,10 @@ spendingRouter.get('/summary', async (req: Request, res: Response) => {
 // GET /history?months=6 — Monthly spending totals
 spendingRouter.get('/history', async (req: Request, res: Response) => {
   const monthsParam = req.query.months;
-  const months =
-    monthsParam !== undefined ? Number(monthsParam) : 6;
+  const months = monthsParam !== undefined ? Number(monthsParam) : 6;
 
   if (isNaN(months) || months < 1 || months > 24) {
-    res
-      .status(400)
-      .json({ error: 'months must be a number between 1 and 24' });
+    res.status(400).json({ error: 'months must be a number between 1 and 24' });
     return;
   }
 
@@ -187,9 +184,7 @@ spendingRouter.get('/budget', async (_req: Request, res: Response) => {
        WHERE transaction_date >= date_trunc('month', CURRENT_DATE)`,
     );
 
-    const spent = Number(
-      (totalRows[0] as Record<string, unknown>).total ?? 0,
-    );
+    const spent = Number((totalRows[0] as Record<string, unknown>).total ?? 0);
 
     res.json({
       data: {

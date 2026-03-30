@@ -64,8 +64,7 @@ healthRouter.get('/history', async (req: Request, res: Response) => {
            GROUP BY CAST(recorded_at AS DATE), metric_type
            ORDER BY date ASC, metric_type`;
 
-    const rows =
-      metric === 'all' ? await query(sql) : await query(sql, metric);
+    const rows = metric === 'all' ? await query(sql) : await query(sql, metric);
     res.json({ data: rows, days });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';

@@ -119,7 +119,11 @@ sleepRouter.get('/insights', async (_req: Request, res: Response) => {
 
     if (melatoninRows.length > 0) {
       const row = melatoninRows[0];
-      if (row.taken_avg != null && row.not_taken_avg != null && row.taken_days > 0) {
+      if (
+        row.taken_avg != null &&
+        row.not_taken_avg != null &&
+        row.taken_days > 0
+      ) {
         const diff = row.taken_avg - row.not_taken_avg;
         const diffMin = Math.round(Math.abs(diff) * 60);
         if (diff > 0) {
@@ -164,7 +168,11 @@ sleepRouter.get('/insights', async (_req: Request, res: Response) => {
 
     if (magnesiumRows.length > 0) {
       const row = magnesiumRows[0];
-      if (row.taken_avg != null && row.not_taken_avg != null && row.taken_days > 0) {
+      if (
+        row.taken_avg != null &&
+        row.not_taken_avg != null &&
+        row.taken_days > 0
+      ) {
         const diff = row.taken_avg - row.not_taken_avg;
         const diffMin = Math.round(Math.abs(diff) * 60);
         if (diff > 0) {
@@ -209,7 +217,12 @@ sleepRouter.get('/insights', async (_req: Request, res: Response) => {
     const highSteps = stepsRows.find((r) => r.step_category === 'high');
     const lowSteps = stepsRows.find((r) => r.step_category === 'low');
 
-    if (highSteps && lowSteps && highSteps.avg_sleep != null && lowSteps.avg_sleep != null) {
+    if (
+      highSteps &&
+      lowSteps &&
+      highSteps.avg_sleep != null &&
+      lowSteps.avg_sleep != null
+    ) {
       const diff = highSteps.avg_sleep - lowSteps.avg_sleep;
       const diffMin = Math.round(Math.abs(diff) * 60);
       if (diff > 0) {
@@ -228,7 +241,10 @@ sleepRouter.get('/insights', async (_req: Request, res: Response) => {
     }
 
     // --- Weekly goal tracking ---
-    const goalRows = await query<{ nights_on_target: number; avg_duration: number }>(
+    const goalRows = await query<{
+      nights_on_target: number;
+      avg_duration: number;
+    }>(
       `SELECT
          COUNT(CASE WHEN avg_sleep >= 7 AND avg_sleep <= 9 THEN 1 END) AS nights_on_target,
          AVG(avg_sleep) AS avg_duration
@@ -245,7 +261,12 @@ sleepRouter.get('/insights', async (_req: Request, res: Response) => {
       const { nights_on_target, avg_duration } = goalRows[0];
       insights.push({
         text: `Weekly avg: ${avg_duration.toFixed(1)}h — ${nights_on_target} of 7 nights hitting 7-9h target`,
-        type: nights_on_target >= 5 ? 'positive' : nights_on_target >= 3 ? 'neutral' : 'negative',
+        type:
+          nights_on_target >= 5
+            ? 'positive'
+            : nights_on_target >= 3
+              ? 'neutral'
+              : 'negative',
         source: 'health_metrics',
       });
     }

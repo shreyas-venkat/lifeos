@@ -57,9 +57,7 @@ function setupMockData(overrides?: {
       );
     }
     if (sql.includes('calorie_log')) {
-      return Promise.resolve(
-        overrides?.calories ?? [{ avg_cal: 1150 }],
-      );
+      return Promise.resolve(overrides?.calories ?? [{ avg_cal: 1150 }]);
     }
     if (sql.includes('supplements') && sql.includes('CROSS JOIN')) {
       return Promise.resolve(

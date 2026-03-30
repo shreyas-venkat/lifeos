@@ -27,9 +27,7 @@ remindersRouter.post('/', async (req: Request, res: Response) => {
   };
 
   if (!message || typeof message !== 'string') {
-    res
-      .status(400)
-      .json({ error: 'message is required and must be a string' });
+    res.status(400).json({ error: 'message is required and must be a string' });
     return;
   }
 

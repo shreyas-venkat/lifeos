@@ -51,49 +51,58 @@ interface WeeklyReport {
   highlights: string[];
 }
 
-async function generateReport(weekStart: string, weekEnd: string): Promise<Omit<WeeklyReport, 'week' | 'generated_at'>> {
+async function generateReport(
+  weekStart: string,
+  weekEnd: string,
+): Promise<Omit<WeeklyReport, 'week' | 'generated_at'>> {
   // Run all queries in parallel
-  const [healthRows, weightRows, mealStatusRows, calorieRows, suppRows, exerciseRows] =
-    await Promise.all([
-      // Health averages (steps, HR, sleep)
-      query(
-        `SELECT metric_type, AVG(value) AS avg_val
+  const [
+    healthRows,
+    weightRows,
+    mealStatusRows,
+    calorieRows,
+    suppRows,
+    exerciseRows,
+  ] = await Promise.all([
+    // Health averages (steps, HR, sleep)
+    query(
+      `SELECT metric_type, AVG(value) AS avg_val
          FROM lifeos.health_metrics
          WHERE recorded_at >= '${weekStart}' AND recorded_at < '${weekEnd}'
            AND metric_type IN ('steps', 'heart_rate', 'sleep_duration')
          GROUP BY metric_type`,
-      ).catch(() => [] as Record<string, unknown>[]),
+    ).catch(() => [] as Record<string, unknown>[]),
 
-      // Weight change: first and last reading of the week
-      query(
-        `SELECT value, recorded_at
+    // Weight change: first and last reading of the week
+    query(
+      `SELECT value, recorded_at
          FROM lifeos.health_metrics
          WHERE recorded_at >= '${weekStart}' AND recorded_at < '${weekEnd}'
            AND metric_type = 'weight'
          ORDER BY recorded_at ASC`,
-      ).catch(() => [] as Record<string, unknown>[]),
+    ).catch(() => [] as Record<string, unknown>[]),
 
-      // Meal plan statuses
-      query(
-        `SELECT status, COUNT(*) AS cnt
+    // Meal plan statuses
+    query(
+      `SELECT status, COUNT(*) AS cnt
          FROM lifeos.meal_plans
          WHERE week_start >= '${weekStart}' AND week_start < '${weekEnd}'
          GROUP BY status`,
-      ).catch(() => [] as Record<string, unknown>[]),
+    ).catch(() => [] as Record<string, unknown>[]),
 
-      // Average daily calories
-      query(
-        `SELECT AVG(daily_total) AS avg_cal FROM (
+    // Average daily calories
+    query(
+      `SELECT AVG(daily_total) AS avg_cal FROM (
            SELECT log_date, SUM(calories) AS daily_total
            FROM lifeos.calorie_log
            WHERE log_date >= '${weekStart}' AND log_date < '${weekEnd}'
            GROUP BY log_date
          ) sub`,
-      ).catch(() => [] as Record<string, unknown>[]),
+    ).catch(() => [] as Record<string, unknown>[]),
 
-      // Supplement adherence
-      query(
-        `SELECT
+    // Supplement adherence
+    query(
+      `SELECT
            CAST(log_date AS VARCHAR) AS log_date,
            COUNT(CASE WHEN sl.taken = true THEN 1 END) AS taken_count,
            COUNT(s.id) AS total_count
@@ -108,17 +117,17 @@ async function generateReport(weekStart: string, weekEnd: string): Promise<Omit<
          WHERE s.active = true
          GROUP BY dates.log_date
          ORDER BY dates.log_date`,
-      ).catch(() => [] as Record<string, unknown>[]),
+    ).catch(() => [] as Record<string, unknown>[]),
 
-      // Exercise sessions (from health_metrics with exercise-related types)
-      query(
-        `SELECT COUNT(*) AS sessions,
+    // Exercise sessions (from health_metrics with exercise-related types)
+    query(
+      `SELECT COUNT(*) AS sessions,
                 COALESCE(SUM(value), 0) AS total_min
          FROM lifeos.health_metrics
          WHERE recorded_at >= '${weekStart}' AND recorded_at < '${weekEnd}'
            AND metric_type = 'exercise_duration'`,
-      ).catch(() => [] as Record<string, unknown>[]),
-    ]);
+    ).catch(() => [] as Record<string, unknown>[]),
+  ]);
 
   // Parse health
   const healthMap: Record<string, number> = {};
@@ -165,9 +174,7 @@ async function generateReport(weekStart: string, weekEnd: string): Promise<Omit<
   }
 
   const adherencePct =
-    totalExpected > 0
-      ? Math.round((totalTaken / totalExpected) * 100)
-      : null;
+    totalExpected > 0 ? Math.round((totalTaken / totalExpected) * 100) : null;
 
   // Parse exercise
   const sessions =
@@ -209,9 +216,7 @@ async function generateReport(weekStart: string, weekEnd: string): Promise<Omit<
 
   if (avgSleep !== null) {
     if (avgSleep >= 7.5) {
-      highlights.push(
-        `${avgSleep.toFixed(1)}h average sleep -- well rested`,
-      );
+      highlights.push(`${avgSleep.toFixed(1)}h average sleep -- well rested`);
     } else if (avgSleep < 6) {
       highlights.push(
         `${avgSleep.toFixed(1)}h average sleep -- prioritize rest`,

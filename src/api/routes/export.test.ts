@@ -28,8 +28,18 @@ describe('export routes', () => {
   describe('GET /export/health?format=json', () => {
     it('returns health metrics as JSON array', async () => {
       const rows = [
-        { id: '1', metric_type: 'steps', value: 7200, recorded_at: '2026-03-29T10:00:00Z' },
-        { id: '2', metric_type: 'heart_rate', value: 72, recorded_at: '2026-03-29T09:00:00Z' },
+        {
+          id: '1',
+          metric_type: 'steps',
+          value: 7200,
+          recorded_at: '2026-03-29T10:00:00Z',
+        },
+        {
+          id: '2',
+          metric_type: 'heart_rate',
+          value: 72,
+          recorded_at: '2026-03-29T09:00:00Z',
+        },
       ];
       mockQuery.mockResolvedValue(rows);
 
@@ -55,8 +65,18 @@ describe('export routes', () => {
   describe('GET /export/health?format=csv', () => {
     it('returns CSV with correct headers and content-type', async () => {
       const rows = [
-        { id: '1', metric_type: 'steps', value: 7200, recorded_at: '2026-03-29T10:00:00Z' },
-        { id: '2', metric_type: 'heart_rate', value: 72, recorded_at: '2026-03-29T09:00:00Z' },
+        {
+          id: '1',
+          metric_type: 'steps',
+          value: 7200,
+          recorded_at: '2026-03-29T10:00:00Z',
+        },
+        {
+          id: '2',
+          metric_type: 'heart_rate',
+          value: 72,
+          recorded_at: '2026-03-29T09:00:00Z',
+        },
       ];
       mockQuery.mockResolvedValue(rows);
 
@@ -64,7 +84,9 @@ describe('export routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toMatch(/text\/csv/);
-      expect(res.headers['content-disposition']).toContain('health_metrics.csv');
+      expect(res.headers['content-disposition']).toContain(
+        'health_metrics.csv',
+      );
 
       const lines = res.text.split('\n');
       expect(lines[0]).toBe('id,metric_type,value,recorded_at');

@@ -49,11 +49,9 @@ mealsRouter.post('/plan/:id/status', async (req: Request, res: Response) => {
     !status ||
     !['planned', 'cooked', 'skipped', 'ate_out'].includes(status)
   ) {
-    res
-      .status(400)
-      .json({
-        error: 'status must be one of: planned, cooked, skipped, ate_out',
-      });
+    res.status(400).json({
+      error: 'status must be one of: planned, cooked, skipped, ate_out',
+    });
     return;
   }
 

@@ -41,9 +41,7 @@ photoEstimateRouter.post('/photo-log', async (req: Request, res: Response) => {
 
   const calNum = Number(calories);
   if (isNaN(calNum) || calNum < 0) {
-    res
-      .status(400)
-      .json({ error: 'calories must be a non-negative number' });
+    res.status(400).json({ error: 'calories must be a non-negative number' });
     return;
   }
 
@@ -59,7 +57,9 @@ photoEstimateRouter.post('/photo-log', async (req: Request, res: Response) => {
     if (imageSize > MAX_IMAGE_SIZE_BYTES) {
       res
         .status(413)
-        .json({ error: `Image exceeds maximum size of 5MB (got ${Math.round(imageSize / 1024 / 1024)}MB)` });
+        .json({
+          error: `Image exceeds maximum size of 5MB (got ${Math.round(imageSize / 1024 / 1024)}MB)`,
+        });
       return;
     }
   }
