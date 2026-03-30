@@ -146,17 +146,23 @@ export interface PreferenceRow {
   skill: string;
 }
 
-export interface BodyMetricLatest {
+export interface SleepMetric {
   metric_type: string;
   value: number;
   unit: string | null;
   recorded_at: string;
 }
 
-export interface BodyHistoryPoint {
+export interface SleepHistoryPoint {
   date: string;
   metric_type: string;
-  avg_value: number;
+  value: number;
+}
+
+export interface SleepInsight {
+  text: string;
+  type: 'positive' | 'negative' | 'neutral';
+  source: string;
 }
 
 /** Exported for direct use in dashboard */
@@ -276,24 +282,14 @@ export const api = {
         body: JSON.stringify(entry),
       }),
   },
-  body: {
-    latest: () => fetchSafe<BodyMetricLatest[]>('/body/latest', []),
-    history: (days = 90) =>
-      fetchSafe<BodyHistoryPoint[]>(
-        `/body/history?days=${encodeURIComponent(days)}`,
+  sleep: {
+    latest: () => fetchSafe<SleepMetric[]>('/sleep/latest', []),
+    history: (days = 30) =>
+      fetchSafe<SleepHistoryPoint[]>(
+        `/sleep/history?days=${encodeURIComponent(days)}`,
         [],
       ),
-    log: (entry: {
-      weight_kg?: number;
-      body_fat_pct?: number;
-      muscle_mass_pct?: number;
-      body_water_pct?: number;
-      notes?: string;
-    }) =>
-      fetchApi<{ accepted: number }>('/body/log', {
-        method: 'POST',
-        body: JSON.stringify(entry),
-      }),
+    insights: () => fetchSafe<SleepInsight[]>('/sleep/insights', []),
   },
   preferences: {
     get: () => fetchSafe<PreferenceRow[]>('/preferences', []),
