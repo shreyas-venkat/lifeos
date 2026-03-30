@@ -13,6 +13,13 @@ export async function runMigrations(
   const instance = await DuckDBInstance.create(connStr);
   const conn = await instance.connect();
 
+  // IMPORTANT: Set default database to my_db on MotherDuck.
+  // Without this, CREATE SCHEMA lifeos creates a DATABASE named lifeos
+  // instead of a schema inside my_db, causing ambiguous reference errors.
+  if (!connectionString || connectionString.startsWith('md:')) {
+    await conn.run('USE my_db');
+  }
+
   const schemasDir = path.join(__dirname, 'schemas');
   const sqlFiles = fs
     .readdirSync(schemasDir)
