@@ -73,6 +73,8 @@ export interface RecipeSummary {
   rating: number | null;
   times_cooked: number;
   prep_time_min: number | null;
+  cook_time_min: number | null;
+  servings: number | null;
   tags: string[] | null;
 }
 
@@ -87,6 +89,7 @@ export interface RecipeDetail {
   fat_g: number | null;
   prep_time_min: number | null;
   cook_time_min: number | null;
+  servings: number | null;
   rating: number | null;
   tags: string[] | null;
 }
