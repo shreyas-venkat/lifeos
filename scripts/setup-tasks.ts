@@ -297,6 +297,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       group_folder: 'main',
       chat_jid: config.mealsChannelJid,
       context_mode: 'group',
+      model: 'haiku',
       prompt:
         'Check the pantry for items expiring within 3 days using mcp__motherduck__query. Then check lifeos.recipes for recipes whose ingredients overlap with available pantry items. Score by: expiring item usage (highest priority), ingredient match percentage, user rating, days since last cooked. Post the top 3 recipe suggestions to this channel with match percentages and what\'s expiring. If nothing matches, suggest ordering groceries or eating out. Be concise — just the recipe names, match %, and why.',
     },
