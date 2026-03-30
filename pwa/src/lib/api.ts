@@ -146,6 +146,70 @@ export interface PreferenceRow {
   skill: string;
 }
 
+export interface Transaction {
+  id: string;
+  amount: number;
+  merchant: string | null;
+  category: string | null;
+  description: string | null;
+  transaction_date: string;
+  source: string;
+  created_at: string;
+}
+
+export interface CategorySummary {
+  category: string;
+  total: number;
+  count: number;
+}
+
+export interface MonthlyTotal {
+  month: string;
+  total: number;
+}
+
+export interface BudgetInfo {
+  budget: number;
+  spent: number;
+  remaining: number;
+  percent_used: number;
+}
+
+export interface Notification {
+  id: string;
+  title: string;
+  body: string;
+  type: string;
+  url: string | null;
+  created_at: string;
+}
+
+export interface WeeklyReport {
+  week: string;
+  generated_at: string;
+  health: {
+    avg_steps: number | null;
+    avg_hr: number | null;
+    avg_sleep: number | null;
+    weight_change: number | null;
+  };
+  meals: {
+    cooked: number;
+    skipped: number;
+    ate_out: number;
+    avg_calories: number | null;
+  };
+  supplements: {
+    adherence_pct: number | null;
+    missed_days: string[];
+  };
+  exercise: {
+    sessions: number;
+    total_duration_min: number;
+  };
+  highlights: string[];
+}
+
 /** Exported for direct use in dashboard */
 export { fetchSafe };
 
@@ -270,5 +334,61 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify(prefs),
       }),
+  },
+  spending: {
+    summary: (period = 'month') =>
+      fetchSafe<CategorySummary[]>(
+        `/spending/summary?period=${encodeURIComponent(period)}`,
+        [],
+      ),
+    history: (months = 6) =>
+      fetchSafe<MonthlyTotal[]>(
+        `/spending/history?months=${encodeURIComponent(months)}`,
+        [],
+      ),
+    recent: () => fetchSafe<Transaction[]>('/spending/recent', []),
+    log: (entry: {
+      amount: number;
+      merchant: string;
+      category: string;
+      description?: string;
+      date?: string;
+    }) =>
+      fetchApi<Transaction>('/spending/log', {
+        method: 'POST',
+        body: JSON.stringify(entry),
+      }),
+    remove: (id: string) =>
+      fetchApi<void>(`/spending/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      }),
+    budget: () =>
+      fetchSafe<BudgetInfo | null>('/spending/budget', null),
+  },
+  notifications: {
+    pending: () => fetchSafe<Notification[]>('/notifications/pending', []),
+    markSeen: (ids: string[]) =>
+      fetchApi<{ success: boolean; count: number }>('/notifications/mark-seen', {
+        method: 'POST',
+        body: JSON.stringify({ ids }),
+      }),
+    send: (notification: { title: string; body: string; type?: string; url?: string }) =>
+      fetchApi<{ success: boolean; id: string }>('/notifications/send', {
+        method: 'POST',
+        body: JSON.stringify(notification),
+      }),
+  },
+  export: {
+    healthJson: () =>
+      fetchApi<Record<string, unknown>[]>('/export/health?format=json'),
+    healthCsvUrl: () => `${BASE}/export/health?format=csv`,
+    allJson: () =>
+      fetchApi<Record<string, unknown>>('/export/all?format=json'),
+  },
+  weeklyReport: {
+    current: () =>
+      fetchSafe<WeeklyReport | null>('/weekly-report/', null),
+    history: () =>
+      fetchSafe<WeeklyReport[]>('/weekly-report/history', []),
   },
 };

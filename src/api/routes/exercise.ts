@@ -1,0 +1,183 @@
+import { Router, Request, Response } from 'express';
+import { query } from '../db.js';
+import crypto from 'crypto';
+
+export const exerciseRouter = Router();
+
+function sanitize(val: unknown): string {
+  return String(val).replace(/'/g, "''");
+}
+
+const VALID_CATEGORIES = new Set([
+  'cardio',
+  'strength',
+  'flexibility',
+  'sports',
+]);
+
+exerciseRouter.get('/today', async (_req: Request, res: Response) => {
+  try {
+    const rows = await query(
+      `SELECT id, log_date, exercise_type, duration_min, sets, reps,
+              weight_kg, distance_km, calories_burned, notes, created_at
+       FROM lifeos.exercise_log
+       WHERE log_date = CURRENT_DATE
+       ORDER BY created_at`,
+    );
+    res.json({ data: rows });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+exerciseRouter.get('/history', async (req: Request, res: Response) => {
+  const daysParam = req.query.days;
+  const days = daysParam ? Number(daysParam) : 30;
+
+  if (isNaN(days) || days < 1 || days > 365) {
+    res.status(400).json({ error: 'days must be a number between 1 and 365' });
+    return;
+  }
+
+  try {
+    const rows = await query(
+      `SELECT log_date,
+              COUNT(*) AS exercise_count,
+              SUM(duration_min) AS total_duration,
+              SUM(calories_burned) AS total_calories
+       FROM lifeos.exercise_log
+       WHERE log_date >= CURRENT_DATE - INTERVAL '${String(days)}' DAY
+       GROUP BY log_date
+       ORDER BY log_date ASC`,
+    );
+    res.json({ data: rows, days });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+exerciseRouter.post('/log', async (req: Request, res: Response) => {
+  const {
+    exercise_type,
+    duration_min,
+    sets,
+    reps,
+    weight_kg,
+    distance_km,
+    calories_burned,
+    notes,
+  } = req.body as Record<string, unknown>;
+
+  if (!exercise_type || typeof exercise_type !== 'string') {
+    res
+      .status(400)
+      .json({ error: 'exercise_type is required and must be a string' });
+    return;
+  }
+
+  try {
+    const id = crypto.randomUUID();
+    const dur =
+      duration_min !== undefined && duration_min !== null
+        ? Number(duration_min)
+        : 'NULL';
+    const s = sets !== undefined && sets !== null ? Number(sets) : 'NULL';
+    const r = reps !== undefined && reps !== null ? Number(reps) : 'NULL';
+    const w =
+      weight_kg !== undefined && weight_kg !== null
+        ? Number(weight_kg)
+        : 'NULL';
+    const d =
+      distance_km !== undefined && distance_km !== null
+        ? Number(distance_km)
+        : 'NULL';
+    const cal =
+      calories_burned !== undefined && calories_burned !== null
+        ? Number(calories_burned)
+        : 'NULL';
+    const n =
+      notes && typeof notes === 'string' ? `'${sanitize(notes)}'` : 'NULL';
+
+    await query(
+      `INSERT INTO lifeos.exercise_log (id, log_date, exercise_type, duration_min, sets, reps, weight_kg, distance_km, calories_burned, notes)
+       VALUES ('${sanitize(id)}', CURRENT_DATE, '${sanitize(exercise_type)}', ${dur}, ${s}, ${r}, ${w}, ${d}, ${cal}, ${n})`,
+    );
+    res.json({ success: true, id });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+exerciseRouter.delete('/:id', async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  try {
+    await query(`DELETE FROM lifeos.exercise_log WHERE id = '${sanitize(id)}'`);
+    res.json({ success: true });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+exerciseRouter.get('/templates', async (_req: Request, res: Response) => {
+  try {
+    const rows = await query(
+      `SELECT id, name, category, default_sets, default_reps, muscles_targeted, created_at
+       FROM lifeos.exercise_templates
+       ORDER BY category, name`,
+    );
+    res.json({ data: rows });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
+exerciseRouter.post('/templates', async (req: Request, res: Response) => {
+  const { name, category, default_sets, default_reps } = req.body as Record<
+    string,
+    unknown
+  >;
+
+  if (!name || typeof name !== 'string') {
+    res.status(400).json({ error: 'name is required and must be a string' });
+    return;
+  }
+  if (!category || typeof category !== 'string') {
+    res
+      .status(400)
+      .json({ error: 'category is required and must be a string' });
+    return;
+  }
+  if (!VALID_CATEGORIES.has(category)) {
+    res.status(400).json({
+      error: `category must be one of: ${[...VALID_CATEGORIES].join(', ')}`,
+    });
+    return;
+  }
+
+  try {
+    const id = crypto.randomUUID();
+    const s =
+      default_sets !== undefined && default_sets !== null
+        ? Number(default_sets)
+        : 'NULL';
+    const r =
+      default_reps !== undefined && default_reps !== null
+        ? Number(default_reps)
+        : 'NULL';
+
+    await query(
+      `INSERT INTO lifeos.exercise_templates (id, name, category, default_sets, default_reps)
+       VALUES ('${sanitize(id)}', '${sanitize(name)}', '${sanitize(category)}', ${s}, ${r})`,
+    );
+    res.json({ success: true, id });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});

@@ -169,9 +169,7 @@ export function transformHealthConnectPayload(
     if (handled.has(key) || !Array.isArray(val)) continue;
     for (const entry of val) {
       const e = entry as Record<string, unknown>;
-      const value = Number(
-        e.value ?? e.count ?? e.bpm ?? e.percentage ?? 0,
-      );
+      const value = Number(e.value ?? e.count ?? e.bpm ?? e.percentage ?? 0);
       const time = String(
         e.time ?? e.end_time ?? e.start_time ?? e.recorded_at ?? '',
       );
@@ -190,27 +188,31 @@ export function transformHealthConnectPayload(
 }
 
 // POST /api/health-webhook
-healthWebhookRouter.post(
-  '/',
-  async (req: Request, res: Response) => {
-    const body = req.body as Record<string, unknown>;
+healthWebhookRouter.post('/', async (req: Request, res: Response) => {
+  const body = req.body as Record<string, unknown>;
 
-    let metrics: HealthMetricPayload[];
+  let metrics: HealthMetricPayload[];
 
-    // Support both formats:
-    // 1. Our format: { metrics: [{metric_type, value, recorded_at}] }
-    // 2. Health Connect Webhook app: { steps: [...], heart_rate: [...], ... }
-    if (Array.isArray(body.metrics)) {
-      metrics = body.metrics as HealthMetricPayload[];
-    } else {
-      metrics = transformHealthConnectPayload(body);
-    }
+  // Support both formats:
+  // 1. Our format: { metrics: [{metric_type, value, recorded_at}] }
+  // 2. Health Connect Webhook app: { steps: [...], heart_rate: [...], ... }
+  if (Array.isArray(body.metrics)) {
+    metrics = body.metrics as HealthMetricPayload[];
+  } else {
+    metrics = transformHealthConnectPayload(body);
+  }
 
-    if (metrics.length === 0) {
-      res.status(400).json({ error: 'No metrics found in request body' });
-      return;
-    }
+  if (metrics.length === 0) {
+    res.status(400).json({ error: 'No metrics found in request body' });
+    return;
+  }
 
+  // Respond immediately to avoid phone app timeout, then insert in background
+  const total = metrics.length;
+  res.status(200).json({ accepted: total, rejected: 0 });
+
+  // Background insert — don't await, fire and forget
+  (async () => {
     let accepted = 0;
     let rejected = 0;
     for (const metric of metrics) {
@@ -219,7 +221,7 @@ healthWebhookRouter.post(
       try {
         await query(
           `INSERT INTO lifeos.health_metrics (id, metric_type, value, unit, recorded_at, source, created_at)
-           VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)`,
+             VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)`,
           id,
           metric.metric_type,
           metric.value,
@@ -228,10 +230,6 @@ healthWebhookRouter.post(
           source,
         );
         accepted++;
-        logger.info(
-          { metric_type: metric.metric_type, value: metric.value },
-          'Health metric written to DB',
-        );
       } catch (err: unknown) {
         rejected++;
         const message = err instanceof Error ? err.message : 'Unknown error';
@@ -241,10 +239,11 @@ healthWebhookRouter.post(
         );
       }
     }
-
-    res.status(200).json({ accepted, rejected });
-  },
-);
+    logger.info({ accepted, rejected, total }, 'Health webhook batch complete');
+  })().catch((err: unknown) => {
+    logger.error({ err }, 'Health webhook background insert failed');
+  });
+});
 
 // GET /api/health-webhook/metrics -- list valid metric types
 healthWebhookRouter.get('/metrics', (_req: Request, res: Response) => {

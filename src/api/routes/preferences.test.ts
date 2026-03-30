@@ -69,6 +69,65 @@ describe('preferences routes', () => {
     });
   });
 
+  describe('POST /preferences/notifications/toggle', () => {
+    it('saves toggle state for a task', async () => {
+      mockQuery.mockResolvedValue([]);
+
+      const res = await request(createApp())
+        .post('/preferences/notifications/toggle')
+        .send({ task_id: 'morning_briefing', enabled: true });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.task_id).toBe('morning_briefing');
+      expect(res.body.enabled).toBe(true);
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('ON CONFLICT (key, skill)'),
+        'morning_briefing',
+        'true',
+      );
+    });
+
+    it('saves disabled toggle state', async () => {
+      mockQuery.mockResolvedValue([]);
+
+      const res = await request(createApp())
+        .post('/preferences/notifications/toggle')
+        .send({ task_id: 'email_digest', enabled: false });
+
+      expect(res.status).toBe(200);
+      expect(res.body.enabled).toBe(false);
+    });
+
+    it('returns 400 when task_id is missing', async () => {
+      const res = await request(createApp())
+        .post('/preferences/notifications/toggle')
+        .send({ enabled: true });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('task_id');
+    });
+
+    it('returns 400 when enabled is not a boolean', async () => {
+      const res = await request(createApp())
+        .post('/preferences/notifications/toggle')
+        .send({ task_id: 'morning_briefing', enabled: 'yes' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('enabled');
+    });
+
+    it('returns 500 on database error', async () => {
+      mockQuery.mockRejectedValue(new Error('DB error'));
+
+      const res = await request(createApp())
+        .post('/preferences/notifications/toggle')
+        .send({ task_id: 'morning_briefing', enabled: true });
+
+      expect(res.status).toBe(500);
+    });
+  });
+
   describe('PUT /preferences', () => {
     it('upserts preferences with skill column', async () => {
       mockQuery.mockResolvedValue([]);

@@ -1,0 +1,597 @@
+{
+  "cookies": [
+    {
+      "name": "_gcl_au",
+      "value": "1.1.1163576469.1774835715",
+      "domain": ".calgarycoop.com",
+      "path": "/",
+      "expires": 1782611715,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_ga_0YFVQTBXFF",
+      "value": "GS2.1.s1774835715$o1$g0$t1774835715$j60$l0$h430687859",
+      "domain": ".calgarycoop.com",
+      "path": "/",
+      "expires": 1809395715.648287,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_ttp",
+      "value": "3Be3TOae7mB9DaegWmZKjAU4Xnd",
+      "domain": ".tiktok.com",
+      "path": "/",
+      "expires": 1808531715.688393,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "validate_session_today",
+      "value": "true",
+      "domain": "shoponline.calgarycoop.com",
+      "path": "/",
+      "expires": 1774922115,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_ga",
+      "value": "GA1.2.980588372.1774835716",
+      "domain": ".calgarycoop.com",
+      "path": "/",
+      "expires": 1809395715.774497,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_gid",
+      "value": "GA1.2.316548158.1774835716",
+      "domain": ".calgarycoop.com",
+      "path": "/",
+      "expires": 1774922115,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "XANDR_PANID",
+      "value": "SjKpcnx4XQoTYcScApyQNwDQZ4wdzIhwHCbOjnJMIZXu8Ixdt37GkR9V59WkNvD3SDse-F2bYMCnLQx1Thv1kZJpGyKTx0G1FokaDutYOIY.",
+      "domain": ".adnxs.com",
+      "path": "/",
+      "expires": 1782611718.384156,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None",
+      "partitionKey": "https://calgarycoop.com",
+      "_crHasCrossSiteAncestor": true
+    },
+    {
+      "name": "uuid2",
+      "value": "5709167764872369023",
+      "domain": ".adnxs.com",
+      "path": "/",
+      "expires": 1782611718.384215,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "pid",
+      "value": "8386982901179839307",
+      "domain": ".smartadserver.com",
+      "path": "/",
+      "expires": 1782611716.830966,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "anj",
+      "value": "dTM7k!M4/8CxrEQF']wIg2Hbyn:t?^!@wnf-Te9(>wL5L!!'E]$b=ZF",
+      "domain": ".adnxs.com",
+      "path": "/",
+      "expires": 1782611715.881112,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_tt_enable_cookie",
+      "value": "1",
+      "domain": ".calgarycoop.com",
+      "path": "/",
+      "expires": 1808531715,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_ttp",
+      "value": "01KMY77KSSSPK31EKCTHVKWYBC_.tt.1",
+      "domain": ".calgarycoop.com",
+      "path": "/",
+      "expires": 1808531715,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "sa-user-id",
+      "value": "s%3A0-58a6d2df-35a2-56ae-61ce-13123540393d.LiBdrXwGkDVwO0I4ESuSfriOQncpuRykgHiGA9D14BY",
+      "domain": "tags.srv.stackadapt.com",
+      "path": "/",
+      "expires": 1806371715.900933,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "sa-user-id",
+      "value": "s%3A0-58a6d2df-35a2-56ae-61ce-13123540393d.LiBdrXwGkDVwO0I4ESuSfriOQncpuRykgHiGA9D14BY",
+      "domain": ".srv.stackadapt.com",
+      "path": "/",
+      "expires": 1806371715.900961,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "sa-user-id-v2",
+      "value": "s%3AWKbS3zWiVq5hzhMSNUA5PUSQgAw.HkgtkH%2BO%2FvwpVUYszK%2BaMJl3Tv9NzF2SoDQiMzFVjr8",
+      "domain": "tags.srv.stackadapt.com",
+      "path": "/",
+      "expires": 1806371715.900978,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "sa-user-id-v2",
+      "value": "s%3AWKbS3zWiVq5hzhMSNUA5PUSQgAw.HkgtkH%2BO%2FvwpVUYszK%2BaMJl3Tv9NzF2SoDQiMzFVjr8",
+      "domain": ".srv.stackadapt.com",
+      "path": "/",
+      "expires": 1806371715.900992,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "sa-user-id-v3",
+      "value": "s%3AAQAKIIqqcPAJJHEhAl2rFoNorCq60YQM6Z8fgY6QFI7LuxOUEAEYAyCEsKfOBjABOgRTMEsuQgRe8127.q7Rg0xW1TmAh%2B%2Bd0LzDBa1%2FRrCZ0uEtv5QfkoM8C53w",
+      "domain": "tags.srv.stackadapt.com",
+      "path": "/",
+      "expires": 1806371715.901011,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "sa-user-id-v3",
+      "value": "s%3AAQAKIIqqcPAJJHEhAl2rFoNorCq60YQM6Z8fgY6QFI7LuxOUEAEYAyCEsKfOBjABOgRTMEsuQgRe8127.q7Rg0xW1TmAh%2B%2Bd0LzDBa1%2FRrCZ0uEtv5QfkoM8C53w",
+      "domain": ".srv.stackadapt.com",
+      "path": "/",
+      "expires": 1806371715.901027,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_gat_GKTracker",
+      "value": "1",
+      "domain": ".calgarycoop.com",
+      "path": "/",
+      "expires": 1774835775,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "ar_debug",
+      "value": "1",
+      "domain": ".pinterest.com",
+      "path": "/",
+      "expires": 1806371715.94286,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_hjSessionUser_3740775",
+      "value": "eyJpZCI6IjU1MzVmNDcwLTZmNWItNThiMS1hY2RhLTU2NGE3ZmVmYzhmMCIsImNyZWF0ZWQiOjE3NzQ4MzU3MTU5NTEsImV4aXN0aW5nIjpmYWxzZX0=",
+      "domain": ".calgarycoop.com",
+      "path": "/",
+      "expires": 1806371715,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_hjSession_3740775",
+      "value": "eyJpZCI6IjQzNTFkMzRmLWUyYjktNDhjOS04NDc2LWM2MjQwMmYyNzM4MSIsImMiOjE3NzQ4MzU3MTU5NTEsInMiOjAsInIiOjAsInNiIjowLCJzciI6MCwic2UiOjAsImZzIjoxLCJzcCI6MH0=",
+      "domain": ".calgarycoop.com",
+      "path": "/",
+      "expires": 1774837515,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_pin_unauth",
+      "value": "dWlkPVltUTNZamszWkdNdE0yVTFaUzAwWmpZM0xXSTFPRE10TTJJNE1qa3pabU0wTURoag",
+      "domain": ".shoponline.calgarycoop.com",
+      "path": "/",
+      "expires": 1806371715,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "sa-user-id",
+      "value": "s%253A0-58a6d2df-35a2-56ae-61ce-13123540393d.LiBdrXwGkDVwO0I4ESuSfriOQncpuRykgHiGA9D14BY",
+      "domain": "shoponline.calgarycoop.com",
+      "path": "/",
+      "expires": 1806371715,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "sa-user-id-v2",
+      "value": "s%253AWKbS3zWiVq5hzhMSNUA5PUSQgAw.HkgtkH%252BO%252FvwpVUYszK%252BaMJl3Tv9NzF2SoDQiMzFVjr8",
+      "domain": "shoponline.calgarycoop.com",
+      "path": "/",
+      "expires": 1806371715,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "sa-user-id-v3",
+      "value": "s%253AAQAKIIqqcPAJJHEhAl2rFoNorCq60YQM6Z8fgY6QFI7LuxOUEAEYAyCEsKfOBjABOgRTMEsuQgRe8127.q7Rg0xW1TmAh%252B%252Bd0LzDBa1%252FRrCZ0uEtv5QfkoM8C53w",
+      "domain": "shoponline.calgarycoop.com",
+      "path": "/",
+      "expires": 1806371715,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_fbp",
+      "value": "fb.1.1774835716036.752168591446811048",
+      "domain": ".calgarycoop.com",
+      "path": "/",
+      "expires": 1782611716,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "TapAd_TS",
+      "value": "1774835716375",
+      "domain": ".tapad.com",
+      "path": "/",
+      "expires": 1780019716.206799,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "TapAd_DID",
+      "value": "6f97c3de-4539-4f73-8f6f-75bdc302c9a7",
+      "domain": ".tapad.com",
+      "path": "/",
+      "expires": 1780019716.20687,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "ttcsid",
+      "value": "1774835715900::cdZzY2NTLjepPOhTtVvq.1.1774835716199.0",
+      "domain": ".calgarycoop.com",
+      "path": "/",
+      "expires": 1808531716,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "ttcsid_CKASL4JC77UE2IQFCI70",
+      "value": "1774835715900::iqbYFPnwMOz8ytjoc5nz.1.1774835716199.0",
+      "domain": ".calgarycoop.com",
+      "path": "/",
+      "expires": 1808531716,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "ttcsid_CKATG1BC77U7REM9D3PG",
+      "value": "1774835715900::pVs4N4-pAGg4LO9eTFJQ.1.1774835716199.0",
+      "domain": ".calgarycoop.com",
+      "path": "/",
+      "expires": 1808531716,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "TapAd_3WAY_SYNCS",
+      "value": "",
+      "domain": ".tapad.com",
+      "path": "/",
+      "expires": 1780019716.206897,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "li_sugr",
+      "value": "5ad63bff-bfd8-46ca-93d0-56f9a701283d",
+      "domain": ".linkedin.com",
+      "path": "/",
+      "expires": 1782611716.873129,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "bcookie",
+      "value": "\"v=2&6007e007-6ef9-4af2-8e6a-75aa546d4a4b\"",
+      "domain": ".linkedin.com",
+      "path": "/",
+      "expires": 1806371717.873232,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "lidc",
+      "value": "\"b=TGST01:s=T:r=T:a=T:p=T:g=3832:u=1:x=1:i=1774835716:t=1774922116:v=2:sig=AQHHFv8DbWII0q9Yg9dyQqcojJru9aJ7\"",
+      "domain": ".linkedin.com",
+      "path": "/",
+      "expires": 1774922116.216426,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "UserMatchHistory",
+      "value": "AQLvvRL5dFrDHAAAAZ08c9GToMU_DG_4ByKvjGZvljvxXMvSglgNllXUTFLKY1VTGj8cqB9VOM0xMg",
+      "domain": ".linkedin.com",
+      "path": "/",
+      "expires": 1777427716.300084,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "AnalyticsSyncHistory",
+      "value": "AQL2_W_62li2WQAAAZ08c9GTI24KeyGbHT0tCEQfO3sON8gFBSJQclO6u78qMOHbriaakJt9tSIb7O_H1Wvppg",
+      "domain": ".linkedin.com",
+      "path": "/",
+      "expires": 1777427716.300102,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "bscookie",
+      "value": "\"v=1&202603300155168cccc421-916d-4f0f-84bd-f875b615b9edAQEJT7PjjIFbnMH8sWIVyLAXK41BiSvP\"",
+      "domain": ".www.linkedin.com",
+      "path": "/",
+      "expires": 1806371716.492281,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "__cf_bm",
+      "value": "ju3.jxrnRQzb6aJ4YgPlTYkuOC9nvxYBQohlVMaJY6E-1774835716-1.0.1.1-WpRPvJNuz0BOb.7iVFvB7IVdX13SbH6.keBjFl5uY7y9j5ezB.ZlKRDz.1f4LTvX30gfl_l_V3xxCuX8RSSXag1oYn1dkvh7SJRQXgV4UgE",
+      "domain": ".linkedin.com",
+      "path": "/",
+      "expires": 1774837516.492345,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_uetsid",
+      "value": "8069f2f02bdb11f1b023e9e0c70b9d41",
+      "domain": ".calgarycoop.com",
+      "path": "/",
+      "expires": 1774922117,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_uetvid",
+      "value": "806a1fb02bdb11f1ad41157489959123",
+      "domain": ".calgarycoop.com",
+      "path": "/",
+      "expires": 1808531717,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "MR",
+      "value": "0",
+      "domain": ".bat.bing.com",
+      "path": "/",
+      "expires": 1775440517.863819,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "MUID",
+      "value": "33F5CE9F965766DC1870D9B397DB6799",
+      "domain": ".bing.com",
+      "path": "/",
+      "expires": 1808531717.86378,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "TDID",
+      "value": "b70e8d91-c086-45b5-91b1-7440005f4ad9",
+      "domain": ".adsrvr.org",
+      "path": "/",
+      "expires": 1806371718.425024,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "IDE",
+      "value": "AHWqTUkJqu6fOUSedcQzkPwhubYBXszTqMJxwRVhyF0slYTSJgivpmcyU2aiXlrZWhI",
+      "domain": ".doubleclick.net",
+      "path": "/",
+      "expires": 1809395718.303951,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "audit_p",
+      "value": "1|wehX4oLkhZTxblv9KBqh1ljQlIpg/PPSR63ipaRJZZfsQZ5zRX/AllaO3WETMX01nVb7bsjjyewwHTRO1/p4iHX0qfg68IpFQAPcN3ARK86FWF/MOQXMsAINIL7HuGii7RKy55VeXce7AAPKBIPsQO31gNxpD2/yecnK3V9s70jREvsM2ra73MRmS8gGs6ylTlon0IrnE1p4+byUJuUHKNl4Am3SUH3rwETMVR8lnVPictVKI3nW/ZSmfFa9k+2RfCCm1vF3Tgn8ih/oL8+08tuVaVkDFDbShAUs62yL6R/QD5U7tEfUTQ==",
+      "domain": ".rubiconproject.com",
+      "path": "/",
+      "expires": 1806371718.382548,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None",
+      "partitionKey": "https://calgarycoop.com",
+      "_crHasCrossSiteAncestor": true
+    },
+    {
+      "name": "khaos",
+      "value": "MNCJD134-12-6OJ9",
+      "domain": ".rubiconproject.com",
+      "path": "/",
+      "expires": 1806371718.382617,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "khaos_p",
+      "value": "MNCJD134-12-6OJ9",
+      "domain": ".rubiconproject.com",
+      "path": "/",
+      "expires": 1806371718.382636,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None",
+      "partitionKey": "https://calgarycoop.com",
+      "_crHasCrossSiteAncestor": true
+    },
+    {
+      "name": "audit",
+      "value": "1|wehX4oLkhZTxblv9KBqh1ljQlIpg/PPSR63ipaRJZZfsQZ5zRX/AllaO3WETMX01nVb7bsjjyewwHTRO1/p4iHX0qfg68IpFQAPcN3ARK86FWF/MOQXMsAINIL7HuGii7RKy55VeXce7AAPKBIPsQO31gNxpD2/yecnK3V9s70jREvsM2ra73MRmS8gGs6ylTlon0IrnE1p4+byUJuUHKNl4Am3SUH3rwETMVR8lnVPictVKI3nW/ZSmfFa9k+2RfCCm1vF3Tgn8ih/oL8+08tuVaVkDFDbShAUs62yL6R/QD5U7tEfUTQ==",
+      "domain": ".rubiconproject.com",
+      "path": "/",
+      "expires": 1806371718.382655,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "TDCPM",
+      "value": "CAESFwoIYXBwbmV4dXMSCwjQwYzXrYKHPxAFEhYKB3J1Ymljb24SCwiG8LLUrYKHPxAFEhUKBmdvb2dsZRILCKjdrNatgoc_EAUYBSACKAYyCwiimbWBxIKHPxAFQg8iDQgBEgkKBXRpZXIyEAFaBzF5Z2c3OTdgAQ..",
+      "domain": ".adsrvr.org",
+      "path": "/",
+      "expires": 1806371718.425061,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_ga_D2TKF4ZXY0",
+      "value": "GS2.2.s1774835716$o1$g1$t1774835718$j58$l0$h0",
+      "domain": ".calgarycoop.com",
+      "path": "/",
+      "expires": 1809395718.733052,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "https://shoponline.calgarycoop.com",
+      "localStorage": [
+        {
+          "name": "storeURL",
+          "value": "shoponline.calgarycoop.com/crowfoot"
+        },
+        {
+          "name": "sa-user-id",
+          "value": "s%3A0-58a6d2df-35a2-56ae-61ce-13123540393d.LiBdrXwGkDVwO0I4ESuSfriOQncpuRykgHiGA9D14BY"
+        },
+        {
+          "name": "lastExternalReferrerTime",
+          "value": "1774835716030"
+        },
+        {
+          "name": "_uetvid_exp",
+          "value": "Sat, 24 Apr 2027 01:55:17 GMT"
+        },
+        {
+          "name": "_uetsid_exp",
+          "value": "Tue, 31 Mar 2026 01:55:17 GMT"
+        },
+        {
+          "name": "session_id",
+          "value": "m6WSrweSJJRVXsCVKrMDgwhqVnr+x7gU0sYiT9aPDZVwPXG0fUt2Trvo6Qpwj0RMaMudEjSnnuTTd5S1DYYOo7ByUWzfS1yPQ+15DVd3CoVZxP/lz8futjtZbgGUTwqSfMwgkZPKQpTaguhYkJ5uDx2ciLl9XhhLrQVrPZX6KpBPI+3uFxXQrCtqrmyXfnemtip2GhidAt2daNpEYgsiIw=="
+        },
+        {
+          "name": "_uetvid",
+          "value": "806a1fb02bdb11f1ad41157489959123"
+        },
+        {
+          "name": "lastExternalReferrer",
+          "value": "empty"
+        },
+        {
+          "name": "Store_Mode",
+          "value": "Online"
+        },
+        {
+          "name": "_gcl_ls",
+          "value": "{\"schema\":\"gcl\",\"version\":1,\"gcl_ctr\":{\"value\":{\"value\":0,\"timeouts\":0,\"errors\":0,\"creationTimeMs\":1774835715482},\"expires\":1782611715482}}"
+        },
+        {
+          "name": "_uetsid",
+          "value": "8069f2f02bdb11f1b023e9e0c70b9d41"
+        },
+        {
+          "name": "sa-user-id-v3",
+          "value": "s%3AAQAKIIqqcPAJJHEhAl2rFoNorCq60YQM6Z8fgY6QFI7LuxOUEAEYAyCEsKfOBjABOgRTMEsuQgRe8127.q7Rg0xW1TmAh%2B%2Bd0LzDBa1%2FRrCZ0uEtv5QfkoM8C53w"
+        },
+        {
+          "name": "li_adsId",
+          "value": "e22330b0-7c58-47d0-a2fe-86fee94bb95a"
+        },
+        {
+          "name": "sa-user-id-v2",
+          "value": "s%3AWKbS3zWiVq5hzhMSNUA5PUSQgAw.HkgtkH%2BO%2FvwpVUYszK%2BaMJl3Tv9NzF2SoDQiMzFVjr8"
+        },
+        {
+          "name": "ld:6070398bc87fda0bf26b755e:$diagnostics",
+          "value": "{\"dataSinceDate\":1774835717945,\"droppedEvents\":0,\"eventsInLastBatch\":0,\"streamInits\":[]}"
+        }
+      ]
+    }
+  ]
+}

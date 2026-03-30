@@ -53,26 +53,41 @@ input, textarea, select {
 	font-family: inherit;
 }
 
-/* Utility classes */
+/* Page-enter transition (driven by layout) */
+main {
+	transition: opacity 200ms ease, transform 200ms ease;
+}
+main.page-enter {
+	opacity: 0;
+	transform: translateY(8px);
+}
+
+/* Skeleton shimmer */
 .skeleton {
 	background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-elevated) 50%, var(--bg-card) 75%);
 	background-size: 200% 100%;
-	animation: skeleton-pulse 1.5s ease-in-out infinite;
+	animation: shimmer 1.5s infinite;
 	border-radius: 8px;
 }
 
-@keyframes skeleton-pulse {
+@keyframes shimmer {
 	0% { background-position: 200% 0; }
 	100% { background-position: -200% 0; }
 }
 
-@keyframes fade-in {
-	from { opacity: 0; transform: translateY(8px); }
-	to { opacity: 1; transform: translateY(0); }
-}
-
+/* Card stagger animation */
 .fade-in {
-	animation: fade-in 0.3s ease-out;
+	animation: fadeSlideUp 300ms ease-out both;
+}
+.fade-in:nth-child(1) { animation-delay: 0ms; }
+.fade-in:nth-child(2) { animation-delay: 50ms; }
+.fade-in:nth-child(3) { animation-delay: 100ms; }
+.fade-in:nth-child(4) { animation-delay: 150ms; }
+.fade-in:nth-child(5) { animation-delay: 200ms; }
+
+@keyframes fadeSlideUp {
+	from { opacity: 0; transform: translateY(12px); }
+	to { opacity: 1; transform: translateY(0); }
 }
 
 /* Page transitions */
@@ -83,7 +98,12 @@ input, textarea, select {
 }
 
 /* Tabular nums for all numbers */
-.stat, .metric-value, h1, h2 { font-variant-numeric: tabular-nums; }
+.stat, .metric-value, .stat-number, h1, h2 { font-variant-numeric: tabular-nums; }
+
+/* Smooth number transitions */
+.metric-value, .stat-number {
+	transition: all 300ms ease;
+}
 
 /* Card press effect */
 .card, .meal-chip, .supp-item, .item-row, .recipe-card {
@@ -91,4 +111,43 @@ input, textarea, select {
 }
 .card:active, .meal-chip:active, .supp-item:active, .item-row:active, .recipe-card:active {
 	transform: scale(0.98);
+}
+
+/* FAB pop-in on first appearance */
+.fab {
+	animation: fabIn 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes fabIn {
+	from { transform: scale(0); }
+	to { transform: scale(1); }
+}
+
+/* Toggle switch animation */
+.toggle-btn {
+	transition: background-color 200ms ease, border-color 200ms ease, transform 150ms ease;
+}
+.toggle-btn:active {
+	transform: scale(0.9);
+}
+
+/* Form overlay slide-up */
+.form-overlay {
+	animation: overlayIn 250ms ease-out;
+}
+@keyframes overlayIn {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+
+.form-card {
+	animation: sheetUp 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes sheetUp {
+	from { transform: translateY(100%); }
+	to { transform: translateY(0); }
+}
+
+/* Pull-to-refresh indicator */
+.pull-indicator {
+	transition: opacity 200ms, transform 200ms;
 }

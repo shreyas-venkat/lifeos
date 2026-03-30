@@ -28,6 +28,34 @@ self.addEventListener('activate', (event) => {
 	);
 });
 
+// Push notification handler
+self.addEventListener('push', (event) => {
+	const data = event.data?.json() ?? { title: 'LifeOS', body: 'New notification' };
+	event.waitUntil(
+		self.registration.showNotification(data.title, {
+			body: data.body,
+			icon: '/app/icon-192.png',
+			badge: '/app/icon-192.png',
+			tag: data.tag || 'lifeos-notification',
+			data: data.url ? { url: data.url } : undefined,
+		})
+	);
+});
+
+// Notification click handler
+self.addEventListener('notificationclick', (event) => {
+	event.notification.close();
+	const url = event.notification.data?.url || '/app';
+	event.waitUntil(
+		clients.matchAll({ type: 'window' }).then((windowClients) => {
+			for (const client of windowClients) {
+				if (client.url.includes('/app') && 'focus' in client) return client.focus();
+			}
+			return clients.openWindow(url);
+		})
+	);
+});
+
 // Fetch: network-first for API, stale-while-revalidate for assets
 self.addEventListener('fetch', (event) => {
 	if (event.request.method !== 'GET') return;

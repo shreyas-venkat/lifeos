@@ -97,7 +97,7 @@ describe('POST /api/health-webhook (our format)', () => {
     expect(mockQuery).toHaveBeenCalledTimes(3);
   });
 
-  it('counts rejected metrics when DB write fails', async () => {
+  it('responds immediately before background insert', async () => {
     mockQuery.mockRejectedValue(new Error('DB write failed'));
     const app = createApp();
     const res = await request(app)
@@ -112,9 +112,10 @@ describe('POST /api/health-webhook (our format)', () => {
         ],
       });
 
+    // Response is sent immediately with accepted=total before background DB insert
     expect(res.status).toBe(200);
-    expect(res.body.accepted).toBe(0);
-    expect(res.body.rejected).toBe(1);
+    expect(res.body.accepted).toBe(1);
+    expect(res.body.rejected).toBe(0);
   });
 });
 

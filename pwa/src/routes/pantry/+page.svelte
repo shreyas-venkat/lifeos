@@ -1,11 +1,18 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
-	import type { PantryItem } from '$lib/api';
+	import type { PantryItem, PantryAlerts, RecipeSuggestion } from '$lib/api';
+	import PullToRefresh from '$lib/components/PullToRefresh.svelte';
 
 	let items = $state<PantryItem[]>([]);
 	let loading = $state(true);
 	let uploading = $state(false);
+
+	// Smart pantry state
+	let alerts = $state<PantryAlerts>({ expiring: [], depleted: [], stale: [] });
+	let suggestions = $state<RecipeSuggestion[]>([]);
+	let showCookSection = $state(false);
+	let highlightIds = $state<Set<string>>(new Set());
 
 	// Add form state
 	let showAddForm = $state(false);
@@ -138,10 +145,38 @@
 		}
 	}
 
-	onMount(async () => {
-		items = await api.pantry.list();
+	const hasAlerts = $derived(
+		alerts.expiring.length > 0 || alerts.depleted.length > 0
+	);
+
+	function scrollToAlertItems() {
+		const ids = new Set<string>();
+		for (const item of alerts.expiring) ids.add(item.id);
+		for (const item of alerts.depleted) ids.add(item.id);
+		highlightIds = ids;
+		// Scroll to first highlighted item
+		const firstId = ids.values().next().value;
+		if (firstId) {
+			const el = document.getElementById(`pantry-item-${firstId}`);
+			if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		}
+		// Clear highlights after 3 seconds
+		setTimeout(() => { highlightIds = new Set(); }, 3000);
+	}
+
+	async function loadData() {
+		const [itemsResult, alertsResult, suggestionsResult] = await Promise.all([
+			api.pantry.list(),
+			api.pantry.alerts(),
+			api.pantry.suggestions(),
+		]);
+		items = itemsResult;
+		alerts = alertsResult;
+		suggestions = suggestionsResult;
 		loading = false;
-	});
+	}
+
+	onMount(() => loadData());
 
 	async function handlePhotoUpload(event: Event) {
 		const input = event.target as HTMLInputElement;
@@ -170,6 +205,7 @@
 	<title>Pantry - LifeOS</title>
 </svelte:head>
 
+<PullToRefresh onRefresh={loadData}>
 <div class="page">
 	<h1>Pantry</h1>
 
@@ -184,6 +220,50 @@
 			<p class="empty-hint">Tap + to add items, or snap a photo.</p>
 		</div>
 	{:else}
+		<!-- Alerts banner -->
+		{#if hasAlerts}
+			<button class="alerts-banner fade-in" onclick={scrollToAlertItems}>
+				{#if alerts.expiring.length > 0}
+					<span class="alert-item warning-alert">{alerts.expiring.length} item{alerts.expiring.length === 1 ? '' : 's'} expiring soon</span>
+				{/if}
+				{#if alerts.expiring.length > 0 && alerts.depleted.length > 0}
+					<span class="alert-sep">&middot;</span>
+				{/if}
+				{#if alerts.depleted.length > 0}
+					<span class="alert-item danger-alert">{alerts.depleted.length} item{alerts.depleted.length === 1 ? '' : 's'} depleted</span>
+				{/if}
+			</button>
+		{/if}
+
+		<!-- What can I cook? -->
+		{#if suggestions.length > 0}
+			<div class="cook-section fade-in">
+				<button class="cook-header" onclick={() => (showCookSection = !showCookSection)}>
+					<span class="cook-title">What can I cook?</span>
+					<span class="cook-chevron" class:cook-chevron-open={showCookSection}>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+					</span>
+				</button>
+				{#if showCookSection}
+					<div class="cook-list">
+						{#each suggestions.slice(0, 3) as suggestion}
+							<a class="cook-card" href="/meals/recipes/{suggestion.recipe.id}">
+								<div class="cook-card-top">
+									<span class="cook-recipe-name">{suggestion.recipe.name}</span>
+									<span class="cook-match">{suggestion.match_pct}% match</span>
+								</div>
+								{#if suggestion.missing.length > 0}
+									<div class="cook-missing">
+										Missing: {suggestion.missing.join(', ')}
+									</div>
+								{/if}
+							</a>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		{/if}
+
 		<!-- Summary bar -->
 		<div class="summary-bar fade-in">
 			<span class="summary-stat">{items.length} items</span>
@@ -225,9 +305,11 @@
 							</form>
 						{:else}
 							<div
+								id="pantry-item-{item.id}"
 								class="item-row"
 								class:item-warning={status === 'warning'}
 								class:item-expired={status === 'expired'}
+								class:item-highlight={highlightIds.has(item.id)}
 							>
 								<button class="item-tap-area" onclick={() => startEdit(item)}>
 									<div class="item-left">
@@ -336,6 +418,7 @@
 		/>
 	</label>
 </div>
+</PullToRefresh>
 
 <style>
 	h1 {
@@ -756,6 +839,137 @@
 
 	@keyframes spin {
 		to { transform: rotate(360deg); }
+	}
+
+	/* Alerts banner */
+	.alerts-banner {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		width: 100%;
+		padding: 10px 14px;
+		margin-bottom: 1rem;
+		background: rgba(245, 158, 11, 0.1);
+		border: 1px solid rgba(245, 158, 11, 0.3);
+		border-radius: 10px;
+		cursor: pointer;
+		color: var(--text-primary);
+		font-size: 0.85rem;
+		font-weight: 500;
+		transition: background 0.2s;
+	}
+
+	.alerts-banner:hover {
+		background: rgba(245, 158, 11, 0.15);
+	}
+
+	.alert-item.warning-alert {
+		color: var(--warning);
+	}
+
+	.alert-item.danger-alert {
+		color: var(--danger);
+	}
+
+	.alert-sep {
+		color: var(--text-secondary);
+	}
+
+	/* Highlight animation for scrolled-to items */
+	.item-row.item-highlight {
+		animation: highlight-pulse 1.5s ease-in-out 2;
+	}
+
+	@keyframes highlight-pulse {
+		0%, 100% { border-color: var(--border); }
+		50% { border-color: var(--accent); box-shadow: 0 0 8px rgba(99, 102, 241, 0.3); }
+	}
+
+	/* What can I cook section */
+	.cook-section {
+		margin-bottom: 1rem;
+		background: var(--bg-card);
+		border-radius: 12px;
+		border: 1px solid var(--border);
+		overflow: hidden;
+	}
+
+	.cook-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		width: 100%;
+		padding: 12px 14px;
+		background: none;
+		border: none;
+		cursor: pointer;
+		color: var(--text-primary);
+	}
+
+	.cook-title {
+		font-size: 0.9rem;
+		font-weight: 600;
+	}
+
+	.cook-chevron svg {
+		width: 16px;
+		height: 16px;
+		color: var(--text-secondary);
+		transition: transform 0.2s;
+	}
+
+	.cook-chevron-open svg {
+		transform: rotate(180deg);
+	}
+
+	.cook-list {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		padding: 0 10px 10px;
+	}
+
+	.cook-card {
+		display: block;
+		padding: 10px 12px;
+		background: var(--bg-elevated);
+		border-radius: 8px;
+		border: 1px solid var(--border);
+		text-decoration: none;
+		color: var(--text-primary);
+		transition: border-color 0.2s;
+	}
+
+	.cook-card:hover {
+		border-color: var(--accent);
+	}
+
+	.cook-card-top {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.cook-recipe-name {
+		font-size: 0.85rem;
+		font-weight: 500;
+	}
+
+	.cook-match {
+		font-size: 0.7rem;
+		font-weight: 600;
+		padding: 2px 6px;
+		border-radius: 4px;
+		background: rgba(34, 197, 94, 0.12);
+		color: var(--success);
+		white-space: nowrap;
+	}
+
+	.cook-missing {
+		font-size: 0.75rem;
+		color: var(--text-secondary);
+		margin-top: 4px;
 	}
 
 	.empty-state {

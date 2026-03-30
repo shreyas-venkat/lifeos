@@ -128,7 +128,9 @@ function buildVolumeMounts(
   // Ensure container user (node, uid 1000) can write session files
   try {
     spawnSync('chown', ['-R', '1000:1000', groupSessionsDir]);
-  } catch { /* ignore on non-Linux */ }
+  } catch {
+    /* ignore on non-Linux */
+  }
   const settingsFile = path.join(groupSessionsDir, 'settings.json');
   if (!fs.existsSync(settingsFile)) {
     fs.writeFileSync(
@@ -173,13 +175,24 @@ function buildVolumeMounts(
   // Per-group IPC namespace: each group gets its own IPC directory
   // This prevents cross-group privilege escalation via IPC
   const groupIpcDir = resolveGroupIpcPath(group.folder);
-  fs.mkdirSync(path.join(groupIpcDir, 'messages'), { recursive: true, mode: 0o777 });
-  fs.mkdirSync(path.join(groupIpcDir, 'tasks'), { recursive: true, mode: 0o777 });
-  fs.mkdirSync(path.join(groupIpcDir, 'input'), { recursive: true, mode: 0o777 });
+  fs.mkdirSync(path.join(groupIpcDir, 'messages'), {
+    recursive: true,
+    mode: 0o777,
+  });
+  fs.mkdirSync(path.join(groupIpcDir, 'tasks'), {
+    recursive: true,
+    mode: 0o777,
+  });
+  fs.mkdirSync(path.join(groupIpcDir, 'input'), {
+    recursive: true,
+    mode: 0o777,
+  });
   // Ensure container user (node, uid 1000) can write to IPC dirs
   try {
     spawnSync('chown', ['-R', '1000:1000', groupIpcDir]);
-  } catch { /* ignore on non-Linux */ }
+  } catch {
+    /* ignore on non-Linux */
+  }
   mounts.push({
     hostPath: groupIpcDir,
     containerPath: '/workspace/ipc',
@@ -256,8 +269,10 @@ async function buildContainerArgs(
   // These are NOT Anthropic keys (handled by OneCLI) — they're for
   // Google Calendar, MotherDuck, and other integrations.
   const serviceEnvVars = [
-    'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET',
-    'GOOGLE_REFRESH_TOKEN', 'GOOGLE_CALENDAR_REFRESH_TOKEN',
+    'GOOGLE_CLIENT_ID',
+    'GOOGLE_CLIENT_SECRET',
+    'GOOGLE_REFRESH_TOKEN',
+    'GOOGLE_CALENDAR_REFRESH_TOKEN',
     'MOTHERDUCK_TOKEN',
   ];
   for (const key of serviceEnvVars) {

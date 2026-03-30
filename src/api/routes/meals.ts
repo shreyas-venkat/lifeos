@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { query } from '../db.js';
+import crypto from 'crypto';
 
 export const mealsRouter = Router();
 
@@ -48,11 +49,9 @@ mealsRouter.post('/plan/:id/status', async (req: Request, res: Response) => {
     !status ||
     !['planned', 'cooked', 'skipped', 'ate_out'].includes(status)
   ) {
-    res
-      .status(400)
-      .json({
-        error: 'status must be one of: planned, cooked, skipped, ate_out',
-      });
+    res.status(400).json({
+      error: 'status must be one of: planned, cooked, skipped, ate_out',
+    });
     return;
   }
 
@@ -62,6 +61,68 @@ mealsRouter.post('/plan/:id/status', async (req: Request, res: Response) => {
       status,
       id,
     );
+
+    // Auto-deduct pantry when status changes to 'cooked'
+    if (status === 'cooked') {
+      try {
+        const plans = await query(
+          `SELECT recipe_id FROM lifeos.meal_plans WHERE id = $1`,
+          id,
+        );
+        const plan = plans[0] as { recipe_id?: string } | undefined;
+
+        if (plan?.recipe_id) {
+          const recipes = await query(
+            `SELECT ingredients FROM lifeos.recipes WHERE id = $1`,
+            plan.recipe_id,
+          );
+          const recipe = recipes[0] as { ingredients?: string } | undefined;
+
+          if (recipe?.ingredients) {
+            const ingredients =
+              typeof recipe.ingredients === 'string'
+                ? JSON.parse(recipe.ingredients)
+                : recipe.ingredients;
+
+            if (Array.isArray(ingredients)) {
+              for (const ingredient of ingredients) {
+                const name =
+                  typeof ingredient === 'string'
+                    ? ingredient
+                    : ingredient?.name || ingredient?.item;
+                if (!name) continue;
+
+                const pantryItems = await query(
+                  `SELECT id, quantity FROM lifeos.pantry
+                   WHERE LOWER(item) = LOWER($1) AND quantity > 0`,
+                  String(name),
+                );
+
+                if (pantryItems.length > 0) {
+                  const item = pantryItems[0] as {
+                    id: string;
+                    quantity: number;
+                  };
+                  const qty =
+                    typeof ingredient === 'object' && ingredient?.quantity
+                      ? Number(ingredient.quantity)
+                      : 1;
+                  const newQty = Math.max(0, item.quantity - qty);
+                  await query(
+                    `UPDATE lifeos.pantry SET quantity = $1 WHERE id = $2`,
+                    newQty,
+                    item.id,
+                  );
+                }
+              }
+            }
+          }
+        }
+      } catch {
+        // Best-effort: pantry deduction failures should not fail the status update
+      }
+    }
+
     res.json({ success: true });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
@@ -148,3 +209,34 @@ mealsRouter.post('/recipes/:id/rate', async (req: Request, res: Response) => {
     res.status(500).json({ error: message });
   }
 });
+
+mealsRouter.post(
+  '/recipes/:id/favorite',
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    try {
+      const existing = await query(
+        `SELECT recipe_id FROM lifeos.recipe_favorites WHERE recipe_id = $1`,
+        id,
+      );
+
+      if (existing.length > 0) {
+        await query(
+          `DELETE FROM lifeos.recipe_favorites WHERE recipe_id = $1`,
+          id,
+        );
+        res.json({ success: true, favorited: false });
+      } else {
+        await query(
+          `INSERT INTO lifeos.recipe_favorites (recipe_id) VALUES ($1)`,
+          id,
+        );
+        res.json({ success: true, favorited: true });
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      res.status(500).json({ error: message });
+    }
+  },
+);
