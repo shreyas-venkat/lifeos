@@ -136,6 +136,9 @@ jobs:
             # Build TypeScript (fail loudly if tsc breaks)
             npm run build
 
+            # Build PWA
+            cd pwa && npm install && npm run build && cd ..
+
             # Remove devDependencies after build
             npm prune --omit=dev
 
