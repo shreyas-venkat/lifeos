@@ -15,16 +15,14 @@ describe('mountRoutes', () => {
 
     mountRoutes(router);
 
-    expect(mockUse).toHaveBeenCalledWith(
-      '/health/context',
-      expect.anything(),
-    );
+    expect(mockUse).toHaveBeenCalledWith('/body', expect.anything());
+    expect(mockUse).toHaveBeenCalledWith('/health/context', expect.anything());
     expect(mockUse).toHaveBeenCalledWith('/health', expect.anything());
     expect(mockUse).toHaveBeenCalledWith('/meals', expect.anything());
     expect(mockUse).toHaveBeenCalledWith('/pantry', expect.anything());
     expect(mockUse).toHaveBeenCalledWith('/supplements', expect.anything());
     expect(mockUse).toHaveBeenCalledWith('/calories', expect.anything());
     expect(mockUse).toHaveBeenCalledWith('/preferences', expect.anything());
-    expect(mockUse).toHaveBeenCalledTimes(7);
+    expect(mockUse).toHaveBeenCalledTimes(8);
   });
 });

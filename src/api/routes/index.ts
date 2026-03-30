@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { bodyRouter } from './body.js';
 import { healthContextRouter } from './health-context.js';
 import { healthRouter } from './health.js';
 import { mealsRouter } from './meals.js';
@@ -8,6 +9,7 @@ import { caloriesRouter } from './calories.js';
 import { preferencesRouter } from './preferences.js';
 
 export function mountRoutes(router: Router): void {
+  router.use('/body', bodyRouter);
   router.use('/health/context', healthContextRouter);
   router.use('/health', healthRouter);
   router.use('/meals', mealsRouter);
