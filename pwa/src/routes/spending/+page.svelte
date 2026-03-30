@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
-	import type { Transaction, CategorySummary, MonthlyTotal, BudgetInfo, SpendingForecast } from '$lib/api';
+	import type { Transaction, CategorySummary, MonthlyTotal, BudgetInfo, Subscription, SubscriptionSummary, SpendingForecast } from '$lib/api';
 
 	let loading = $state(true);
 
@@ -10,6 +10,8 @@
 	let monthlyHistory = $state<MonthlyTotal[]>([]);
 	let recentTransactions = $state<Transaction[]>([]);
 	let budgetInfo = $state<BudgetInfo | null>(null);
+	let subscriptions = $state<Subscription[]>([]);
+	let subscriptionSummary = $state<SubscriptionSummary>({ monthly_total: 0, count: 0 });
 	let forecast = $state<SpendingForecast | null>(null);
 
 	// Add form state
@@ -122,18 +124,22 @@
 	);
 
 	async function fetchData() {
-		const [summary, history, recent, budget, forecastResult] = await Promise.allSettled([
+		const [summary, history, recent, budget, forecastResult, subs, subSummary] = await Promise.allSettled([
 			api.spending.summary(),
 			api.spending.history(),
 			api.spending.recent(),
 			api.spending.budget(),
 			api.spending.forecast(),
+			api.subscriptions.active(),
+			api.subscriptions.summary(),
 		]);
 		if (summary.status === 'fulfilled') categorySummary = summary.value;
 		if (history.status === 'fulfilled') monthlyHistory = history.value;
 		if (recent.status === 'fulfilled') recentTransactions = recent.value;
 		if (budget.status === 'fulfilled') budgetInfo = budget.value;
 		if (forecastResult.status === 'fulfilled') forecast = forecastResult.value;
+		if (subs.status === 'fulfilled') subscriptions = subs.value;
+		if (subSummary.status === 'fulfilled') subscriptionSummary = subSummary.value;
 	}
 
 	onMount(async () => {
@@ -399,6 +405,29 @@
 								</svg>
 							</button>
 						{/if}
+					</div>
+				{/each}
+			</div>
+		{/if}
+
+		<!-- Subscriptions -->
+		{#if subscriptions.length > 0}
+			<div class="section-header fade-in">
+				<span class="section-label">Subscriptions</span>
+				<div class="section-divider"></div>
+			</div>
+			<div class="sub-total fade-in">
+				<span class="sub-total-label">Monthly recurring</span>
+				<span class="sub-total-amount">{formatCurrency(subscriptionSummary.monthly_total)}</span>
+			</div>
+			<div class="sub-list fade-in">
+				{#each subscriptions as sub}
+					<div class="sub-item">
+						<div class="sub-info">
+							<span class="sub-name">{sub.name}</span>
+							<span class="sub-freq">{sub.frequency}</span>
+						</div>
+						<span class="sub-amount">{formatCurrency(sub.amount)}</span>
 					</div>
 				{/each}
 			</div>
@@ -1107,6 +1136,71 @@
 
 	.form-submit:hover:not(:disabled) {
 		opacity: 0.9;
+	}
+
+	/* Subscriptions */
+	.sub-total {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 12px 14px;
+		background: var(--bg-card);
+		border: 1px solid var(--border);
+		border-radius: 12px;
+		margin-bottom: 8px;
+	}
+
+	.sub-total-label {
+		font-size: 0.8rem;
+		color: var(--text-secondary);
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+
+	.sub-total-amount {
+		font-size: 1.1rem;
+		font-weight: 700;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.sub-list {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+
+	.sub-item {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 10px 14px;
+		background: var(--bg-card);
+		border: 1px solid var(--border);
+		border-radius: 10px;
+	}
+
+	.sub-info {
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	.sub-name {
+		font-size: 0.9rem;
+		font-weight: 600;
+	}
+
+	.sub-freq {
+		font-size: 0.72rem;
+		color: var(--text-secondary);
+		text-transform: capitalize;
+	}
+
+	.sub-amount {
+		font-size: 0.9rem;
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
+		color: var(--text-primary);
 	}
 
 	/* FAB */

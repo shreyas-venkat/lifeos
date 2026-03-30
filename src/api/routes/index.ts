@@ -8,6 +8,8 @@ import { caloriesRouter } from './calories.js';
 import { preferencesRouter } from './preferences.js';
 import { spendingRouter } from './spending.js';
 import { notificationsRouter } from './notifications.js';
+import { packagesRouter } from './packages.js';
+import { subscriptionsRouter } from './subscriptions.js';
 
 export function mountRoutes(router: Router): void {
   router.use('/health/context', healthContextRouter);
@@ -19,4 +21,6 @@ export function mountRoutes(router: Router): void {
   router.use('/preferences', preferencesRouter);
   router.use('/spending', spendingRouter);
   router.use('/notifications', notificationsRouter);
+  router.use('/packages', packagesRouter);
+  router.use('/subscriptions', subscriptionsRouter);
 }
