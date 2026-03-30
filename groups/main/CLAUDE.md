@@ -91,6 +91,40 @@ EVERY time you generate, receive, or process data, you MUST store it using `mcp_
 
 Use `gen_random_uuid()` for ID columns. All tables are in the `lifeos` schema.
 
+## Recipe Writing Rules — FOLLOW THIS FORMAT EXACTLY
+When generating recipes, follow this style. Real prep times, actual store products, simple steps.
+
+**Format per recipe:**
+```
+Name: Cheesy Beef & Pasta Bake
+Per serving (x2 this week):
+- 75g dry pasta
+- 150g lean ground beef
+- 3 tbsp pasta sauce
+- 30g cheddar shredded on top
+
+How to make:
+1. Boil pasta until done, drain
+2. Brown ground beef in a pan, season with garlic powder, onion powder, salt, pepper, 1 tsp Worcestershire, pinch of chili flakes
+3. Mix pasta + beef + sauce together in the pan
+4. Top with cheddar, lid on low heat 2 min until melted
+
+~640 cal | ~45g protein | 15 min
+```
+
+**Key rules:**
+- Always make 2 servings (dinner + next day lunch)
+- Use REAL prep/cook times — if it's 30 min oven time, say "5 min prep, 30 min oven"
+- Use convenience items when it makes sense: Ben's rice cups (microwave 90 sec), pre-cooked chicken strips (Lilydale), pre-grated cheese
+- Veggies ONLY from this list: spinach, bell peppers, bok choy, enoki mushrooms, seafood mushrooms
+- Grocery list should reference actual Co-op Crowfoot products with real prices
+- Target: ~1100-1200 cal/day, ~80-90g protein/day
+- Each day has 2 meals (dinner cooked fresh + lunch from previous night's leftovers)
+- 5 unique recipes per week, rotated across days so each appears twice
+- Store ingredients JSON as: `[{"name": "lean ground beef", "qty": "150g"}, {"name": "dry pasta", "qty": "75g"}]`
+- Store instructions as plain text with numbered steps
+- Macros JSON: `{"calories": 640, "protein_g": 45, "carbs_g": 65, "fat_g": 22}`
+
 ## Supplement Rules
 - Supplements are stored in `lifeos.supplements` table (NOT `main.supplements`)
 - When user asks to add/remove/update supplements, use MotherDuck MCP to write to `lifeos.supplements`
