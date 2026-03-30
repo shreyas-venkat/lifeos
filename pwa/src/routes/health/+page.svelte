@@ -7,9 +7,15 @@
 	let todayMetrics = $state<HealthMetric[]>([]);
 	let history = $state<HealthHistoryPoint[]>([]);
 	let loading = $state(true);
+	/** 0 = Today tab; 7/30/90 = period tabs */
 	let selectedDays = $state(7);
 	let chartCanvas = $state<HTMLCanvasElement | null>(null);
 	let chartInstance: Chart | null = null;
+
+	/** Computed average values per metric_type for the current period */
+	let periodAverages = $state<Record<string, number | null>>({});
+	/** Trend direction per metric_type: 1 = up, -1 = down, 0 = flat/unknown */
+	let trendDirection = $state<Record<string, number>>({});
 
 	const metricConfig: Record<string, { label: string; unit: string; color: string }> = {
 		steps: { label: 'Steps', unit: '', color: '#6366f1' },
@@ -17,7 +23,8 @@
 		hrv: { label: 'HRV', unit: 'ms', color: '#8b5cf6' },
 		spo2: { label: 'SpO2', unit: '%', color: '#06b6d4' },
 		weight: { label: 'Weight', unit: 'kg', color: '#f59e0b' },
-		sleep_hours: { label: 'Sleep', unit: 'h', color: '#22c55e' },
+		sleep_duration: { label: 'Sleep', unit: 'h', color: '#22c55e' },
+		sleep_quality: { label: 'Sleep Q', unit: '', color: '#14b8a6' },
 	};
 
 	const metricTypes = Object.keys(metricConfig);
@@ -26,17 +33,109 @@
 		return todayMetrics.find((m) => m.metric_type === type);
 	}
 
-	function formatValue(metric: HealthMetric | undefined): string {
-		if (!metric) return '--';
-		if (metric.metric_type === 'steps') return Math.round(metric.value).toLocaleString();
-		if (metric.metric_type === 'sleep_hours') return metric.value.toFixed(1);
-		return String(Math.round(metric.value));
+	function formatValue(value: number | null | undefined, metricType: string): string {
+		if (value === null || value === undefined) return '\u2014';
+		if (metricType === 'steps') return Math.round(value).toLocaleString();
+		if (metricType === 'sleep_duration') return value.toFixed(1);
+		if (metricType === 'weight') return value.toFixed(1);
+		return String(Math.round(value));
 	}
 
-	async function loadHistory(days: number) {
+	function periodLabel(): string {
+		if (selectedDays === 0) return 'today';
+		return `${selectedDays}d avg`;
+	}
+
+	/** Compute averages from history data for a given slice of points */
+	function computeAverages(points: HealthHistoryPoint[]): Record<string, number | null> {
+		const grouped: Record<string, number[]> = {};
+		for (const p of points) {
+			if (!grouped[p.metric_type]) grouped[p.metric_type] = [];
+			grouped[p.metric_type].push(p.avg_value);
+		}
+		const result: Record<string, number | null> = {};
+		for (const type of metricTypes) {
+			const values = grouped[type];
+			if (!values || values.length === 0) {
+				result[type] = null;
+			} else {
+				result[type] = values.reduce((a, b) => a + b, 0) / values.length;
+			}
+		}
+		return result;
+	}
+
+	/** Split history into current period (last N days) and prior period */
+	function splitPeriods(allData: HealthHistoryPoint[], days: number) {
+		const today = new Date();
+		const cutoff = new Date(today);
+		cutoff.setDate(cutoff.getDate() - days);
+		const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+		const current = allData.filter((p) => p.date > cutoffStr);
+		const prior = allData.filter((p) => p.date <= cutoffStr);
+		return { current, prior };
+	}
+
+	/** Compute trend directions comparing current vs prior averages */
+	function computeTrends(currentAvg: Record<string, number | null>, priorAvg: Record<string, number | null>): Record<string, number> {
+		const trends: Record<string, number> = {};
+		for (const type of metricTypes) {
+			const cur = currentAvg[type];
+			const prev = priorAvg[type];
+			if (cur === null || prev === null || prev === 0) {
+				trends[type] = 0;
+			} else if (cur > prev) {
+				trends[type] = 1;
+			} else if (cur < prev) {
+				trends[type] = -1;
+			} else {
+				trends[type] = 0;
+			}
+		}
+		return trends;
+	}
+
+	/** Get CSS class for trend arrow */
+	function trendClass(type: string, direction: number): string {
+		if (direction === 0) return '';
+		// Heart rate is context-dependent -- show direction but no color
+		if (type === 'heart_rate') return '';
+		// For most metrics, up is good
+		if (type === 'weight') {
+			// Weight: neutral, no color judgement
+			return '';
+		}
+		return direction > 0 ? 'trend-good' : 'trend-bad';
+	}
+
+	function trendArrow(direction: number): string {
+		if (direction > 0) return '\u2191';
+		if (direction < 0) return '\u2193';
+		return '';
+	}
+
+	async function selectTab(days: number) {
 		selectedDays = days;
-		history = await api.health.history(days);
-		renderChart();
+		if (days === 0) {
+			// Today tab: just load today's metrics
+			todayMetrics = await api.health.today();
+			periodAverages = {};
+			trendDirection = {};
+			if (chartInstance) {
+				chartInstance.destroy();
+				chartInstance = null;
+			}
+		} else {
+			// Period tab: fetch 2x days for trend comparison
+			const doubleHistory = await api.health.history(days * 2);
+			const { current, prior } = splitPeriods(doubleHistory, days);
+			history = current;
+			periodAverages = computeAverages(current);
+			const priorAvg = computeAverages(prior);
+			trendDirection = computeTrends(periodAverages, priorAvg);
+			renderChart();
+		}
 	}
 
 	function renderChart() {
@@ -50,8 +149,8 @@
 			grouped[point.metric_type].push(point);
 		}
 
-		// Build datasets for chart metrics (steps, heart_rate, sleep_hours)
-		const chartMetrics = ['steps', 'heart_rate', 'sleep_hours'];
+		// Build datasets for chart metrics (steps, heart_rate, sleep_duration)
+		const chartMetrics = ['steps', 'heart_rate', 'sleep_duration'];
 		const allDates = [...new Set(history.map((p) => p.date))].sort();
 
 		const datasets = chartMetrics
@@ -115,12 +214,20 @@
 	}
 
 	onMount(async () => {
+		// Default to 7D tab: fetch 14 days for trend comparison
 		const [t, h] = await Promise.allSettled([
 			api.health.today(),
-			api.health.history(selectedDays),
+			api.health.history(14),
 		]);
 		if (t.status === 'fulfilled') todayMetrics = t.value;
-		if (h.status === 'fulfilled') history = h.value;
+		if (h.status === 'fulfilled') {
+			const allData = h.value;
+			const { current, prior } = splitPeriods(allData, 7);
+			history = current;
+			periodAverages = computeAverages(current);
+			const priorAvg = computeAverages(prior);
+			trendDirection = computeTrends(periodAverages, priorAvg);
+		}
 		loading = false;
 		requestAnimationFrame(() => renderChart());
 	});
@@ -134,15 +241,16 @@
 	<div class="page-header">
 		<h1>Health</h1>
 		<div class="toggle-pills">
-			<button class:active={selectedDays === 7} onclick={() => loadHistory(7)}>7D</button>
-			<button class:active={selectedDays === 30} onclick={() => loadHistory(30)}>30D</button>
-			<button class:active={selectedDays === 90} onclick={() => loadHistory(90)}>90D</button>
+			<button class:active={selectedDays === 0} onclick={() => selectTab(0)}>Today</button>
+			<button class:active={selectedDays === 7} onclick={() => selectTab(7)}>7D</button>
+			<button class:active={selectedDays === 30} onclick={() => selectTab(30)}>30D</button>
+			<button class:active={selectedDays === 90} onclick={() => selectTab(90)}>90D</button>
 		</div>
 	</div>
 
 	{#if loading}
 		<div class="vitals-grid">
-			{#each Array(6) as _}
+			{#each Array(7) as _}
 				<div class="skeleton" style="height: 80px;"></div>
 			{/each}
 		</div>
@@ -154,21 +262,32 @@
 	{:else}
 		<div class="vitals-grid fade-in">
 			{#each metricTypes as type}
-				{@const metric = getLatestMetric(type)}
 				{@const config = metricConfig[type]}
+				{@const displayValue = selectedDays === 0
+					? formatValue(getLatestMetric(type)?.value ?? null, type)
+					: formatValue(periodAverages[type] ?? null, type)}
+				{@const trend = trendDirection[type] ?? 0}
 				<div class="vital-card">
 					<span class="vital-label">{config.label}</span>
-					<span class="vital-value" class:muted={!metric}>
-						{formatValue(metric)}
-					</span>
-					{#if metric && config.unit}
+					<div class="vital-row">
+						<span class="vital-value" class:muted={displayValue === '\u2014'}>
+							{displayValue}
+						</span>
+						{#if selectedDays > 0 && trend !== 0}
+							<span class="trend-arrow {trendClass(type, trend)}">
+								{trendArrow(trend)}
+							</span>
+						{/if}
+					</div>
+					{#if config.unit && displayValue !== '\u2014'}
 						<span class="vital-unit">{config.unit}</span>
 					{/if}
+					<span class="vital-period">{periodLabel()}</span>
 				</div>
 			{/each}
 		</div>
 
-		{#if history.length > 0}
+		{#if selectedDays > 0 && history.length > 0}
 			<div class="chart-section fade-in">
 				<h2>Trends</h2>
 				<div class="chart-wrapper">
@@ -252,6 +371,12 @@
 		font-weight: 500;
 	}
 
+	.vital-row {
+		display: flex;
+		align-items: baseline;
+		gap: 6px;
+	}
+
 	.vital-value {
 		font-size: 1.35rem;
 		font-weight: 700;
@@ -267,6 +392,25 @@
 	.vital-unit {
 		font-size: 0.7rem;
 		color: var(--text-secondary);
+	}
+
+	.vital-period {
+		font-size: 0.65rem;
+		color: var(--text-secondary);
+		opacity: 0.7;
+	}
+
+	.trend-arrow {
+		font-size: 0.9rem;
+		font-weight: 700;
+	}
+
+	.trend-arrow.trend-good {
+		color: #22c55e;
+	}
+
+	.trend-arrow.trend-bad {
+		color: #ef4444;
 	}
 
 	.chart-section {
