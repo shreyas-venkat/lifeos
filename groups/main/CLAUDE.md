@@ -23,7 +23,7 @@ Don't just wait to be asked. Be proactive with ALL your tools:
 
 **Email (Gmail MCP):**
 - When scanning emails, also look for: shipping notifications (alert user), appointment confirmations (add to calendar), subscription renewals (alert if expensive), newsletters with useful content (summarize)
-- Detect RBC/bank emails → extract transaction amounts, merchants, dates → INSERT into lifeos.bills AND lifeos.transactions
+- Detect RBC and Neo Financial bank emails → extract transaction amounts, merchants, dates → INSERT into lifeos.bills AND lifeos.transactions. Neo emails typically show purchase notifications with merchant name and amount. RBC emails show e-Transfer and transaction alerts.
 - Detect order confirmations → alert user with expected delivery date
 - Auto-archive read newsletters after summarizing
 - **CRITICAL: DEDUP** — Before alerting about ANY email, check lifeos.emails using mcp__motherduck__query to see if this email message_id was already processed. If yes, SKIP IT. Do not alert the same email twice.
