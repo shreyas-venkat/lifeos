@@ -189,23 +189,40 @@ export function transformHealthConnectPayload(
 
 // POST /api/health-webhook
 healthWebhookRouter.post('/', async (req: Request, res: Response) => {
-  const body = req.body as Record<string, unknown>;
+  try {
+    // Handle body that might arrive as string (missing Content-Type: application/json)
+    let body: Record<string, unknown>;
+    if (typeof req.body === 'string') {
+      try {
+        body = JSON.parse(req.body) as Record<string, unknown>;
+      } catch {
+        res.status(400).json({ error: 'Invalid JSON body' });
+        return;
+      }
+    } else {
+      body = (req.body ?? {}) as Record<string, unknown>;
+    }
 
-  let metrics: HealthMetricPayload[];
+    logger.info(
+      { keys: Object.keys(body), contentType: req.headers['content-type'] },
+      'Health webhook received',
+    );
 
-  // Support both formats:
-  // 1. Our format: { metrics: [{metric_type, value, recorded_at}] }
-  // 2. Health Connect Webhook app: { steps: [...], heart_rate: [...], ... }
-  if (Array.isArray(body.metrics)) {
-    metrics = body.metrics as HealthMetricPayload[];
-  } else {
-    metrics = transformHealthConnectPayload(body);
-  }
+    let metrics: HealthMetricPayload[];
 
-  if (metrics.length === 0) {
-    res.status(400).json({ error: 'No metrics found in request body' });
-    return;
-  }
+    // Support both formats:
+    // 1. Our format: { metrics: [{metric_type, value, recorded_at}] }
+    // 2. Health Connect Webhook app: { steps: [...], heart_rate: [...], ... }
+    if (Array.isArray(body.metrics)) {
+      metrics = body.metrics as HealthMetricPayload[];
+    } else {
+      metrics = transformHealthConnectPayload(body);
+    }
+
+    if (metrics.length === 0) {
+      res.status(400).json({ error: 'No metrics found in request body' });
+      return;
+    }
 
   // Respond immediately to avoid phone app timeout, then insert in background
   const total = metrics.length;
@@ -243,6 +260,13 @@ healthWebhookRouter.post('/', async (req: Request, res: Response) => {
   })().catch((err: unknown) => {
     logger.error({ err }, 'Health webhook background insert failed');
   });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    logger.error({ err: message, body: req.body }, 'Health webhook handler error');
+    if (!res.headersSent) {
+      res.status(500).json({ error: message });
+    }
+  }
 });
 
 // GET /api/health-webhook/metrics -- list valid metric types
