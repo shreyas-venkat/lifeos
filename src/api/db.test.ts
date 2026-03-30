@@ -26,6 +26,7 @@ function setupMocks() {
   });
   mockConnect.mockResolvedValue({
     runAndReadAll: mockRunAndReadAll,
+    run: vi.fn(),
   });
   mockInstanceCreate.mockResolvedValue({
     connect: mockConnect,

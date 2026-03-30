@@ -23,6 +23,7 @@ describe('mountRoutes', () => {
     expect(mockUse).toHaveBeenCalledWith('/calories', expect.anything());
     expect(mockUse).toHaveBeenCalledWith('/preferences', expect.anything());
     expect(mockUse).toHaveBeenCalledWith('/spending', expect.anything());
-    expect(mockUse).toHaveBeenCalledTimes(8);
+    expect(mockUse).toHaveBeenCalledWith('/notifications', expect.anything());
+    expect(mockUse).toHaveBeenCalledTimes(9);
   });
 });

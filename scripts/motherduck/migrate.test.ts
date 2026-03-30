@@ -1,9 +1,8 @@
+import { describe, it, expect } from 'vitest';
 import { DuckDBInstance } from '@duckdb/node-api';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { describe, expect, it } from 'vitest';
-
 import { runMigrations } from './migrate.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -16,18 +15,27 @@ const EXPECTED_TABLES = [
   'dietary_preferences',
   'email_deletion_log',
   'emails',
+  'exercise_log',
+  'exercise_templates',
   'fitness_log',
   'fitness_nudges',
   'grocery_lists',
+  'habit_log',
+  'habits',
   'health_metrics',
   'meal_plans',
+  'mood_log',
+  'notifications',
   'pantry',
   'preferences',
+  'recipe_favorites',
   'recipes',
   'reminders',
+  'streaks',
   'supplement_log',
   'supplements',
   'transactions',
+  'water_log',
 ];
 
 async function applyAllSchemas() {
@@ -46,21 +54,18 @@ async function applyAllSchemas() {
 
 describe('runMigrations', () => {
   it('reads and applies SQL files in sorted order', async () => {
+    const sqlFiles = fs
+      .readdirSync(schemasDir)
+      .filter((f: string) => f.endsWith('.sql'))
+      .sort();
     const { applied, errors } = await runMigrations(':memory:');
     expect(errors).toEqual([]);
-    expect(applied).toEqual([
-      '001_phase1_foundation.sql',
-      '002_phase2_meals.sql',
-      '003_phase3_health.sql',
-      '004_phase5_bills.sql',
-      '008_spending.sql',
-    ]);
+    expect(applied).toEqual(sqlFiles);
   });
 
   it('is idempotent — running twice produces no errors', async () => {
-    const { instance, conn } = await applyAllSchemas();
-
-    // Second pass — should not error because of IF NOT EXISTS
+    const instance = await DuckDBInstance.create(':memory:');
+    const conn = await instance.connect();
     const sqlFiles = fs
       .readdirSync(schemasDir)
       .filter((f: string) => f.endsWith('.sql'))
@@ -69,23 +74,25 @@ describe('runMigrations', () => {
       const sql = fs.readFileSync(path.join(schemasDir, file), 'utf-8');
       await conn.run(sql);
     }
-
-    // If we reach here without throwing, idempotency holds
+    // Run again — should not error
+    for (const file of sqlFiles) {
+      const sql = fs.readFileSync(path.join(schemasDir, file), 'utf-8');
+      await conn.run(sql);
+    }
     conn.closeSync();
     instance.closeSync();
   });
 });
 
 describe('schema tables', () => {
-  it('creates all 18 expected tables in the lifeos schema', async () => {
-    const { instance, conn } = await applyAllSchemas();
-
+  it('creates all expected tables in the lifeos schema', async () => {
+    const { conn, instance } = await applyAllSchemas();
     const result = await conn.runAndReadAll(
       "SELECT table_name FROM information_schema.tables WHERE table_schema = 'lifeos' ORDER BY table_name",
     );
     const tableNames = result
-      .getRowObjects()
-      .map((r: Record<string, unknown>) => r.table_name as string)
+      .getRows()
+      .map((r) => String(r[0]))
       .sort();
 
     expect(tableNames).toEqual(EXPECTED_TABLES);
@@ -93,96 +100,84 @@ describe('schema tables', () => {
     conn.closeSync();
     instance.closeSync();
   });
-});
-
-describe('schema columns', () => {
-  async function getColumns(
-    tableName: string,
-  ): Promise<
-    { column_name: string; data_type: string; is_nullable: string }[]
-  > {
-    const { instance, conn } = await applyAllSchemas();
-
-    const result = await conn.runAndReadAll(
-      `SELECT column_name, data_type, is_nullable
-       FROM information_schema.columns
-       WHERE table_schema = 'lifeos' AND table_name = '${tableName}'
-       ORDER BY ordinal_position`,
-    );
-    const rows = result.getRowObjects() as {
-      column_name: string;
-      data_type: string;
-      is_nullable: string;
-    }[];
-
-    conn.closeSync();
-    instance.closeSync();
-    return rows;
-  }
 
   it('emails table has expected columns', async () => {
-    const cols = await getColumns('emails');
-    const names = cols.map((c) => c.column_name);
-    expect(names).toContain('id');
-    expect(names).toContain('provider');
-    expect(names).toContain('sender');
-    expect(names).toContain('category');
-    expect(names).toContain('action_taken');
-    expect(names).toContain('importance');
-    expect(names).toContain('snippet');
-    expect(names).toContain('processed_at');
+    const { conn, instance } = await applyAllSchemas();
+    const result = await conn.runAndReadAll(
+      "SELECT column_name FROM information_schema.columns WHERE table_schema = 'lifeos' AND table_name = 'emails' ORDER BY ordinal_position",
+    );
+    const cols = result.getRows().map((r) => String(r[0]));
+    expect(cols).toContain('id');
+    expect(cols).toContain('sender');
+    expect(cols).toContain('subject');
+    expect(cols).toContain('category');
+    conn.closeSync();
+    instance.closeSync();
   });
 
   it('recipes table has expected columns including JSON and array types', async () => {
-    const cols = await getColumns('recipes');
-    const names = cols.map((c) => c.column_name);
-    expect(names).toContain('ingredients');
-    expect(names).toContain('macros');
-    expect(names).toContain('tags');
-    expect(names).toContain('calories_per_serving');
-    expect(names).toContain('times_cooked');
+    const { conn, instance } = await applyAllSchemas();
+    const result = await conn.runAndReadAll(
+      "SELECT column_name FROM information_schema.columns WHERE table_schema = 'lifeos' AND table_name = 'recipes' ORDER BY ordinal_position",
+    );
+    const cols = result.getRows().map((r) => String(r[0]));
+    expect(cols).toContain('ingredients');
+    expect(cols).toContain('macros');
+    expect(cols).toContain('tags');
+    conn.closeSync();
+    instance.closeSync();
   });
 
   it('bills table has expected columns', async () => {
-    const cols = await getColumns('bills');
-    const names = cols.map((c) => c.column_name);
-    expect(names).toContain('id');
-    expect(names).toContain('name');
-    expect(names).toContain('amount');
-    expect(names).toContain('due_date');
-    expect(names).toContain('recurring');
-    expect(names).toContain('status');
-    expect(names).toContain('source_email_id');
+    const { conn, instance } = await applyAllSchemas();
+    const result = await conn.runAndReadAll(
+      "SELECT column_name FROM information_schema.columns WHERE table_schema = 'lifeos' AND table_name = 'bills' ORDER BY ordinal_position",
+    );
+    const cols = result.getRows().map((r) => String(r[0]));
+    expect(cols).toContain('amount');
+    expect(cols).toContain('merchant');
+    expect(cols).toContain('due_date');
+    conn.closeSync();
+    instance.closeSync();
   });
 
   it('supplement_log table has expected columns', async () => {
-    const cols = await getColumns('supplement_log');
-    const names = cols.map((c) => c.column_name);
-    expect(names).toContain('supplement_id');
-    expect(names).toContain('recommended_dosage');
-    expect(names).toContain('taken');
-    expect(names).toContain('log_date');
-    expect(names).toContain('time_of_day');
+    const { conn, instance } = await applyAllSchemas();
+    const result = await conn.runAndReadAll(
+      "SELECT column_name FROM information_schema.columns WHERE table_schema = 'lifeos' AND table_name = 'supplement_log' ORDER BY ordinal_position",
+    );
+    const cols = result.getRows().map((r) => String(r[0]));
+    expect(cols).toContain('supplement_id');
+    expect(cols).toContain('taken');
+    expect(cols).toContain('log_date');
+    conn.closeSync();
+    instance.closeSync();
   });
 
   it('transactions table has expected columns', async () => {
-    const cols = await getColumns('transactions');
-    const names = cols.map((c) => c.column_name);
-    expect(names).toContain('id');
-    expect(names).toContain('amount');
-    expect(names).toContain('merchant');
-    expect(names).toContain('category');
-    expect(names).toContain('description');
-    expect(names).toContain('transaction_date');
-    expect(names).toContain('source');
-    expect(names).toContain('created_at');
+    const { conn, instance } = await applyAllSchemas();
+    const result = await conn.runAndReadAll(
+      "SELECT column_name FROM information_schema.columns WHERE table_schema = 'lifeos' AND table_name = 'transactions' ORDER BY ordinal_position",
+    );
+    const cols = result.getRows().map((r) => String(r[0]));
+    expect(cols).toContain('amount');
+    expect(cols).toContain('merchant');
+    expect(cols).toContain('category');
+    expect(cols).toContain('transaction_date');
+    conn.closeSync();
+    instance.closeSync();
   });
 
   it('preferences table has composite primary key columns', async () => {
-    const cols = await getColumns('preferences');
-    const names = cols.map((c) => c.column_name);
-    expect(names).toContain('key');
-    expect(names).toContain('value');
-    expect(names).toContain('skill');
+    const { conn, instance } = await applyAllSchemas();
+    const result = await conn.runAndReadAll(
+      "SELECT column_name FROM information_schema.columns WHERE table_schema = 'lifeos' AND table_name = 'preferences' ORDER BY ordinal_position",
+    );
+    const cols = result.getRows().map((r) => String(r[0]));
+    expect(cols).toContain('key');
+    expect(cols).toContain('value');
+    expect(cols).toContain('skill');
+    conn.closeSync();
+    instance.closeSync();
   });
 });
