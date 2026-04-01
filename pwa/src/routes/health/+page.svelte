@@ -10,6 +10,7 @@
 	let history = $state<HealthHistoryPoint[]>([]);
 	let streaks = $state<Streak[]>([]);
 	let loading = $state(true);
+	let showStreaks = $state(false);
 	/** 0 = Today tab; 7/30/90 = period tabs */
 	let selectedDays = $state(7);
 
@@ -506,12 +507,19 @@
 
 		{#if streaks.length > 0}
 			<div class="streaks-section fade-in">
-				<h2>Streaks</h2>
-				<div class="streaks-grid">
-					{#each streaks as streak (streak.type)}
-						<StreakCard {streak} />
-					{/each}
-				</div>
+				<button class="streaks-toggle" onclick={() => (showStreaks = !showStreaks)}>
+					<h2>Streaks</h2>
+					<span class="streaks-chevron" class:open={showStreaks}>
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="6 9 12 15 18 9"/></svg>
+					</span>
+				</button>
+				{#if showStreaks}
+					<div class="streaks-grid">
+						{#each streaks as streak (streak.type)}
+							<StreakCard {streak} />
+						{/each}
+					</div>
+				{/if}
 			</div>
 		{/if}
 
@@ -708,6 +716,28 @@
 	/* Streaks section */
 	.streaks-section {
 		margin-bottom: 1.25rem;
+	}
+
+	.streaks-toggle {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		width: 100%;
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 0;
+		margin-bottom: 0.75rem;
+		color: inherit;
+	}
+
+	.streaks-chevron {
+		transition: transform 0.2s;
+		color: var(--text-secondary);
+	}
+
+	.streaks-chevron.open {
+		transform: rotate(180deg);
 	}
 
 	.streaks-section h2 {

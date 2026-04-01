@@ -91,19 +91,24 @@
 	// Compute the date for each day_of_week based on week_start
 	function getDayDate(dayOfWeek: number): string {
 		if (plan.length === 0) return '';
-		const ws = new Date(plan[0].week_start);
+		const wsParts = plan[0].week_start.split('-').map(Number);
+		const ws = new Date(wsParts[0], wsParts[1] - 1, wsParts[2], 12, 0, 0);
 		const d = new Date(ws);
 		d.setDate(ws.getDate() + (dayOfWeek - 1));
 		return d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
 	}
 
 	// Today's day_of_week (1=Mon, 7=Sun) relative to the plan's week_start
+	// Use Mountain Time to avoid UTC date mismatch
 	const todayDayOfWeek = $derived(() => {
 		if (plan.length === 0) return -1;
-		const ws = new Date(plan[0].week_start);
+		// week_start is a date string like "2026-03-30", parse as local noon to avoid DST issues
+		const wsParts = plan[0].week_start.split('-').map(Number);
+		const ws = new Date(wsParts[0], wsParts[1] - 1, wsParts[2], 12, 0, 0);
 		const today = new Date();
-		const diffDays = Math.floor((today.getTime() - ws.getTime()) / 86400000);
-		if (diffDays < 0 || diffDays > 6) return -1; // not in this week
+		const todayNoon = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0);
+		const diffDays = Math.round((todayNoon.getTime() - ws.getTime()) / 86400000);
+		if (diffDays < 0 || diffDays > 6) return -1;
 		return diffDays + 1; // 1-indexed
 	});
 
