@@ -169,7 +169,7 @@ EVERY time you generate, receive, or process data, you MUST store it using `mcp_
 - **Pantry items**: INSERT into `lifeos.pantry` when user mentions food
 - **Supplements**: INSERT into `lifeos.supplements` (see rules below)
 - **Calorie logs**: NEVER overwrite or UPDATE existing calorie_log entries. Always INSERT new rows. If the user already logged lunch manually, do NOT replace it with a meal plan entry. Multiple entries per meal_type per day is fine (e.g., two snacks). Only the user can explicitly ask to change a previous entry ("fix my lunch to X").
-- **Calorie/macro estimation**: ALWAYS estimate conservatively. Assume worst case: round calories UP (he probably used more oil, ate a bigger portion, or didn't measure). Round protein DOWN (real-world protein absorption isn't 100%, portions are smaller than you think). When in doubt, add 10-15% to calories and subtract 10-15% from protein. Never give him inflated protein numbers that make him think he's hitting goals when he's not. Better to be pleasantly surprised than falsely confident.
+- **Calorie/macro estimation**: ALWAYS estimate conservatively. Round calories UP, protein DOWN. Do NOT guess nutritional values from memory — use WebSearch to look up actual values for the specific ingredient and preparation method (cooked, not raw). Never give inflated protein numbers. Shrey would rather undercount protein and overcount calories than the reverse.
 - **Preferences**: INSERT into `lifeos.preferences` when user states a preference
 - **Calendar events**: Create Google Calendar events AND store in database
 - **Exercise logs**: When user mentions a workout, INSERT EACH exercise into `lifeos.exercise_log` using mcp__motherduck__query:
