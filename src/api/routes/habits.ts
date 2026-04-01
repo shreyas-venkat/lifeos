@@ -21,7 +21,7 @@ habitsRouter.get('/', async (_req: Request, res: Response) => {
       `SELECT h.id, h.name, h.description, h.frequency, h.target_per_day, h.color, h.icon,
               COALESCE(hl.completed, 0) as completed, hl.notes
        FROM lifeos.habits h
-       LEFT JOIN lifeos.habit_log hl ON h.id = hl.habit_id AND hl.log_date = CURRENT_DATE
+       LEFT JOIN lifeos.habit_log hl ON h.id = hl.habit_id AND hl.log_date = (NOW() AT TIME ZONE 'America/Edmonton')::DATE
        WHERE h.active = true
        ORDER BY h.name`,
     );
@@ -116,7 +116,7 @@ habitsRouter.post('/:id/complete', async (req: Request, res: Response) => {
 
     // Check for existing log entry today
     const existing = await query(
-      `SELECT id, completed FROM lifeos.habit_log WHERE habit_id = $1 AND log_date = CURRENT_DATE`,
+      `SELECT id, completed FROM lifeos.habit_log WHERE habit_id = $1 AND log_date = (NOW() AT TIME ZONE 'America/Edmonton')::DATE`,
       id,
     );
 
@@ -135,7 +135,7 @@ habitsRouter.post('/:id/complete', async (req: Request, res: Response) => {
       const logId = randomUUID();
       await query(
         `INSERT INTO lifeos.habit_log (id, habit_id, log_date, completed)
-         VALUES ($1, $2, CURRENT_DATE, 1)`,
+         VALUES ($1, $2, (NOW() AT TIME ZONE 'America/Edmonton')::DATE, 1)`,
         logId,
         id,
       );
@@ -177,7 +177,7 @@ habitsRouter.get('/history', async (req: Request, res: Response) => {
               hl.log_date, COALESCE(hl.completed, 0) as completed
        FROM lifeos.habits h
        LEFT JOIN lifeos.habit_log hl ON h.id = hl.habit_id
-          AND hl.log_date >= CURRENT_DATE - INTERVAL '${String(days)}' DAY
+          AND hl.log_date >= (NOW() AT TIME ZONE 'America/Edmonton')::DATE - INTERVAL '${String(days)}' DAY
        WHERE h.active = true
        ORDER BY h.name, hl.log_date`,
     );

@@ -17,8 +17,8 @@ mealsRouter.get('/plan', async (req: Request, res: Response) => {
     // Flexible: handles both Monday and Sunday as week start
     const weekFilter =
       week === 'current'
-        ? `mp.week_start BETWEEN CURRENT_DATE - INTERVAL '6' DAY AND CURRENT_DATE + INTERVAL '6' DAY`
-        : `mp.week_start BETWEEN CURRENT_DATE + INTERVAL '1' DAY AND CURRENT_DATE + INTERVAL '13' DAY`;
+        ? `mp.week_start BETWEEN (NOW() AT TIME ZONE 'America/Edmonton')::DATE - INTERVAL '6' DAY AND (NOW() AT TIME ZONE 'America/Edmonton')::DATE + INTERVAL '6' DAY`
+        : `mp.week_start BETWEEN (NOW() AT TIME ZONE 'America/Edmonton')::DATE + INTERVAL '1' DAY AND (NOW() AT TIME ZONE 'America/Edmonton')::DATE + INTERVAL '13' DAY`;
 
     const rows = await query(
       `SELECT mp.id, mp.week_start, mp.day_of_week, mp.meal_type, mp.status,

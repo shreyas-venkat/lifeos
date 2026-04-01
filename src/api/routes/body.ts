@@ -50,7 +50,7 @@ bodyRouter.get('/history', async (req: Request, res: Response) => {
       `SELECT CAST(recorded_at AS DATE) AS date, metric_type, AVG(value) AS avg_value
        FROM lifeos.health_metrics
        WHERE metric_type IN (${BODY_METRICS_SQL})
-         AND recorded_at >= CURRENT_DATE - INTERVAL '${String(days)}' DAY
+         AND recorded_at >= (NOW() AT TIME ZONE 'America/Edmonton')::DATE - INTERVAL '${String(days)}' DAY
        GROUP BY CAST(recorded_at AS DATE), metric_type
        ORDER BY date ASC`,
     );

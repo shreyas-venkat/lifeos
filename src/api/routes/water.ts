@@ -7,7 +7,7 @@ export const waterRouter = Router();
 waterRouter.get('/today', async (_req: Request, res: Response) => {
   try {
     const rows = await query(
-      `SELECT glasses FROM lifeos.water_log WHERE log_date = CURRENT_DATE`,
+      `SELECT glasses FROM lifeos.water_log WHERE log_date = (NOW() AT TIME ZONE 'America/Edmonton')::DATE`,
     );
 
     const glasses =
@@ -22,7 +22,7 @@ waterRouter.get('/today', async (_req: Request, res: Response) => {
 waterRouter.post('/log', async (_req: Request, res: Response) => {
   try {
     const existing = await query(
-      `SELECT id, glasses FROM lifeos.water_log WHERE log_date = CURRENT_DATE`,
+      `SELECT id, glasses FROM lifeos.water_log WHERE log_date = (NOW() AT TIME ZONE 'America/Edmonton')::DATE`,
     );
 
     if (existing.length > 0) {
@@ -36,7 +36,7 @@ waterRouter.post('/log', async (_req: Request, res: Response) => {
     } else {
       const id = crypto.randomUUID();
       await query(
-        `INSERT INTO lifeos.water_log (id, glasses, log_date) VALUES ($1, 1, CURRENT_DATE)`,
+        `INSERT INTO lifeos.water_log (id, glasses, log_date) VALUES ($1, 1, (NOW() AT TIME ZONE 'America/Edmonton')::DATE)`,
         id,
       );
       res.json({ success: true, glasses: 1 });

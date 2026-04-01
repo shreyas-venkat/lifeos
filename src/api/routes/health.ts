@@ -17,7 +17,7 @@ healthRouter.get('/today', async (_req: Request, res: Response) => {
            CASE WHEN metric_type = 'oxygen_saturation' THEN 'spo2' ELSE metric_type END AS metric_type,
            value, unit, recorded_at
          FROM lifeos.health_metrics
-         WHERE recorded_at >= CURRENT_DATE
+         WHERE recorded_at >= (NOW() AT TIME ZONE 'America/Edmonton')::DATE
        ),
        summed AS (
          SELECT metric_type, MAX(value) AS value, MAX(unit) AS unit, MAX(recorded_at) AS recorded_at
@@ -86,14 +86,14 @@ healthRouter.get('/history', async (req: Request, res: Response) => {
                   AVG(value) AS avg_value, MIN(value) AS min_value,
                   MAX(value) AS max_value, COUNT(*) AS readings
            FROM lifeos.health_metrics
-           WHERE recorded_at >= CURRENT_DATE - INTERVAL '${String(days)}' DAY
+           WHERE recorded_at >= (NOW() AT TIME ZONE 'America/Edmonton')::DATE - INTERVAL '${String(days)}' DAY
            GROUP BY CAST(recorded_at AS DATE), metric_type
            ORDER BY date ASC, metric_type`
         : `SELECT CAST(recorded_at AS DATE) AS date, metric_type,
                   AVG(value) AS avg_value, MIN(value) AS min_value,
                   MAX(value) AS max_value, COUNT(*) AS readings
            FROM lifeos.health_metrics
-           WHERE recorded_at >= CURRENT_DATE - INTERVAL '${String(days)}' DAY
+           WHERE recorded_at >= (NOW() AT TIME ZONE 'America/Edmonton')::DATE - INTERVAL '${String(days)}' DAY
              AND metric_type = $1
            GROUP BY CAST(recorded_at AS DATE), metric_type
            ORDER BY date ASC, metric_type`;

@@ -88,7 +88,7 @@ function getSupplementsDaily(totalActive: number): Promise<DayCompletion[]> {
      JOIN lifeos.supplements s ON s.id = sl.supplement_id
      WHERE sl.taken = true
        AND s.active = true
-       AND sl.log_date >= CURRENT_DATE - INTERVAL '${String(LOOKBACK_DAYS)}' DAY
+       AND sl.log_date >= (NOW() AT TIME ZONE 'America/Edmonton')::DATE - INTERVAL '${String(LOOKBACK_DAYS)}' DAY
      GROUP BY sl.log_date
      ORDER BY sl.log_date DESC`,
   ).then((rows) =>
@@ -106,7 +106,7 @@ function getCookingCompletion(): Promise<DayCompletion[]> {
      FROM lifeos.meal_plans mp
      WHERE mp.status = 'cooked'
        AND CAST(mp.week_start + INTERVAL (mp.day_of_week) DAY AS DATE)
-           >= CURRENT_DATE - INTERVAL '${String(LOOKBACK_DAYS)}' DAY
+           >= (NOW() AT TIME ZONE 'America/Edmonton')::DATE - INTERVAL '${String(LOOKBACK_DAYS)}' DAY
      GROUP BY log_date
      ORDER BY log_date DESC`,
   ).then((rows) =>
@@ -122,7 +122,7 @@ function getStepsCompletion(target: number): Promise<DayCompletion[]> {
     `SELECT CAST(recorded_at AS DATE) AS log_date, MAX(value) AS max_steps
      FROM lifeos.health_metrics
      WHERE metric_type = 'steps'
-       AND recorded_at >= CURRENT_DATE - INTERVAL '${String(LOOKBACK_DAYS)}' DAY
+       AND recorded_at >= (NOW() AT TIME ZONE 'America/Edmonton')::DATE - INTERVAL '${String(LOOKBACK_DAYS)}' DAY
      GROUP BY CAST(recorded_at AS DATE)
      ORDER BY log_date DESC`,
   ).then((rows) =>
@@ -138,7 +138,7 @@ function getWaterCompletion(target: number): Promise<DayCompletion[]> {
     `SELECT CAST(recorded_at AS DATE) AS log_date, SUM(value) AS total_glasses
      FROM lifeos.health_metrics
      WHERE metric_type = 'water_glasses'
-       AND recorded_at >= CURRENT_DATE - INTERVAL '${String(LOOKBACK_DAYS)}' DAY
+       AND recorded_at >= (NOW() AT TIME ZONE 'America/Edmonton')::DATE - INTERVAL '${String(LOOKBACK_DAYS)}' DAY
      GROUP BY CAST(recorded_at AS DATE)
      ORDER BY log_date DESC`,
   ).then((rows) =>
@@ -154,7 +154,7 @@ function getSleepCompletion(target: number): Promise<DayCompletion[]> {
     `SELECT CAST(recorded_at AS DATE) AS log_date, MAX(value) AS sleep_hours
      FROM lifeos.health_metrics
      WHERE metric_type = 'sleep_duration'
-       AND recorded_at >= CURRENT_DATE - INTERVAL '${String(LOOKBACK_DAYS)}' DAY
+       AND recorded_at >= (NOW() AT TIME ZONE 'America/Edmonton')::DATE - INTERVAL '${String(LOOKBACK_DAYS)}' DAY
      GROUP BY CAST(recorded_at AS DATE)
      ORDER BY log_date DESC`,
   ).then((rows) =>
@@ -169,7 +169,7 @@ function getExerciseCompletion(): Promise<DayCompletion[]> {
   return query<{ log_date: string; entry_count: number }>(
     `SELECT log_date, COUNT(*) AS entry_count
      FROM lifeos.fitness_log
-     WHERE log_date >= CURRENT_DATE - INTERVAL '${String(LOOKBACK_DAYS)}' DAY
+     WHERE log_date >= (NOW() AT TIME ZONE 'America/Edmonton')::DATE - INTERVAL '${String(LOOKBACK_DAYS)}' DAY
      GROUP BY log_date
      ORDER BY log_date DESC`,
   ).then((rows) =>

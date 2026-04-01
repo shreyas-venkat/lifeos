@@ -60,7 +60,7 @@ caloriesRouter.post('/log', async (req: Request, res: Response) => {
     const id = crypto.randomUUID();
     await query(
       `INSERT INTO lifeos.calorie_log (id, meal_type, description, calories, protein_g, carbs_g, fat_g, log_date, source)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_DATE, 'manual')`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, (NOW() AT TIME ZONE 'America/Edmonton')::DATE, 'manual')`,
       id,
       meal_type,
       description,
@@ -81,7 +81,7 @@ caloriesRouter.get('/today', async (_req: Request, res: Response) => {
     const rows = await query<CalorieRow>(
       `SELECT id, meal_type, description, source, calories, protein_g, carbs_g, fat_g, fiber_g, created_at
        FROM lifeos.calorie_log
-       WHERE log_date = CURRENT_DATE
+       WHERE log_date = (NOW() AT TIME ZONE 'America/Edmonton')::DATE
        ORDER BY created_at ASC`,
     );
 
@@ -111,7 +111,7 @@ caloriesRouter.get('/history', async (req: Request, res: Response) => {
               SUM(fat_g) AS fat_g,
               COUNT(*) AS entries
        FROM lifeos.calorie_log
-       WHERE log_date >= CURRENT_DATE - INTERVAL '${String(days)}' DAY
+       WHERE log_date >= (NOW() AT TIME ZONE 'America/Edmonton')::DATE - INTERVAL '${String(days)}' DAY
        GROUP BY log_date
        ORDER BY log_date ASC`,
     );

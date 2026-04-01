@@ -178,8 +178,8 @@ pantrySmartRouter.get(
       const mealPlanRows = await query<{ recipe_id: string | null }>(
         `SELECT recipe_id
          FROM lifeos.meal_plans
-         WHERE week_start BETWEEN CURRENT_DATE - INTERVAL '6' DAY
-                               AND CURRENT_DATE + INTERVAL '6' DAY`,
+         WHERE week_start BETWEEN (NOW() AT TIME ZONE 'America/Edmonton')::DATE - INTERVAL '6' DAY
+                               AND (NOW() AT TIME ZONE 'America/Edmonton')::DATE + INTERVAL '6' DAY`,
       );
 
       const recipeIds = mealPlanRows
