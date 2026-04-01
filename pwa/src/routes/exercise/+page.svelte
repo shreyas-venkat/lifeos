@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api } from '$lib/api';
+	import { api, localDateStr } from '$lib/api';
 	import type { ExerciseLogEntry, ExerciseHistoryDay, ExerciseTemplate } from '$lib/api';
 
 	let exercises = $state<ExerciseLogEntry[]>([]);
@@ -75,7 +75,7 @@
 		for (let i = 0; i < sorted.length; i++) {
 			const expected = new Date(today);
 			expected.setDate(expected.getDate() - i);
-			const dateStr = expected.toISOString().split('T')[0];
+			const dateStr = localDateStr(expected);
 			if (sorted.find((d) => d.log_date === dateStr)) {
 				count++;
 			} else {
