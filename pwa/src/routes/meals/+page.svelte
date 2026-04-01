@@ -97,6 +97,25 @@
 		return d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' });
 	}
 
+	// Today's day_of_week (1=Mon, 7=Sun) relative to the plan's week_start
+	const todayDayOfWeek = $derived(() => {
+		if (plan.length === 0) return -1;
+		const ws = new Date(plan[0].week_start);
+		const today = new Date();
+		const diffDays = Math.floor((today.getTime() - ws.getTime()) / 86400000);
+		if (diffDays < 0 || diffDays > 6) return -1; // not in this week
+		return diffDays + 1; // 1-indexed
+	});
+
+	function isDayPast(dayOfWeek: number): boolean {
+		const td = todayDayOfWeek();
+		return td > 0 && dayOfWeek < td;
+	}
+
+	function isDayToday(dayOfWeek: number): boolean {
+		return dayOfWeek === todayDayOfWeek();
+	}
+
 	function handleSearch() {
 		if (search.length > 0) showRecipes = true;
 		if (searchTimeout) clearTimeout(searchTimeout);
@@ -304,12 +323,15 @@
 			{#if plan.length > 0}
 				<div class="day-list">
 					{#each Array(7) as _, dayIdx}
-						{@const dayMeals = planByDay()[dayIdx + 1] ?? []}
-						{#if dayMeals.length > 0}
-							<div class="day-card">
+						{@const dow = dayIdx + 1}
+						{@const dayMeals = planByDay()[dow] ?? []}
+						{@const past = isDayPast(dow)}
+						{@const today = isDayToday(dow)}
+						{#if dayMeals.length > 0 && !past}
+							<div class="day-card" class:day-today={today} id={today ? 'today-meals' : undefined}>
 								<div class="day-card-header">
-									<span class="day-name">{dayNames[dayIdx]}</span>
-									<span class="day-date">{getDayDate(dayIdx + 1)}</span>
+									<span class="day-name">{dayNames[dayIdx]}{today ? ' (Today)' : ''}</span>
+									<span class="day-date">{getDayDate(dow)}</span>
 								</div>
 								{#each dayMeals as meal}
 									<button
@@ -748,6 +770,11 @@
 		border-radius: 12px;
 		border: 1px solid var(--border);
 		overflow: hidden;
+	}
+
+	.day-card.day-today {
+		border-color: var(--accent);
+		box-shadow: 0 0 0 1px var(--accent);
 	}
 
 	.day-card-header {
