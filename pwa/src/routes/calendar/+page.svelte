@@ -16,12 +16,18 @@
 		events: CalendarEvent[];
 	}
 
+	// Convert UTC ISO string to Mountain Time date string (YYYY-MM-DD)
+	function toMountainDate(iso: string): string {
+		const d = new Date(iso);
+		return d.toLocaleDateString('en-CA', { timeZone: 'America/Edmonton' });
+	}
+
 	function groupByDay(events: CalendarEvent[]): DayGroup[] {
-		const todayStr = new Date().toISOString().split('T')[0];
+		const todayStr = toMountainDate(new Date().toISOString());
 		const groups = new Map<string, CalendarEvent[]>();
 
 		for (const e of events) {
-			const dateKey = e.startTime.split('T')[0];
+			const dateKey = toMountainDate(e.startTime);
 			if (dateKey === todayStr) continue;
 			if (!groups.has(dateKey)) groups.set(dateKey, []);
 			groups.get(dateKey)!.push(e);
@@ -38,19 +44,17 @@
 	}
 
 	function formatDayHeader(dateStr: string): string {
-		const d = new Date(dateStr + 'T00:00:00');
-		const now = new Date();
-		const tomorrow = new Date(now);
-		tomorrow.setDate(tomorrow.getDate() + 1);
+		// dateStr is YYYY-MM-DD in Mountain Time
+		const tomorrowStr = (() => {
+			const t = new Date();
+			t.setDate(t.getDate() + 1);
+			return toMountainDate(t.toISOString());
+		})();
 
-		if (
-			d.getFullYear() === tomorrow.getFullYear() &&
-			d.getMonth() === tomorrow.getMonth() &&
-			d.getDate() === tomorrow.getDate()
-		) {
-			return 'Tomorrow';
-		}
+		if (dateStr === tomorrowStr) return 'Tomorrow';
 
+		// Parse as local date (noon to avoid DST edge cases)
+		const d = new Date(dateStr + 'T12:00:00');
 		return d.toLocaleDateString('en-US', {
 			weekday: 'long',
 			month: 'short',
@@ -64,6 +68,7 @@
 			hour: 'numeric',
 			minute: '2-digit',
 			hour12: true,
+			timeZone: 'America/Edmonton',
 		});
 	}
 
