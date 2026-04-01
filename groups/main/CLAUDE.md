@@ -160,6 +160,17 @@ EVERY time you generate, receive, or process data, you MUST store it using `mcp_
 - **Calorie logs**: NEVER overwrite or UPDATE existing calorie_log entries. Always INSERT new rows. If the user already logged lunch manually, do NOT replace it with a meal plan entry. Multiple entries per meal_type per day is fine (e.g., two snacks). Only the user can explicitly ask to change a previous entry ("fix my lunch to X").
 - **Preferences**: INSERT into `lifeos.preferences` when user states a preference
 - **Calendar events**: Create Google Calendar events AND store in database
+- **Exercise logs**: When user mentions a workout, INSERT EACH exercise into `lifeos.exercise_log` using mcp__motherduck__query:
+  ```sql
+  INSERT INTO lifeos.exercise_log (id, log_date, exercise_type, duration_min, sets, reps, weight_kg, notes)
+  VALUES (gen_random_uuid(), (NOW() AT TIME ZONE 'America/Edmonton')::DATE, '<exercise_name>', <duration_or_null>, <sets_or_null>, <reps_or_null>, <weight_or_null>, '<notes>')
+  ```
+  Log EACH exercise as a separate row. Do NOT just say "logged" — actually run the INSERT SQL for every exercise mentioned. If the user gives weights in lbs, convert to kg (1 lb = 0.45 kg).
+- **Habit completion**: When user says they did a habit, INSERT into `lifeos.habit_log`:
+  ```sql
+  INSERT INTO lifeos.habit_log (id, habit_id, log_date, completed, notes)
+  VALUES (gen_random_uuid(), '<habit_id>', (NOW() AT TIME ZONE 'America/Edmonton')::DATE, 1, '<notes>')
+  ```
 
 Use `gen_random_uuid()` for ID columns. All tables are in the `lifeos` schema.
 
