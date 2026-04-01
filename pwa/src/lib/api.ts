@@ -135,6 +135,18 @@ export interface PantryItem {
   updated_at: string;
 }
 
+export interface PantryAlerts {
+  expiring: PantryItem[];
+  depleted: PantryItem[];
+  stale: PantryItem[];
+}
+
+export interface RecipeSuggestion {
+  recipe: { id: string; name: string; calories_per_serving: number | null; rating: number | null };
+  match_pct: number;
+  missing: string[];
+}
+
 export interface SupplementWithStatus {
   supplement_id: string;
   name: string;
@@ -471,6 +483,14 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify(data),
       }),
+    alerts: () =>
+      fetchSafe<PantryAlerts>('/pantry/smart/alerts', {
+        expiring: [],
+        depleted: [],
+        stale: [],
+      }),
+    suggestions: () =>
+      fetchSafe<RecipeSuggestion[]>('/pantry/smart/suggestions', []),
   },
   supplements: {
     today: (date?: string) =>
