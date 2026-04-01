@@ -376,10 +376,9 @@
 	}
 
 	async function loadData() {
-		const [t, h, s] = await Promise.allSettled([
+		const [t, h] = await Promise.allSettled([
 			api.health.today(),
 			api.health.history(14),
-			api.streaks.list(),
 		]);
 		if (t.status === 'fulfilled') todayMetrics = t.value;
 		if (h.status === 'fulfilled') {
@@ -390,7 +389,14 @@
 			const priorAvg = computeAverages(prior);
 			trendDirection = computeTrends(periodAverages, priorAvg);
 		}
-		if (s.status === 'fulfilled') streaks = s.value;
+		// Streaks endpoint not yet mounted — load when available
+		try {
+			const res = await fetch('/api/streaks');
+			if (res.ok) {
+				const json = await res.json();
+				streaks = json.data ?? [];
+			}
+		} catch { /* endpoint may not exist */ }
 		loading = false;
 		requestAnimationFrame(() => renderOverviewChart());
 	}
