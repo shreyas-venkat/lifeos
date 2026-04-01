@@ -29,7 +29,7 @@ const VALID_CONFIG: TaskConfig = {
   activityLogJid: 'dc:666666666666',
 };
 
-const EXPECTED_TASK_COUNT = 17;
+const EXPECTED_TASK_COUNT = 18;
 
 // Tasks that should reference a pre-check script
 const TASKS_WITH_SCRIPTS = [

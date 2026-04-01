@@ -20,10 +20,10 @@ healthRouter.get('/today', async (_req: Request, res: Response) => {
          WHERE recorded_at >= CURRENT_DATE
        ),
        steps_deduped AS (
-         SELECT metric_type, recorded_at, MAX(value) AS value, MAX(unit) AS unit
+         SELECT metric_type, date_trunc('minute', recorded_at) AS ts, MAX(value) AS value, MAX(unit) AS unit
          FROM normalized
          WHERE metric_type = 'steps'
-         GROUP BY metric_type, recorded_at
+         GROUP BY metric_type, ts
        ),
        summed AS (
          SELECT metric_type, SUM(value) AS value, MAX(unit) AS unit, MAX(recorded_at) AS recorded_at

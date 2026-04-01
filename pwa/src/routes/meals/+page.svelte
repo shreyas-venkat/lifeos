@@ -279,6 +279,20 @@
 						<span class="macro-label fat-label">F: {Math.round(totalFat)}g</span>
 					</div>
 				{/if}
+				<!-- Individual meal entries -->
+				{#if todayCalories.length > 0}
+					<div class="meal-entries">
+						{#each todayCalories as entry}
+							<div class="meal-entry">
+								<div class="meal-entry-left">
+									<span class="meal-entry-type">{entry.meal_type}</span>
+									<span class="meal-entry-desc">{entry.description}</span>
+								</div>
+								<span class="meal-entry-cal">{Math.round(entry.calories ?? 0)}</span>
+							</div>
+						{/each}
+					</div>
+				{/if}
 			{:else}
 				<p class="empty-text">No meals logged today</p>
 			{/if}
@@ -667,6 +681,59 @@
 	.macro-label { color: var(--text-secondary); }
 	.protein-label { color: #22c55e; }
 	.carbs-label { color: #f59e0b; }
+
+	.meal-entries {
+		margin-top: 12px;
+		border-top: 1px solid var(--border);
+		padding-top: 10px;
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.meal-entry {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 6px 0;
+	}
+
+	.meal-entry-left {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		min-width: 0;
+	}
+
+	.meal-entry-type {
+		font-size: 0.7rem;
+		font-weight: 600;
+		text-transform: capitalize;
+		color: var(--accent);
+		min-width: 60px;
+	}
+
+	.meal-entry-desc {
+		font-size: 0.85rem;
+		color: var(--text-primary);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.meal-entry-cal {
+		font-size: 0.85rem;
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
+		color: var(--text-secondary);
+		flex-shrink: 0;
+	}
+
+	.meal-entry-cal::after {
+		content: ' kcal';
+		font-weight: 400;
+		font-size: 0.7rem;
+	}
 	.fat-label { color: #ef4444; }
 
 	/* Vertical day-by-day list */
