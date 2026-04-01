@@ -128,6 +128,8 @@
 				metricCharts[type].destroy();
 				delete metricCharts[type];
 			}
+			// Re-render overview chart after DOM updates
+			requestAnimationFrame(() => renderOverviewChart());
 			return;
 		}
 
