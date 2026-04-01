@@ -191,6 +191,120 @@ export interface SpendingForecast {
   by_category: ForecastCategoryProjection[];
 }
 
+// --- Habits ---
+export interface Habit {
+  id: string;
+  name: string;
+  description: string | null;
+  frequency: string;
+  target_per_day: number;
+  color: string;
+  icon: string;
+  active: boolean;
+  created_at: string;
+}
+
+export interface HabitHistoryEntry {
+  habit_id: string;
+  log_date: string;
+  completed: number;
+}
+
+// --- Exercise ---
+export interface ExerciseLogEntry {
+  id: string;
+  log_date: string;
+  exercise_type: string;
+  duration_min: number | null;
+  sets: number | null;
+  reps: number | null;
+  weight_kg: number | null;
+  distance_km: number | null;
+  calories_burned: number | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface ExerciseHistoryDay {
+  log_date: string;
+  exercise_count: number;
+  total_duration: number;
+  total_calories: number;
+}
+
+export interface ExerciseTemplate {
+  id: string;
+  name: string;
+  category: string;
+  default_sets: number | null;
+  default_reps: number | null;
+  muscles_targeted: string[] | null;
+  created_at: string;
+}
+
+// --- Body ---
+export interface BodyMetricLatest {
+  metric_type: string;
+  value: number;
+  unit: string | null;
+  recorded_at: string;
+}
+
+export interface BodyHistoryPoint {
+  date: string;
+  metric_type: string;
+  avg_value: number;
+}
+
+// --- Sleep ---
+export interface SleepMetric {
+  metric_type: string;
+  value: number;
+  unit: string | null;
+  recorded_at: string;
+}
+
+export interface SleepHistoryPoint {
+  date: string;
+  metric_type: string;
+  avg_value: number;
+  min_value: number;
+  max_value: number;
+}
+
+export interface SleepInsight {
+  text: string;
+  type: string;
+}
+
+// --- Calendar ---
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  start_time: string;
+  end_time: string;
+  location: string | null;
+  description: string | null;
+}
+
+// --- Reminders ---
+export interface Reminder {
+  id: string;
+  message: string;
+  due_at: string;
+  recurring_cron: string | null;
+  status: string;
+  created_at: string;
+}
+
+// --- Streaks ---
+export interface Streak {
+  type: string;
+  current: number;
+  longest: number;
+  last_completed: string | null;
+}
+
 export interface Notification {
   id: string;
   title: string;
@@ -522,6 +636,104 @@ export const api = {
       fetchSafe<UsageSummary | null>(
         `/usage/summary?period=${encodeURIComponent(period)}`,
         null,
+      ),
+  },
+  habits: {
+    list: () => fetchSafe<Habit[]>('/habits', []),
+    history: (days = 30) =>
+      fetchSafe<HabitHistoryEntry[]>(
+        `/habits/history?days=${encodeURIComponent(days)}`,
+        [],
+      ),
+    create: (habit: { name: string; description?: string; frequency?: string; target_per_day?: number; color?: string; icon?: string }) =>
+      fetchApi<Habit>('/habits', {
+        method: 'POST',
+        body: JSON.stringify(habit),
+      }),
+    complete: (id: string) =>
+      fetchApi<void>(`/habits/${encodeURIComponent(id)}/complete`, {
+        method: 'POST',
+      }),
+    remove: (id: string) =>
+      fetchApi<void>(`/habits/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  },
+  exercise: {
+    today: () => fetchSafe<ExerciseLogEntry[]>('/exercise/today', []),
+    history: (days = 30) =>
+      fetchSafe<ExerciseHistoryDay[]>(
+        `/exercise/history?days=${encodeURIComponent(days)}`,
+        [],
+      ),
+    templates: () => fetchSafe<ExerciseTemplate[]>('/exercise/templates', []),
+    log: (entry: {
+      exercise_type: string;
+      duration_min?: number;
+      sets?: number;
+      reps?: number;
+      weight_kg?: number;
+      distance_km?: number;
+      calories_burned?: number;
+      notes?: string;
+    }) =>
+      fetchApi<ExerciseLogEntry>('/exercise/log', {
+        method: 'POST',
+        body: JSON.stringify(entry),
+      }),
+    remove: (id: string) =>
+      fetchApi<void>(`/exercise/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    add: (template: { name: string; category: string; default_sets?: number; default_reps?: number }) =>
+      fetchApi<ExerciseTemplate>('/exercise/templates', {
+        method: 'POST',
+        body: JSON.stringify(template),
+      }),
+  },
+  body: {
+    latest: () => fetchSafe<BodyMetricLatest[]>('/body/latest', []),
+    history: (days = 30) =>
+      fetchSafe<BodyHistoryPoint[]>(
+        `/body/history?days=${encodeURIComponent(days)}`,
+        [],
+      ),
+    log: (entry: { weight?: number; body_fat?: number; muscle_mass?: number }) =>
+      fetchApi<void>('/body/log', {
+        method: 'POST',
+        body: JSON.stringify(entry),
+      }),
+  },
+  sleep: {
+    latest: () => fetchSafe<SleepMetric[]>('/sleep/latest', []),
+    history: (days = 30) =>
+      fetchSafe<SleepHistoryPoint[]>(
+        `/sleep/history?days=${encodeURIComponent(days)}`,
+        [],
+      ),
+    insights: () => fetchSafe<SleepInsight[]>('/sleep/insights', []),
+  },
+  calendar: {
+    today: () => fetchSafe<CalendarEvent[]>('/calendar/today', []),
+    week: () => fetchSafe<CalendarEvent[]>('/calendar/week', []),
+  },
+  reminders: {
+    list: () => fetchSafe<Reminder[]>('/reminders', []),
+    add: (reminder: { message: string; due_at: string; recurring_cron?: string }) =>
+      fetchApi<Reminder>('/reminders', {
+        method: 'POST',
+        body: JSON.stringify(reminder),
+      }),
+    update: (id: string, data: Partial<Reminder>) =>
+      fetchApi<void>(`/reminders/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+    remove: (id: string) =>
+      fetchApi<void>(`/reminders/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  },
+  streaks: {
+    list: () => fetchSafe<Streak[]>('/streaks', []),
+    history: (days = 30) =>
+      fetchSafe<Record<string, unknown>[]>(
+        `/streaks/history?days=${encodeURIComponent(days)}`,
+        [],
       ),
   },
 };

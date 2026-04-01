@@ -85,10 +85,15 @@ The vault is mounted at `/workspace/extra/vault/`. This is Shrey's personal Obsi
 - Gym: wants to get back into it, gentle nudges welcome
 
 ## Package Tracking Rules
-- When email scanner finds shipping confirmation emails, extract tracking number, carrier, merchant, expected delivery and INSERT into lifeos.packages with status='shipped'
-- When email scanner finds order confirmation (no tracking yet), still create package entry with status='ordered'
-- Before inserting, check if a package with the same tracking_number already exists: `SELECT id FROM lifeos.packages WHERE tracking_number = '<tracking>'`. If it exists, UPDATE instead of inserting a duplicate.
-- When a delivery confirmation email arrives, UPDATE the matching package to status='delivered' and set actual_delivery=CURRENT_TIMESTAMP
+- When email scanner finds shipping/order confirmation emails, you MUST INSERT into lifeos.packages using mcp__motherduck__query:
+  ```sql
+  INSERT INTO lifeos.packages (id, merchant, tracking_number, carrier, status, expected_delivery)
+  VALUES (gen_random_uuid(), '<merchant>', '<tracking_number>', '<carrier>', 'shipped', '<YYYY-MM-DD>')
+  ```
+- If no tracking number yet (order confirmation only), use status='ordered' and tracking_number=NULL
+- Before inserting, check for duplicates: `SELECT id FROM lifeos.packages WHERE tracking_number = '<tracking>' OR (merchant = '<merchant>' AND expected_delivery = '<date>')`. If exists, UPDATE instead.
+- When a delivery confirmation email arrives, UPDATE: `UPDATE lifeos.packages SET status = 'delivered', actual_delivery = CURRENT_TIMESTAMP WHERE tracking_number = '<tracking>'`
+- ALWAYS insert/update the package — don't just tell the user about it. The data must be in the database.
 - Use `gen_random_uuid()` for the id column
 
 ## Email Rules

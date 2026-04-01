@@ -391,13 +391,8 @@
 			const priorAvg = computeAverages(prior);
 			trendDirection = computeTrends(periodAverages, priorAvg);
 		}
-		// Streaks endpoint not yet mounted — load when available
 		try {
-			const res = await fetch('/api/streaks');
-			if (res.ok) {
-				const json = await res.json();
-				streaks = json.data ?? [];
-			}
+			streaks = await api.streaks.list();
 		} catch { /* endpoint may not exist */ }
 		loading = false;
 		requestAnimationFrame(() => renderOverviewChart());
