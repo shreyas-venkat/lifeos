@@ -19,15 +19,10 @@ healthRouter.get('/today', async (_req: Request, res: Response) => {
          FROM lifeos.health_metrics
          WHERE recorded_at >= CURRENT_DATE
        ),
-       steps_deduped AS (
-         SELECT metric_type, recorded_at, MAX(value) AS value, MAX(unit) AS unit
+       summed AS (
+         SELECT metric_type, MAX(value) AS value, MAX(unit) AS unit, MAX(recorded_at) AS recorded_at
          FROM normalized
          WHERE metric_type = 'steps'
-         GROUP BY metric_type, recorded_at
-       ),
-       summed AS (
-         SELECT metric_type, SUM(value) AS value, MAX(unit) AS unit, MAX(recorded_at) AS recorded_at
-         FROM steps_deduped
          GROUP BY metric_type
        ),
        maxed AS (

@@ -163,6 +163,7 @@ export async function processTaskIpc(
     schedule_value?: string;
     context_mode?: string;
     script?: string;
+    model?: string;
     groupFolder?: string;
     chatJid?: string;
     targetJid?: string;

@@ -1,7 +1,7 @@
 /**
  * LifeOS Scheduled Tasks Setup Script
  *
- * Registers all 17 LifeOS scheduled tasks by writing IPC JSON files
+ * Registers all 18 LifeOS scheduled tasks by writing IPC JSON files
  * to data/ipc/{group_folder}/tasks/. When the IPC watcher picks them
  * up, they are persisted to SQLite and scheduled.
  *
@@ -300,6 +300,19 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       model: 'haiku',
       prompt:
         'Check the pantry for items expiring within 3 days using mcp__motherduck__query. Then check lifeos.recipes for recipes whose ingredients overlap with available pantry items. Score by: expiring item usage (highest priority), ingredient match percentage, user rating, days since last cooked. Post the top 3 recipe suggestions to this channel with match percentages and what\'s expiring. If nothing matches, suggest ordering groceries or eating out. Be concise — just the recipe names, match %, and why.',
+    },
+
+    // 18. Daily latte auto-log (8 AM daily, Mountain Time)
+    {
+      id: 'lifeos-daily-latte',
+      schedule_type: 'cron',
+      schedule_value: '0 8 * * *',
+      group_folder: 'main',
+      chat_jid: config.healthChannelJid,
+      context_mode: 'group',
+      model: 'haiku',
+      prompt:
+        'Auto-log daily latte. First check if already logged today: SELECT id FROM lifeos.calorie_log WHERE description ILIKE \'%latte%\' AND log_date = CURRENT_DATE. If already exists, do nothing and output nothing. If not, INSERT: INSERT INTO lifeos.calorie_log (id, meal_type, description, calories, protein_g, carbs_g, fat_g, log_date, source) VALUES (gen_random_uuid(), \'snack\', \'Oat milk latte\', 190, 5, 25, 7, CURRENT_DATE, \'auto\'). Output nothing either way.',
     },
   ];
 }

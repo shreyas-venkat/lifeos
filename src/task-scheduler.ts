@@ -257,7 +257,9 @@ async function runTask(
   updateTaskAfterRun(task.id, nextRun, resultSummary);
 
   // Log usage to MotherDuck (best-effort, don't crash on failure)
-  if (lastUsageOutput?.costUsd !== undefined) {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- assigned in async callback
+  const usage = lastUsageOutput as ContainerOutput | null;
+  if (usage && usage.costUsd !== undefined) {
     try {
       await mdQuery(
         `INSERT INTO lifeos.api_usage (id, task_id, chat_jid, model, input_tokens, output_tokens, cost_usd, duration_ms, num_turns, created_at)
@@ -265,12 +267,12 @@ async function runTask(
         randomUUID(),
         task.id,
         task.chat_jid,
-        lastUsageOutput.model || null,
-        lastUsageOutput.inputTokens || 0,
-        lastUsageOutput.outputTokens || 0,
-        lastUsageOutput.costUsd,
-        lastUsageOutput.durationMs || 0,
-        lastUsageOutput.numTurns || 0,
+        usage.model || null,
+        usage.inputTokens || 0,
+        usage.outputTokens || 0,
+        usage.costUsd,
+        usage.durationMs || 0,
+        usage.numTurns || 0,
       );
     } catch (err) {
       logger.warn(

@@ -241,6 +241,31 @@
 		{/if}
 	</div>
 
+	<!-- Quick Links Grid -->
+	<section class="quick-links fade-in">
+		<div class="links-grid">
+			{#each [
+				{ href: '/packages', label: 'Packages', icon: '📦' },
+				{ href: '/pantry', label: 'Pantry', icon: '🥫' },
+				{ href: '/supplements', label: 'Supplements', icon: '💊' },
+				{ href: '/habits', label: 'Habits', icon: '✓' },
+				{ href: '/exercise', label: 'Exercise', icon: '💪' },
+				{ href: '/body', label: 'Body', icon: '⚖' },
+				{ href: '/sleep', label: 'Sleep', icon: '😴' },
+				{ href: '/calendar', label: 'Calendar', icon: '📅' },
+				{ href: '/reminders', label: 'Reminders', icon: '🔔' },
+				{ href: '/report', label: 'Report', icon: '📊' },
+				{ href: '/bills', label: 'Bills', icon: '🧾' },
+				{ href: '/onboarding', label: 'Setup', icon: '⚙' },
+			] as link}
+				<a href="{base}{link.href}" class="link-card">
+					<span class="link-icon">{link.icon}</span>
+					<span class="link-label">{link.label}</span>
+				</a>
+			{/each}
+		</div>
+	</section>
+
 	{#if loading}
 		{#each Array(6) as _}
 			<div class="skeleton" style="height: 80px; margin-bottom: 1rem;"></div>
@@ -564,6 +589,44 @@
 </div>
 
 <style>
+	.quick-links {
+		margin-bottom: 1.5rem;
+	}
+
+	.links-grid {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 10px;
+	}
+
+	.link-card {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 4px;
+		padding: 12px 4px;
+		background: var(--bg-card);
+		border: 1px solid var(--border);
+		border-radius: 12px;
+		text-decoration: none;
+		color: var(--text-primary);
+		transition: background 0.2s;
+	}
+
+	.link-card:hover {
+		background: var(--bg-elevated);
+	}
+
+	.link-icon {
+		font-size: 1.3rem;
+	}
+
+	.link-label {
+		font-size: 0.68rem;
+		font-weight: 500;
+		color: var(--text-secondary);
+	}
+
 	.header {
 		display: flex;
 		align-items: center;
