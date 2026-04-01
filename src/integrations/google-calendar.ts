@@ -86,9 +86,10 @@ export class GoogleCalendarClient {
     const month = Number(parts.find((p) => p.type === 'month')!.value) - 1;
     const day = Number(parts.find((p) => p.type === 'day')!.value);
 
-    // Compute the Mountain Time UTC offset, then derive start/end of day in UTC
+    // Start of today in Mountain Time, expressed in UTC
+    // Mountain Time is UTC-6 (MDT) or UTC-7 (MST), so add the offset
     const mtnOffset = getTimezoneOffsetMs(TIMEZONE, now);
-    const timeMin = new Date(Date.UTC(year, month, day) - mtnOffset);
+    const timeMin = new Date(Date.UTC(year, month, day) + mtnOffset);
     const timeMax = new Date(timeMin.getTime() + 24 * 60 * 60 * 1000);
 
     return this.getEvents(timeMin, timeMax);
