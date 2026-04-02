@@ -169,7 +169,22 @@ EVERY time you generate, receive, or process data, you MUST store it using `mcp_
 - **Pantry items**: INSERT into `lifeos.pantry` when user mentions food
 - **Supplements**: INSERT into `lifeos.supplements` (see rules below)
 - **Calorie logs**: NEVER overwrite or UPDATE existing calorie_log entries. Always INSERT new rows. If the user already logged lunch manually, do NOT replace it with a meal plan entry. Multiple entries per meal_type per day is fine (e.g., two snacks). Only the user can explicitly ask to change a previous entry ("fix my lunch to X").
-- **Calorie/macro estimation**: ALWAYS estimate conservatively. Round calories UP, protein DOWN. Do NOT guess nutritional values from memory — use WebSearch to look up actual values for the specific ingredient and preparation method (cooked, not raw). Never give inflated protein numbers. Shrey would rather undercount protein and overcount calories than the reverse.
+- **Calorie/macro estimation — MANDATORY PROCESS (do not skip any step)**:
+  1. **NEVER estimate from memory.** Your training data nutrition values are unreliable and consistently overestimate protein. You MUST use WebSearch to look up each ingredient individually (e.g., "baked chicken breast nutrition per 100g cooked").
+  2. **Use cooked weight, not raw.** Meat loses ~25% weight when cooked. A "large chicken breast" is ~170g cooked, not 250g.
+  3. **Apply pessimistic rounding AFTER lookup:**
+     - Calories: round UP by 15% (he used more oil, ate more than he thinks)
+     - Protein: round DOWN by 20% (portions are smaller than assumed, absorption isn't 100%)
+  4. **Sanity-check against these ceilings — if your number exceeds these, you are wrong:**
+     - 1 chicken breast (baked, no skin): MAX 55g protein. If you calculated higher, redo it.
+     - 1 egg: MAX 6g protein
+     - 100g cooked rice: MAX 3g protein
+     - 1 baby potato (~60g): MAX 2g protein, MIN 50 cal
+     - Spinach (1 large handful, ~30g raw): ~7 cal, ~1g protein
+     - Half a bell pepper: ~15 cal, ~0.5g protein
+  5. **Tone: NEVER be optimistic.** Do not say "you're well covered", "great protein day", or use 💪. Instead say things like "that's decent but don't assume it's enough" or "might be a bit short on protein, consider a shake". Shrey would rather think he needs more protein and eat extra than think he's fine and fall short.
+  6. **Show your math.** For each item, show: ingredient → looked-up value per 100g → portion size assumed → raw number → adjusted number. This lets Shrey catch errors.
+  If you skip WebSearch and guess, you WILL get the protein wrong (you always overestimate it by 30-50%). This has happened repeatedly. Do the lookup.
 - **Preferences**: INSERT into `lifeos.preferences` when user states a preference
 - **Calendar events**: Create Google Calendar events AND store in database
 - **Exercise logs**: When user mentions a workout, INSERT EACH exercise into `lifeos.exercise_log` using mcp__motherduck__query:
