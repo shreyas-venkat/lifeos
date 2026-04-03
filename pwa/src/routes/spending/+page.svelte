@@ -21,7 +21,7 @@
 		merchant: '',
 		category: 'other' as string,
 		description: '',
-		date: new Date().toISOString().split('T')[0],
+		date: new Date().toLocaleDateString('en-CA'),
 	});
 	let addSubmitting = $state(false);
 
@@ -170,7 +170,7 @@
 				merchant: '',
 				category: 'other',
 				description: '',
-				date: new Date().toISOString().split('T')[0],
+				date: new Date().toLocaleDateString('en-CA'),
 			};
 		} catch {
 			// Submit failed

@@ -41,7 +41,7 @@ describe('spending routes', () => {
       expect(res.body.data[0].category).toBe('groceries');
       expect(res.body.data[0].total).toBe(250.5);
       expect(mockQuery).toHaveBeenCalledWith(
-        expect.stringContaining("date_trunc('month', CURRENT_DATE)"),
+        expect.stringContaining("date_trunc('month', (NOW() AT TIME ZONE 'America/Edmonton')::DATE)"),
       );
     });
 
@@ -52,7 +52,7 @@ describe('spending routes', () => {
 
       expect(res.status).toBe(200);
       expect(mockQuery).toHaveBeenCalledWith(
-        expect.stringContaining("date_trunc('month', CURRENT_DATE)"),
+        expect.stringContaining("date_trunc('month', (NOW() AT TIME ZONE 'America/Edmonton')::DATE)"),
       );
     });
 

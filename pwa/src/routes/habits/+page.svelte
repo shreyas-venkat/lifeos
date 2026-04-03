@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api } from '$lib/api';
+	import { api, localDateStr } from '$lib/api';
 	import type { Habit, HabitHistoryEntry } from '$lib/api';
 
 	let habits = $state<Habit[]>([]);
@@ -53,7 +53,7 @@
 		for (let i = 29; i >= 0; i--) {
 			const d = new Date(now);
 			d.setDate(d.getDate() - i);
-			days.push(d.toISOString().split('T')[0]);
+			days.push(localDateStr(d));
 		}
 		return days;
 	}

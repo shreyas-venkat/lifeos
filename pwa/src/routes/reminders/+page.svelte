@@ -66,7 +66,7 @@
 		now.setHours(now.getHours() + 1, 0, 0, 0);
 		form = {
 			message: '',
-			date: now.toISOString().split('T')[0],
+			date: now.toLocaleDateString('en-CA'),
 			time: now.toTimeString().slice(0, 5),
 			recurring_cron: '',
 		};
@@ -78,7 +78,7 @@
 		const d = new Date(r.due_at);
 		form = {
 			message: r.message,
-			date: d.toISOString().split('T')[0],
+			date: d.toLocaleDateString('en-CA'),
 			time: d.toTimeString().slice(0, 5),
 			recurring_cron: r.recurring_cron ?? '',
 		};

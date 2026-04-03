@@ -11,13 +11,14 @@ function isValidPeriod(val: unknown): val is Period {
 }
 
 function periodToInterval(period: Period): string {
+  const today = "(NOW() AT TIME ZONE 'America/Edmonton')::DATE";
   switch (period) {
     case 'today':
-      return 'CURRENT_DATE';
+      return today;
     case 'week':
-      return "CURRENT_DATE - INTERVAL '7' DAY";
+      return `${today} - INTERVAL '7' DAY`;
     case 'month':
-      return "CURRENT_DATE - INTERVAL '30' DAY";
+      return `${today} - INTERVAL '30' DAY`;
   }
 }
 

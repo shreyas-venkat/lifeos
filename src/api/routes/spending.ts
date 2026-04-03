@@ -34,7 +34,7 @@ spendingRouter.get('/summary', async (req: Request, res: Response) => {
     const rows = await query(
       `SELECT category, SUM(amount) as total, COUNT(*) as count
        FROM lifeos.transactions
-       WHERE transaction_date >= date_trunc('month', CURRENT_DATE)
+       WHERE transaction_date >= date_trunc('month', (NOW() AT TIME ZONE 'America/Edmonton')::DATE)
        GROUP BY category
        ORDER BY total DESC`,
     );
@@ -59,7 +59,7 @@ spendingRouter.get('/history', async (req: Request, res: Response) => {
     const rows = await query(
       `SELECT date_trunc('month', transaction_date) as month, SUM(amount) as total
        FROM lifeos.transactions
-       WHERE transaction_date >= CURRENT_DATE - INTERVAL '${String(months)}' MONTH
+       WHERE transaction_date >= (NOW() AT TIME ZONE 'America/Edmonton')::DATE - INTERVAL '${String(months)}' MONTH
        GROUP BY date_trunc('month', transaction_date)
        ORDER BY month ASC`,
     );
@@ -166,7 +166,7 @@ spendingRouter.get('/forecast', async (_req: Request, res: Response) => {
     const currentMonthRows = await query(
       `SELECT COALESCE(SUM(amount), 0) as total
        FROM lifeos.transactions
-       WHERE transaction_date >= date_trunc('month', CURRENT_DATE)`,
+       WHERE transaction_date >= date_trunc('month', (NOW() AT TIME ZONE 'America/Edmonton')::DATE)`,
     );
     const currentMonthTotal = Number(
       (currentMonthRows[0] as Record<string, unknown>).total ?? 0,
@@ -174,8 +174,8 @@ spendingRouter.get('/forecast', async (_req: Request, res: Response) => {
 
     // Days elapsed in current month (at least 1 to avoid division by zero)
     const daysElapsedRows = await query(
-      `SELECT GREATEST(EXTRACT(DAY FROM CURRENT_DATE)::INTEGER, 1) as days_elapsed,
-              EXTRACT(DAY FROM LAST_DAY(CURRENT_DATE))::INTEGER as days_in_month`,
+      `SELECT GREATEST(EXTRACT(DAY FROM (NOW() AT TIME ZONE 'America/Edmonton')::DATE)::INTEGER, 1) as days_elapsed,
+              EXTRACT(DAY FROM LAST_DAY((NOW() AT TIME ZONE 'America/Edmonton')::DATE))::INTEGER as days_in_month`,
     );
     const daysElapsed = Number(
       (daysElapsedRows[0] as Record<string, unknown>).days_elapsed,
@@ -191,8 +191,8 @@ spendingRouter.get('/forecast', async (_req: Request, res: Response) => {
     const lastMonthRows = await query(
       `SELECT COALESCE(SUM(amount), 0) as total
        FROM lifeos.transactions
-       WHERE transaction_date >= date_trunc('month', CURRENT_DATE - INTERVAL '1' MONTH)
-         AND transaction_date < date_trunc('month', CURRENT_DATE)`,
+       WHERE transaction_date >= date_trunc('month', (NOW() AT TIME ZONE 'America/Edmonton')::DATE - INTERVAL '1' MONTH)
+         AND transaction_date < date_trunc('month', (NOW() AT TIME ZONE 'America/Edmonton')::DATE)`,
     );
     const lastMonthTotal = Number(
       (lastMonthRows[0] as Record<string, unknown>).total ?? 0,
@@ -209,7 +209,7 @@ spendingRouter.get('/forecast', async (_req: Request, res: Response) => {
     const categoryRows = await query(
       `SELECT category, SUM(amount) as total
        FROM lifeos.transactions
-       WHERE transaction_date >= date_trunc('month', CURRENT_DATE)
+       WHERE transaction_date >= date_trunc('month', (NOW() AT TIME ZONE 'America/Edmonton')::DATE)
        GROUP BY category
        ORDER BY total DESC`,
     );
@@ -263,7 +263,7 @@ spendingRouter.get('/budget', async (_req: Request, res: Response) => {
     const totalRows = await query(
       `SELECT COALESCE(SUM(amount), 0) as total
        FROM lifeos.transactions
-       WHERE transaction_date >= date_trunc('month', CURRENT_DATE)`,
+       WHERE transaction_date >= date_trunc('month', (NOW() AT TIME ZONE 'America/Edmonton')::DATE)`,
     );
 
     const spent = Number((totalRows[0] as Record<string, unknown>).total ?? 0);

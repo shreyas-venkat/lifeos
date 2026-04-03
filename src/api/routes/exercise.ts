@@ -17,7 +17,7 @@ exerciseRouter.get('/today', async (_req: Request, res: Response) => {
       `SELECT id, log_date, exercise_type, duration_min, sets, reps,
               weight_kg, distance_km, calories_burned, notes, created_at
        FROM lifeos.exercise_log
-       WHERE log_date = CURRENT_DATE
+       WHERE log_date = (NOW() AT TIME ZONE 'America/Edmonton')::DATE
        ORDER BY created_at`,
     );
     res.json({ data: rows });
@@ -43,7 +43,7 @@ exerciseRouter.get('/history', async (req: Request, res: Response) => {
               SUM(duration_min) AS total_duration,
               SUM(calories_burned) AS total_calories
        FROM lifeos.exercise_log
-       WHERE log_date >= CURRENT_DATE - INTERVAL '${String(days)}' DAY
+       WHERE log_date >= (NOW() AT TIME ZONE 'America/Edmonton')::DATE - INTERVAL '${String(days)}' DAY
        GROUP BY log_date
        ORDER BY log_date ASC`,
     );
@@ -77,7 +77,7 @@ exerciseRouter.post('/log', async (req: Request, res: Response) => {
     const id = crypto.randomUUID();
     await query(
       `INSERT INTO lifeos.exercise_log (id, log_date, exercise_type, duration_min, sets, reps, weight_kg, distance_km, calories_burned, notes)
-       VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6, $7, $8, $9)`,
+       VALUES ($1, (NOW() AT TIME ZONE 'America/Edmonton')::DATE, $2, $3, $4, $5, $6, $7, $8, $9)`,
       id,
       exercise_type,
       duration_min != null ? Number(duration_min) : null,

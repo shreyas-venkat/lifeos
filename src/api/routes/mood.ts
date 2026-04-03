@@ -11,7 +11,7 @@ moodRouter.get('/today', async (_req: Request, res: Response) => {
     const rows = await query(
       `SELECT id, mood, energy, notes, log_date, log_time, created_at
        FROM lifeos.mood_log
-       WHERE log_date = CURRENT_DATE
+       WHERE log_date = (NOW() AT TIME ZONE 'America/Edmonton')::DATE
        ORDER BY log_time`,
     );
     res.json({ data: rows });
@@ -57,7 +57,7 @@ moodRouter.post('/log', async (req: Request, res: Response) => {
   try {
     const existing = await query(
       `SELECT id FROM lifeos.mood_log
-       WHERE log_date = CURRENT_DATE AND log_time = $1`,
+       WHERE log_date = (NOW() AT TIME ZONE 'America/Edmonton')::DATE AND log_time = $1`,
       time,
     );
 
@@ -75,7 +75,7 @@ moodRouter.post('/log', async (req: Request, res: Response) => {
       const id = crypto.randomUUID();
       await query(
         `INSERT INTO lifeos.mood_log (id, mood, energy, notes, log_date, log_time)
-         VALUES ($1, $2, $3, $4, CURRENT_DATE, $5)`,
+         VALUES ($1, $2, $3, $4, (NOW() AT TIME ZONE 'America/Edmonton')::DATE, $5)`,
         id,
         mood,
         energy,
@@ -103,7 +103,7 @@ moodRouter.get('/history', async (req: Request, res: Response) => {
     const rows = await query(
       `SELECT id, mood, energy, notes, log_date, log_time, created_at
        FROM lifeos.mood_log
-       WHERE log_date >= CURRENT_DATE - INTERVAL '${String(days)}' DAY
+       WHERE log_date >= (NOW() AT TIME ZONE 'America/Edmonton')::DATE - INTERVAL '${String(days)}' DAY
        ORDER BY log_date DESC, log_time`,
     );
     res.json({ data: rows });

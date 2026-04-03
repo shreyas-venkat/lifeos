@@ -61,7 +61,7 @@ photoEstimateRouter.post('/photo-log', async (req: Request, res: Response) => {
 
     await query(
       `INSERT INTO lifeos.calorie_log (id, meal_type, description, calories, protein_g, carbs_g, fat_g, log_date, source)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_DATE, $8)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, (NOW() AT TIME ZONE 'America/Edmonton')::DATE, $8)`,
       id,
       meal_type,
       description,

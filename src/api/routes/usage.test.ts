@@ -215,7 +215,7 @@ describe('usage routes', () => {
       expect(res.body.data.byModel).toHaveLength(2);
     });
 
-    it('uses CURRENT_DATE for today period', async () => {
+    it('uses Mountain Time date for today period', async () => {
       mockQuery
         .mockResolvedValueOnce([
           {
@@ -233,7 +233,7 @@ describe('usage routes', () => {
 
       expect(res.status).toBe(200);
       expect(mockQuery).toHaveBeenCalledWith(
-        expect.stringContaining('CURRENT_DATE'),
+        expect.stringContaining("America/Edmonton"),
       );
     });
   });

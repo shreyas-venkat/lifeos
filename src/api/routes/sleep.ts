@@ -74,7 +74,7 @@ sleepRouter.get('/history', async (req: Request, res: Response) => {
       `SELECT CAST(recorded_at AS DATE) AS date, metric_type, AVG(value) AS value
        FROM lifeos.health_metrics
        WHERE metric_type IN ('sleep_duration', 'sleep_quality')
-         AND recorded_at >= CURRENT_DATE - INTERVAL '${String(days)}' DAY
+         AND recorded_at >= (NOW() AT TIME ZONE 'America/Edmonton')::DATE - INTERVAL '${String(days)}' DAY
        GROUP BY CAST(recorded_at AS DATE), metric_type
        ORDER BY date ASC`,
     );
@@ -252,7 +252,7 @@ sleepRouter.get('/insights', async (_req: Request, res: Response) => {
          SELECT CAST(recorded_at AS DATE) AS d, AVG(value) AS avg_sleep
          FROM lifeos.health_metrics
          WHERE metric_type = 'sleep_duration'
-           AND recorded_at >= CURRENT_DATE - INTERVAL '7' DAY
+           AND recorded_at >= (NOW() AT TIME ZONE 'America/Edmonton')::DATE - INTERVAL '7' DAY
          GROUP BY CAST(recorded_at AS DATE)
        ) sub`,
     );
@@ -276,7 +276,7 @@ sleepRouter.get('/insights', async (_req: Request, res: Response) => {
       `SELECT AVG(value) AS avg_quality
        FROM lifeos.health_metrics
        WHERE metric_type = 'sleep_quality'
-         AND recorded_at >= CURRENT_DATE - INTERVAL '7' DAY`,
+         AND recorded_at >= (NOW() AT TIME ZONE 'America/Edmonton')::DATE - INTERVAL '7' DAY`,
     );
 
     if (qualityRows.length > 0 && qualityRows[0].avg_quality != null) {
