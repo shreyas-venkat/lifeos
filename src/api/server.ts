@@ -1,7 +1,6 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { healthWebhookRouter } from './routes/health-webhook.js';
-import { mountRoutes } from './routes/index.js';
 import { logger } from '../logger.js';
 
 // Global BigInt serialization support — DuckDB returns BigInt for many numeric types
@@ -60,11 +59,6 @@ export function createApiServer(_port = 3100): express.Express {
     },
     healthWebhookRouter,
   );
-
-  // Mount remaining server-side routes (calendar only post-WASM migration)
-  const apiRouter = express.Router();
-  mountRoutes(apiRouter);
-  app.use('/api', apiRouter);
 
   // Health check
   app.get('/api/health', (_req, res) => {
