@@ -9,38 +9,13 @@ vi.mock('../db.js', () => ({
 import { mountRoutes } from './index.js';
 
 describe('mountRoutes', () => {
-  it('mounts all route modules on the router', () => {
+  it('mounts only calendar route after WASM migration', () => {
     const mockUse = vi.fn();
     const router = { use: mockUse } as unknown as Router;
 
     mountRoutes(router);
 
-    expect(mockUse).toHaveBeenCalledWith('/health/context', expect.anything());
-    expect(mockUse).toHaveBeenCalledWith('/health', expect.anything());
-    expect(mockUse).toHaveBeenCalledWith('/meals', expect.anything());
-    expect(mockUse).toHaveBeenCalledWith('/pantry/smart', expect.anything());
-    expect(mockUse).toHaveBeenCalledWith('/pantry', expect.anything());
-    expect(mockUse).toHaveBeenCalledWith('/supplements', expect.anything());
-    expect(mockUse).toHaveBeenCalledWith('/calories/photo', expect.anything());
-    expect(mockUse).toHaveBeenCalledWith('/calories', expect.anything());
-    expect(mockUse).toHaveBeenCalledWith('/preferences', expect.anything());
-    expect(mockUse).toHaveBeenCalledWith('/spending', expect.anything());
-    expect(mockUse).toHaveBeenCalledWith('/notifications', expect.anything());
-    expect(mockUse).toHaveBeenCalledWith('/usage', expect.anything());
-    expect(mockUse).toHaveBeenCalledWith('/packages', expect.anything());
-    expect(mockUse).toHaveBeenCalledWith('/subscriptions', expect.anything());
-    expect(mockUse).toHaveBeenCalledWith('/habits', expect.anything());
-    expect(mockUse).toHaveBeenCalledWith('/exercise', expect.anything());
-    expect(mockUse).toHaveBeenCalledWith('/body', expect.anything());
-    expect(mockUse).toHaveBeenCalledWith('/sleep', expect.anything());
     expect(mockUse).toHaveBeenCalledWith('/calendar', expect.anything());
-    expect(mockUse).toHaveBeenCalledWith('/reminders', expect.anything());
-    expect(mockUse).toHaveBeenCalledWith('/streaks', expect.anything());
-    expect(mockUse).toHaveBeenCalledWith('/bills', expect.anything());
-    expect(mockUse).toHaveBeenCalledWith('/mood', expect.anything());
-    expect(mockUse).toHaveBeenCalledWith('/water', expect.anything());
-    expect(mockUse).toHaveBeenCalledWith('/export', expect.anything());
-    expect(mockUse).toHaveBeenCalledWith('/weekly-report', expect.anything());
-    expect(mockUse).toHaveBeenCalledTimes(26);
+    expect(mockUse).toHaveBeenCalledTimes(1);
   });
 });

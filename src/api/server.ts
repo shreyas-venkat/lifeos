@@ -61,7 +61,7 @@ export function createApiServer(_port = 3100): express.Express {
     healthWebhookRouter,
   );
 
-  // Mount Phase 4 data routes
+  // Mount remaining server-side routes (calendar only post-WASM migration)
   const apiRouter = express.Router();
   mountRoutes(apiRouter);
   app.use('/api', apiRouter);
