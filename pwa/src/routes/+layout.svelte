@@ -2,39 +2,22 @@
 	import '../app.css';
 	import { page } from '$app/state';
 	import { base } from '$app/paths';
-	import { onMount, onDestroy } from 'svelte';
-	import { startPolling, stopPolling, onUnseenCountChange } from '$lib/notifications';
 
 	let { children } = $props();
-	let unseenCount = $state(0);
 
 	const tabs = [
-		{ href: '/', label: 'Home', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1' },
-		{ href: '/health', label: 'Health', icon: 'M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z' },
-		{ href: '/meals', label: 'Meals', icon: 'M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0-2c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6 2.69-6 6-6zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z' },
-		{ href: '/spending', label: 'Spend', icon: 'M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6' },
-		{ href: '/usage', label: 'Usage', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
-		{ href: '/preferences', label: 'More', icon: 'M4 6h16M4 12h16M4 18h16' },
+		{ href: '/', label: 'Home' },
+		{ href: '/health', label: 'Health' },
+		{ href: '/meals', label: 'Meals' },
+		{ href: '/spending', label: 'Spend' },
+		{ href: '/usage', label: 'Usage' },
 	];
 
 	function isActive(href: string): boolean {
 		const path = page.url.pathname;
-		if (href === '/') {
-			return path === `${base}/` || path === base;
-		}
+		if (href === '/') return path === `${base}/` || path === base;
 		return path.startsWith(`${base}${href}`);
 	}
-
-	onMount(() => {
-		onUnseenCountChange((count) => {
-			unseenCount = count;
-		});
-		startPolling();
-	});
-
-	onDestroy(() => {
-		stopPolling();
-	});
 </script>
 
 <div class="app">
@@ -45,107 +28,26 @@
 	<nav class="bottom-nav">
 		{#each tabs as tab}
 			<a href="{base}{tab.href}" class:active={isActive(tab.href)}>
-				<div class="nav-icon-wrapper">
-					<svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-						<path d={tab.icon} />
-					</svg>
-					{#if tab.href === '/' && unseenCount > 0}
-						<span class="notif-badge">{unseenCount > 9 ? '9+' : unseenCount}</span>
-					{/if}
-				</div>
-				{#if isActive(tab.href)}
-					<span class="nav-label">{tab.label}</span>
-				{/if}
+				{tab.label}
 			</a>
 		{/each}
 	</nav>
 </div>
 
 <style>
-	.app {
-		display: flex;
-		flex-direction: column;
-		min-height: 100vh;
-		min-height: 100dvh;
-	}
-
-	main {
-		flex: 1;
-		padding: 1rem;
-		padding-bottom: 5rem;
-		max-width: 600px;
-		width: 100%;
-		margin: 0 auto;
-	}
-
+	.app { display: flex; flex-direction: column; min-height: 100dvh; }
+	main { flex: 1; padding: 1rem; padding-bottom: 5rem; max-width: 600px; width: 100%; margin: 0 auto; }
 	.bottom-nav {
-		position: fixed;
-		bottom: 0;
-		left: 0;
-		right: 0;
-		display: flex;
-		justify-content: space-around;
-		align-items: center;
-		height: 56px;
-		background: rgba(15, 15, 20, 0.85);
-		backdrop-filter: blur(20px);
-		-webkit-backdrop-filter: blur(20px);
-		border-top: 1px solid var(--border);
-		z-index: 100;
+		position: fixed; bottom: 0; left: 0; right: 0;
+		display: flex; justify-content: space-around; align-items: center;
+		height: 52px; background: rgba(15, 15, 20, 0.9);
+		backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+		border-top: 1px solid var(--border); z-index: 100;
 		padding-bottom: env(safe-area-inset-bottom, 0);
 	}
-
 	.bottom-nav a {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		gap: 2px;
-		color: var(--text-secondary);
-		text-decoration: none;
-		transition: color 0.2s ease;
-		padding: 4px 12px;
-		border-radius: 12px;
-		min-width: 48px;
+		color: var(--text-secondary); text-decoration: none;
+		font-size: 0.8rem; font-weight: 500; padding: 8px 12px;
 	}
-
-	.bottom-nav a.active {
-		color: var(--accent);
-		background: var(--accent-glow);
-	}
-
-	.nav-icon {
-		width: 22px;
-		height: 22px;
-	}
-
-	.nav-label {
-		font-size: 0.65rem;
-		font-weight: 500;
-		letter-spacing: 0.02em;
-	}
-
-	.nav-icon-wrapper {
-		position: relative;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.notif-badge {
-		position: absolute;
-		top: -6px;
-		right: -8px;
-		min-width: 16px;
-		height: 16px;
-		padding: 0 4px;
-		border-radius: 8px;
-		background: var(--danger);
-		color: #fff;
-		font-size: 0.6rem;
-		font-weight: 700;
-		line-height: 16px;
-		text-align: center;
-		pointer-events: none;
-	}
+	.bottom-nav a.active { color: var(--accent); }
 </style>
