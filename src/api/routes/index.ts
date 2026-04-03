@@ -1,56 +1,10 @@
 import { Router } from 'express';
-import { healthContextRouter } from './health-context.js';
-import { healthRouter } from './health.js';
-import { mealsRouter } from './meals.js';
-import { pantryRouter } from './pantry.js';
-import { supplementsRouter } from './supplements.js';
-import { caloriesRouter } from './calories.js';
-import { preferencesRouter } from './preferences.js';
-import { spendingRouter } from './spending.js';
-import { notificationsRouter } from './notifications.js';
-import { usageRouter } from './usage.js';
-import { packagesRouter } from './packages.js';
-import { subscriptionsRouter } from './subscriptions.js';
-import { habitsRouter } from './habits.js';
-import { exerciseRouter } from './exercise.js';
-import { bodyRouter } from './body.js';
-import { sleepRouter } from './sleep.js';
 import { calendarRouter } from './calendar.js';
-import { remindersRouter } from './reminders.js';
-import { streaksRouter } from './streaks.js';
-import { billsRouter } from './bills.js';
-import { moodRouter } from './mood.js';
-import { waterRouter } from './water.js';
-import { exportRouter } from './export.js';
-import { weeklyReportRouter } from './weekly-report.js';
-import { pantrySmartRouter } from './pantry-smart.js';
-import { photoEstimateRouter } from './photo-estimate.js';
+
+// Post-WASM migration: only calendar needs Express (server-side Google OAuth).
+// All other data routes are now handled by direct MotherDuck WASM queries in the PWA.
+// health-webhook is mounted separately in server.ts with its own auth + rate limiting.
 
 export function mountRoutes(router: Router): void {
-  router.use('/health/context', healthContextRouter);
-  router.use('/health', healthRouter);
-  router.use('/meals', mealsRouter);
-  router.use('/pantry/smart', pantrySmartRouter);
-  router.use('/pantry', pantryRouter);
-  router.use('/supplements', supplementsRouter);
-  router.use('/calories/photo', photoEstimateRouter);
-  router.use('/calories', caloriesRouter);
-  router.use('/preferences', preferencesRouter);
-  router.use('/spending', spendingRouter);
-  router.use('/notifications', notificationsRouter);
-  router.use('/usage', usageRouter);
-  router.use('/packages', packagesRouter);
-  router.use('/subscriptions', subscriptionsRouter);
-  router.use('/habits', habitsRouter);
-  router.use('/exercise', exerciseRouter);
-  router.use('/body', bodyRouter);
-  router.use('/sleep', sleepRouter);
   router.use('/calendar', calendarRouter);
-  router.use('/reminders', remindersRouter);
-  router.use('/streaks', streaksRouter);
-  router.use('/bills', billsRouter);
-  router.use('/mood', moodRouter);
-  router.use('/water', waterRouter);
-  router.use('/export', exportRouter);
-  router.use('/weekly-report', weeklyReportRouter);
 }

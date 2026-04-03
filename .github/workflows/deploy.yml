@@ -137,8 +137,15 @@ jobs:
             # Build TypeScript (fail loudly if tsc breaks)
             npm run build
 
-            # Build PWA
-            cd pwa && npm install && npm run build && cd ..
+            # Build PWA (VITE_ prefix exposes token to browser build)
+            cd pwa && npm install && VITE_MOTHERDUCK_TOKEN="${{ secrets.MOTHERDUCK_TOKEN }}" npm run build && cd ..
+
+            # Deploy nginx config with COEP/COOP headers for WASM
+            if [ -f "config-examples/nginx-lifeos.conf" ]; then
+              cp config-examples/nginx-lifeos.conf /etc/nginx/sites-available/lifeos
+              ln -sf /etc/nginx/sites-available/lifeos /etc/nginx/sites-enabled/lifeos
+              nginx -t && systemctl reload nginx
+            fi
 
             # Run MotherDuck migrations
             export $(grep MOTHERDUCK_TOKEN .env)

@@ -233,7 +233,7 @@ describe('usage routes', () => {
 
       expect(res.status).toBe(200);
       expect(mockQuery).toHaveBeenCalledWith(
-        expect.stringContaining("America/Edmonton"),
+        expect.stringContaining('America/Edmonton'),
       );
     });
   });
