@@ -73,7 +73,15 @@ export function startIpcWatcher(deps: IpcDeps): void {
           for (const file of messageFiles) {
             const filePath = path.join(messagesDir, file);
             try {
-              const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+              // Delete first to prevent race condition (double-processing)
+              let raw: string;
+              try {
+                raw = fs.readFileSync(filePath, 'utf-8');
+                fs.unlinkSync(filePath);
+              } catch {
+                continue; // File already consumed by a previous poll
+              }
+              const data = JSON.parse(raw);
               if (data.type === 'message' && data.chatJid && data.text) {
                 // Authorization: verify this group can send to this chatJid
                 const targetGroup = registeredGroups[data.chatJid];
@@ -93,17 +101,11 @@ export function startIpcWatcher(deps: IpcDeps): void {
                   );
                 }
               }
-              fs.unlinkSync(filePath);
+              // File already deleted above (read-then-delete pattern)
             } catch (err) {
               logger.error(
                 { file, sourceGroup, err },
                 'Error processing IPC message',
-              );
-              const errorDir = path.join(ipcBaseDir, 'errors');
-              fs.mkdirSync(errorDir, { recursive: true });
-              fs.renameSync(
-                filePath,
-                path.join(errorDir, `${sourceGroup}-${file}`),
               );
             }
           }
