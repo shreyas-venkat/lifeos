@@ -444,12 +444,14 @@ async function runQuery(
   // Model selection: prefer env var (set by host via ContainerInput.model)
   const claudeModel = process.env.CLAUDE_MODEL || undefined;
 
-  // Budget limits based on model tier
+  // Budget limits based on model tier.
+  // These are per-session cumulative — group sessions persist across tasks,
+  // so limits must be high enough to cover many task runs.
   const maxBudgetUsd = claudeModel?.includes('haiku')
-    ? 0.05
+    ? 5.0
     : claudeModel?.includes('sonnet')
-      ? 0.5
-      : 2.0;
+      ? 10.0
+      : 20.0;
 
   for await (const message of query({
     prompt: stream,
