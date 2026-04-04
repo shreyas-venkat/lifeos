@@ -10,7 +10,6 @@
 		{ href: '/health', label: 'Health' },
 		{ href: '/meals', label: 'Meals' },
 		{ href: '/spending', label: 'Spend' },
-		{ href: '/pantry', label: 'Pantry' },
 		{ href: '/usage', label: 'Usage' },
 	];
 

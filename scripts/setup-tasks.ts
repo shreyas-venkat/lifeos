@@ -77,11 +77,11 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
   );
 
   return [
-    // 1. Email scan (every 15 min) → #email-digest
+    // 1. Email scan (every 4 hours) → #email-digest
     {
       id: 'lifeos-email-scan',
       schedule_type: 'cron',
-      schedule_value: '*/15 * * * *',
+      schedule_value: '0 */4 * * *',
       group_folder: 'main',
       chat_jid: config.emailDigestJid,
       context_mode: 'group',
@@ -130,7 +130,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       script: path.join(scriptsDir, 'reminder-check.sh'),
     },
 
-    // 5. Weekly meal plan (Saturday 9 AM MT)
+    // 5. Weekly meal plan (Saturday 9 AM MT) — rotate 7 fixed recipes
     {
       id: 'lifeos-weekly-meal-plan',
       schedule_type: 'cron',
@@ -140,7 +140,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       context_mode: 'group',
       model: 'sonnet',
       prompt:
-        'Generate weekly meal plan. Read dietary preferences from lifeos.dietary_preferences and current pantry from lifeos.pantry. Plan 7 dinners (2 portions each). Office days (Tue/Thu/Fri) need packable lunches. Use the send_message MCP tool to post the plan and ask for approval.',
+        'Generate weekly meal plan by rotating the 7 permanent recipes in lifeos.recipes. DO NOT create new recipes or search the web — only use existing recipes. Pick 5 recipes for the week (each makes 2 portions: dinner + next-day lunch). Rules: (1) Office days Tue/Thu/Fri need packable lunches — pasta and rice bowls work great. (2) WFH days Mon/Wed are flexible. (3) Don\'t repeat the same recipe from last week in the same slot. (4) Vary protein sources (alternate beef and tuna days). Query lifeos.meal_plans for last week to avoid repeating the same arrangement. INSERT into lifeos.meal_plans for each day. Create Google Calendar events at 6 PM for each dinner (Wed at 5:30 PM for violin night). Add a grocery shopping calendar event for Sunday. Post the plan to this channel for approval.',
     },
 
     // 6. Cooking check-in (7 PM daily) → #meals
@@ -153,22 +153,10 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
       context_mode: 'group',
       model: 'sonnet',
       prompt:
-        "Check today's meal plan from lifeos.meal_plans. Use the send_message MCP tool to ask user: 'How was [recipe]? Rate 1-5.' If user cooked, log calories from recipe data to lifeos.calorie_log and deduct ingredients from lifeos.pantry.",
+        "Check today's meal plan from lifeos.meal_plans. Use the send_message MCP tool to ask user: 'How was [recipe]? Rate 1-5.' If user cooked, log calories from the recipe's stored macros to lifeos.calorie_log.",
     },
 
-    // 7. Pantry expiry check (8 AM daily, with pre-check script) → #meals
-    {
-      id: 'lifeos-pantry-expiry',
-      schedule_type: 'cron',
-      schedule_value: '0 8 * * *',
-      group_folder: 'main',
-      chat_jid: config.mealsChannelJid,
-      context_mode: 'group',
-      model: 'haiku',
-      prompt:
-        'Check lifeos.pantry for items with expiry_date within 3 days. If any found, use the send_message MCP tool to warn the user about expiring items.',
-      script: path.join(scriptsDir, 'pantry-expiry-check.sh'),
-    },
+    // 7. (removed — pantry tracking discontinued)
 
     // 8. Daily calorie summary (9 PM MT)
     {
@@ -289,18 +277,7 @@ export function buildTaskDefinitions(config: TaskConfig): TaskDefinition[] {
         'Generate monthly spending summary from lifeos.bills for last month. Categorize by merchant/type. Use the send_message MCP tool to post the summary.',
     },
 
-    // 17. Smart cooking suggestion (5 PM daily, Mountain Time)
-    {
-      id: 'lifeos-cooking-suggestion',
-      schedule_type: 'cron',
-      schedule_value: '0 17 * * *',
-      group_folder: 'main',
-      chat_jid: config.mealsChannelJid,
-      context_mode: 'group',
-      model: 'haiku',
-      prompt:
-        'Check the pantry for items expiring within 3 days using mcp__motherduck__query. Then check lifeos.recipes for recipes whose ingredients overlap with available pantry items. Score by: expiring item usage (highest priority), ingredient match percentage, user rating, days since last cooked. Post the top 3 recipe suggestions to this channel with match percentages and what\'s expiring. If nothing matches, suggest ordering groceries or eating out. Be concise — just the recipe names, match %, and why.',
-    },
+    // 17. (removed — cooking suggestions replaced by fixed recipe rotation)
 
     // 18. Daily latte auto-log (8 AM daily, Mountain Time)
     {

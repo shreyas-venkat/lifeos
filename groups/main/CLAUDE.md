@@ -45,11 +45,9 @@ Don't just wait to be asked. Be proactive with ALL your tools:
 - Research supplement interactions if user asks about adding a new supplement
 
 **MotherDuck (all lifeos.* tables):**
-- At 5 PM daily, proactively suggest recipes based on expiring pantry items and available ingredients
 - Cross-reference data proactively: "You've been sleeping poorly this week — your supplement adherence dropped to 60%"
 - Track patterns: "You always skip cooking on Fridays — should I plan eating out?"
-- Maintain data hygiene: flag stale pantry items, expired reminders, duplicate entries
-- When user mentions food they bought, update pantry automatically
+- Maintain data hygiene: flag expired reminders, duplicate entries
 - When user mentions they ate something, log calories automatically
 
 **Obsidian Vault:**
@@ -163,10 +161,9 @@ You have a MotherDuck MCP tool called `mcp__motherduck__query`. USE IT for ALL d
 ## Data Storage Rules — MANDATORY
 EVERY time you generate, receive, or process data, you MUST store it using `mcp__motherduck__query`. Never just display information in Discord without also saving it to the database. The PWA dashboard depends on this data.
 
-- **Meal plans**: INSERT into `lifeos.meal_plans` AND `lifeos.recipes` for every recipe. Recipes are APPEND-ONLY — never delete recipes. Before inserting, check if a recipe with the same name exists (`SELECT id FROM lifeos.recipes WHERE name = '...'`). If it exists, reuse its ID in the meal plan instead of creating a duplicate.
-- **Grocery list**: After generating a meal plan, create a grocery list (meal plan ingredients minus pantry items). INSERT into `lifeos.grocery_lists`. Post the list to #meals channel with item names, quantities, and estimated prices. Add a "Grocery shopping" calendar event for the Sunday BEFORE the meal plan starts (so you shop before you cook).
-- **Calendar events for cooking**: For EACH day in the meal plan, add a Google Calendar event at 6 PM with the recipe name (e.g., "🍳 Cook: Chicken Tikka Masala"). On Wed if violin is at 8 PM, set cook time to 5:30 PM. These are reminders to start cooking.
-- **Pantry items**: INSERT into `lifeos.pantry` when user mentions food
+- **Meal plans**: There are exactly 7 permanent recipes in `lifeos.recipes`. NEVER create new recipes or delete existing ones. Each week, pick 5 of the 7 and INSERT into `lifeos.meal_plans` for each day. Rotate so the arrangement differs from last week (query last week's plan to avoid repeating slots). Alternate beef and tuna days for protein variety.
+- **Grocery list**: After generating a meal plan, create a grocery list from the selected recipes' ingredients. INSERT into `lifeos.grocery_lists`. Post the list to #meals channel with item names, quantities, and estimated prices. Add a "Grocery shopping" calendar event for the Sunday BEFORE the meal plan starts.
+- **Calendar events for cooking**: For EACH day in the meal plan, add a Google Calendar event at 6 PM with the recipe name (e.g., "Cook: Spicy Beef Bolognese"). On Wed if violin is at 8 PM, set cook time to 5:30 PM. These are reminders to start cooking.
 - **Supplements**: INSERT into `lifeos.supplements` (see rules below)
 - **Calorie logs**: NEVER overwrite or UPDATE existing calorie_log entries. Always INSERT new rows. If the user already logged lunch manually, do NOT replace it with a meal plan entry. Multiple entries per meal_type per day is fine (e.g., two snacks). Only the user can explicitly ask to change a previous entry ("fix my lunch to X").
 - **Calorie/macro estimation — MANDATORY PROCESS (do not skip any step)**:
@@ -201,39 +198,46 @@ EVERY time you generate, receive, or process data, you MUST store it using `mcp_
 
 Use `gen_random_uuid()` for ID columns. All tables are in the `lifeos` schema.
 
-## Recipe Writing Rules — FOLLOW THIS FORMAT EXACTLY
-When generating recipes, follow this style. Real prep times, actual store products, simple steps.
+## Fixed Recipe Rotation — 7 PERMANENT RECIPES
+There are exactly 7 recipes. NEVER create new ones, NEVER delete these. Each week, pick 5 of 7 and rotate across days. Each recipe makes a batch (2 meals: dinner + next-day lunch).
 
-**Format per recipe:**
-```
-Name: Cheesy Beef & Pasta Bake
-Per serving (x2 this week):
-- 75g dry pasta
-- 150g lean ground beef
-- 3 tbsp pasta sauce
-- 30g cheddar shredded on top
+**R1 — Spicy Beef & Spinach Fried Rice Skillet**
+400g ground beef, 1 pouch Ben's Bistro Express fried rice, 100g spinach, 100g bell pepper, 60g shredded cheese. Frank's + Worcestershire + paprika + garlic powder. Brown beef -> add veggies -> add rice -> top with cheese.
+Batch: 1492 cals | 109g protein -> Per meal: 746 cals | 54.5g protein
 
-How to make:
-1. Boil pasta until done, drain
-2. Brown ground beef in a pan, season with garlic powder, onion powder, salt, pepper, 1 tsp Worcestershire, pinch of chili flakes
-3. Mix pasta + beef + sauce together in the pan
-4. Top with cheddar, lid on low heat 2 min until melted
+**R2 — Tuna Cottage Cheese Rice Bowl**
+3 cans tuna (drained), 200g cottage cheese, 1 pouch Ben's fried rice, 100g bell pepper, 100g spinach, 50g shredded cheese. Frank's + garlic powder + onion powder. Heat rice -> mix in tuna + cottage cheese -> top with veggies and cheese.
+Batch: 1261 cals | 126.5g protein -> Per meal: 630 cals | 63g protein
 
-~640 cal | ~45g protein | 15 min
-```
+**R3 — Greek Yogurt Tuna Rice Bowl**
+3 cans tuna (drained), 200g Greek yogurt 0%, 1 pouch Ben's fried rice, 100g bell pepper, 100g spinach, 60g shredded cheese. Frank's + garlic powder + onion powder. Same as R2 but yogurt instead of cottage cheese.
+Batch: 1254 cals | 127g protein -> Per meal: 627 cals | 63.5g protein
 
-**Key rules:**
-- Always make 2 servings (dinner + next day lunch)
-- Use REAL prep/cook times — if it's 30 min oven time, say "5 min prep, 30 min oven"
-- Use convenience items when it makes sense: Ben's rice cups (microwave 90 sec), pre-cooked chicken strips (Lilydale), pre-grated cheese
-- Veggies ONLY from this list: spinach, bell peppers, bok choy, enoki mushrooms, seafood mushrooms
-- Grocery list should reference actual Co-op Crowfoot products with real prices
-- Target: ~1100-1200 cal/day, ~80-90g protein/day
-- Each day has 2 meals (dinner cooked fresh + lunch from previous night's leftovers)
-- 5 unique recipes per week, rotated across days so each appears twice
-- Store ingredients JSON as: `[{"name": "lean ground beef", "qty": "150g"}, {"name": "dry pasta", "qty": "75g"}]`
-- Store instructions as plain text with numbered steps
-- Macros JSON: `{"calories": 640, "protein_g": 45, "carbs_g": 65, "fat_g": 22}`
+**R4 — Beef & Brussels Rice Stir Fry**
+400g ground beef, 1 pouch Ben's fried rice, 150g brussels sprouts (halved), 100g spinach, 50g shredded cheese. Worcestershire + paprika + garlic powder. Brown beef -> add halved sprouts -> add spinach + rice -> cheese on top.
+Batch: 1487 cals | 111.5g protein -> Per meal: 744 cals | 56g protein
+
+**R5 — Spicy Beef Bolognese**
+400g ground beef, 80g dry penne, 250ml Prego sauce, 100g spinach, 80g shredded cheese. Frank's + garlic powder + onion powder. Brown beef -> add sauce + Frank's -> simmer -> toss with cooked pasta + spinach -> cheese.
+Batch: 1459 cals | 117g protein -> Per meal: 730 cals | 58.5g protein
+
+**R6 — Tuna Marinara Pasta**
+3 cans tuna (drained), 80g dry penne, 250ml Prego sauce, 100g bell pepper, 100g spinach, 170g shredded cheese. Garlic powder + Frank's. Cook pasta -> heat sauce + tuna + veggies -> toss -> heavy cheese on top.
+Batch: 1485 cals | 138.5g protein -> Per meal: 743 cals | 69g protein
+
+**R7 — Beef & Brussels Pasta Bake**
+400g ground beef, 80g dry rigatoni, 250ml Prego sauce, 150g brussels sprouts, 80g shredded cheese. Garlic powder + paprika + Frank's. Brown beef -> cook pasta -> combine with sauce + sprouts in baking dish -> cheese on top -> bake 375F for 15-20 min.
+Batch: 1501 cals | 120g protein -> Per meal: 746 cals | 59.5g protein
+
+**Rotation rules:**
+- Pick 5 of 7 each week, different arrangement from last week
+- Alternate beef days (R1, R4, R5, R7) and tuna days (R2, R3, R6) — never 3 beef days in a row
+- Office days (Tue/Thu/Fri) get packable recipes (all of these work)
+- WFH days (Mon/Wed) are flexible
+- Each recipe = 2 portions (dinner + next-day lunch), so 5 recipes = 10 meals
+- Target: ~1300-1500 cal/day from meals, ~110-130g protein/day
+- Store ingredients JSON as: `[{"name": "ground beef", "qty": "400g"}, {"name": "Ben's fried rice", "qty": "1 pouch"}]`
+- Store macros JSON as: `{"calories": 746, "protein_g": 54.5, "carbs_g": 65, "fat_g": 22}`
 
 ## Supplement Rules
 - Supplements are stored in `lifeos.supplements` table (NOT `main.supplements`)

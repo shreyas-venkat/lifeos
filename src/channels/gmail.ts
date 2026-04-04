@@ -126,7 +126,7 @@ export class GmailChannel implements Channel {
         timestamp: new Date(internalDate).toISOString(),
       };
 
-      this.opts.onMessage(chatJid, newMsg);
+      // Create/update chat entry BEFORE storing message (FK constraint)
       this.opts.onChatMetadata(
         chatJid,
         newMsg.timestamp,
@@ -134,6 +134,7 @@ export class GmailChannel implements Channel {
         'gmail',
         false,
       );
+      this.opts.onMessage(chatJid, newMsg);
 
       // Mark as read
       await this.gmail.users.messages.modify({
